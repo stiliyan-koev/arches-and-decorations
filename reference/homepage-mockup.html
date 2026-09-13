@@ -1,0 +1,463 @@
+<title>Балони и Арки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#FFF9F3;
+    --surface:#FFFFFF;
+    --surface-2:#FFF3EA;
+    --ink:#3B2F42;
+    --muted:#8A7F92;
+    --pink:#F6A5C0;
+    --yellow:#FCE08A;
+    --orange:#FFB784;
+    --blue:#9BD3E6;
+    --cta:#C93A72;
+    --cta-strong:#A82C5D;
+    --border:#F0E4DA;
+    --border-strong:#E7D6C8;
+    --ring:rgba(59,47,66,.5);
+    --shadow:0 10px 30px rgba(59,47,66,.10);
+    --shadow-sm:0 4px 14px rgba(59,47,66,.07);
+    --r:20px;
+    --r-sm:12px;
+    --maxw:1140px;
+    font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);line-height:1.55}
+  h1,h2,h3,.display{font-family:"Unbounded","Nunito",system-ui,sans-serif;font-weight:600;line-height:1.12;text-wrap:balance;letter-spacing:-.01em}
+  a{color:inherit}
+  img{max-width:100%}
+  .wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:20px}
+  .eyebrow{font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--cta)}
+  .muted{color:var(--muted)}
+  button{font-family:inherit}
+
+  /* ---------- Header ---------- */
+  header.site{position:sticky;top:0;z-index:40;background:rgba(255,249,243,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  .navbar{display:flex;align-items:center;gap:18px;padding-block:14px}
+  .brand{display:flex;align-items:center;gap:10px;font-family:"Unbounded",sans-serif;font-weight:700;font-size:1.15rem}
+  .brand .dot{font-size:1.4rem;line-height:1}
+  .tagpill{font-family:"Nunito";font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border-strong);border-radius:999px;padding:3px 8px}
+  nav.links{display:flex;gap:22px;margin-left:auto;font-weight:700;font-size:.95rem}
+  nav.links a{text-decoration:none;opacity:.85}
+  nav.links a:hover{opacity:1;color:var(--cta)}
+  .call{display:inline-flex;align-items:center;gap:8px;font-weight:800;text-decoration:none;background:var(--surface);border:1px solid var(--border-strong);padding:9px 16px;border-radius:999px;box-shadow:var(--shadow-sm)}
+  .call:hover{border-color:var(--cta)}
+  @media(max-width:820px){nav.links{display:none}}
+
+  /* ---------- Hero / configurator ---------- */
+  .hero{position:relative;overflow:hidden;padding-block:44px 60px}
+  .balloons{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .balloon{position:absolute;width:var(--s);height:calc(var(--s)*1.18);border-radius:50%;opacity:.5;filter:saturate(1.05);animation:float 9s ease-in-out infinite}
+  .balloon::after{content:"";position:absolute;bottom:-14px;left:50%;width:1.5px;height:16px;background:rgba(59,47,66,.18);transform:translateX(-50%)}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  @media(prefers-reduced-motion:reduce){.balloon{animation:none}}
+
+  .hero-head{position:relative;z-index:1;text-align:center;max-width:660px;margin-inline:auto;margin-bottom:26px}
+  .hero-head h1{font-size:clamp(1.9rem,4.4vw,3rem);margin:.4em 0 .3em}
+  .hero-head p{font-size:1.06rem;color:var(--muted);margin:0}
+
+  .configurator{position:relative;z-index:1;display:grid;grid-template-columns:1.55fr 1fr;gap:22px;align-items:start}
+  @media(max-width:900px){.configurator{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+  .panel-pad{padding:22px}
+  .panel h2{font-size:1.15rem;margin:0 0 4px}
+  .panel .hint{font-size:.9rem;color:var(--muted);margin:0 0 18px}
+
+  .item{border:1px solid var(--border);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:12px;transition:border-color .15s,background .15s}
+  .item:last-child{margin-bottom:0}
+  .item.on{border-color:var(--cta);background:linear-gradient(0deg,rgba(201,58,114,.04),rgba(201,58,114,.04))}
+  .item-top{display:flex;align-items:center;gap:12px}
+  .item-top input[type=checkbox]{appearance:none;width:22px;height:22px;border:2px solid var(--border-strong);border-radius:7px;cursor:pointer;flex:none;position:relative}
+  .item-top input[type=checkbox]:checked{background:var(--cta);border-color:var(--cta)}
+  .item-top input[type=checkbox]:checked::after{content:"";position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(42deg)}
+  .item-top label{font-weight:800;cursor:pointer;flex:1}
+  .price-tag{font-weight:800;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .price-tag.q{color:var(--muted);font-weight:700;font-size:.86rem}
+  .item-body{margin-top:12px;padding-left:34px;display:none}
+  .item.on .item-body{display:block}
+
+  select,input[type=text],input[type=date],input[type=time]{font-family:inherit;font-size:.95rem;color:var(--ink);background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:9px 11px;width:100%}
+  select:focus,input:focus,.item-top input:focus-visible,.swatch:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+  .field-row{display:flex;flex-wrap:wrap;gap:12px}
+  .field{flex:1;min-width:140px}
+  .field label{display:block;font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px}
+
+  .swatches{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px}
+  .swatch{width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--border-strong);cursor:pointer;position:relative}
+  .swatch[aria-pressed=true]{box-shadow:0 0 0 2px var(--cta)}
+  .swatch.pattern{background-size:cover}
+  .swatch-note{font-size:.85rem;color:var(--muted);margin-top:8px}
+
+  /* ---------- Summary ---------- */
+  .summary{position:sticky;top:88px}
+  .summary .total-card{background:linear-gradient(135deg,var(--yellow),var(--orange));border:none;color:var(--ink)}
+  .total-label{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;opacity:.75}
+  .total-value{font-family:"Unbounded",sans-serif;font-weight:700;font-size:2.5rem;line-height:1;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+  .total-sub{font-size:.85rem;opacity:.8}
+  .lines{list-style:none;padding:0;margin:16px 0 0;font-size:.92rem}
+  .lines li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--border)}
+  .lines li:last-child{border-bottom:none}
+  .lines .ln-q{color:var(--muted)}
+  .lines .empty{color:var(--muted);text-align:center;padding:14px 0}
+
+  .event-fields{margin-top:6px}
+  .check-line{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:.92rem;font-weight:700}
+  .check-line input{appearance:none;width:20px;height:20px;border:2px solid var(--border-strong);border-radius:6px;flex:none;cursor:pointer;position:relative;margin-top:1px}
+  .check-line input:checked{background:var(--blue);border-color:var(--blue)}
+  .check-line input:checked::after{content:"";position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid var(--ink);border-width:0 2.5px 2.5px 0;transform:rotate(42deg)}
+
+  .cta{display:block;width:100%;margin-top:18px;background:var(--cta);color:#fff;font-weight:800;font-size:1.05rem;border:none;border-radius:999px;padding:15px;cursor:pointer;box-shadow:var(--shadow-sm);transition:background .15s}
+  .cta:hover{background:var(--cta-strong)}
+  .disclaimer{font-size:.8rem;color:var(--muted);text-align:center;margin-top:12px;line-height:1.45}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);background:var(--ink);color:#fff;padding:14px 22px;border-radius:999px;font-weight:700;box-shadow:var(--shadow);z-index:80;transition:transform .35s cubic-bezier(.2,.9,.3,1.2);max-width:90vw;text-align:center}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  /* ---------- Sections ---------- */
+  section.block{padding-block:52px}
+  .sec-head{text-align:center;max-width:560px;margin:0 auto 30px}
+  .sec-head h2{font-size:clamp(1.5rem,3vw,2rem);margin:.3em 0}
+  .sec-head p{color:var(--muted);margin:0}
+
+  .cats{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+  @media(max-width:900px){.cats{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:520px){.cats{grid-template-columns:repeat(2,1fr)}}
+  .cat{border-radius:var(--r-sm);padding:20px 14px;text-align:center;font-weight:800;text-decoration:none;color:var(--ink);border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm);transition:transform .15s}
+  .cat:hover{transform:translateY(-3px)}
+  .cat .emoji{font-size:1.7rem;display:block;margin-bottom:8px}
+  .cat.c1{background:linear-gradient(160deg,#fff,#FDEFF4)}
+  .cat.c2{background:linear-gradient(160deg,#fff,#FFF6E2)}
+  .cat.c3{background:linear-gradient(160deg,#fff,#EAF7FB)}
+  .cat.c4{background:linear-gradient(160deg,#fff,#FFF0E6)}
+  .cat.c5{background:linear-gradient(160deg,#fff,#FDEFF4)}
+  .cat.c6{background:linear-gradient(160deg,#fff,#EAF7FB)}
+
+  .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:820px){.gallery{grid-template-columns:repeat(2,1fr)}}
+  .gcard{aspect-ratio:4/5;border-radius:var(--r-sm);position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:14px;color:#fff;font-weight:800;text-shadow:0 1px 6px rgba(0,0,0,.35);box-shadow:var(--shadow-sm)}
+  .gcard span{position:relative;z-index:1;font-size:.95rem}
+  .g1{background:linear-gradient(160deg,#F6A5C0,#C93A72)}
+  .g2{background:linear-gradient(160deg,#9BD3E6,#3E93B4)}
+  .g3{background:linear-gradient(160deg,#FCE08A,#E9A23B)}
+  .g4{background:linear-gradient(160deg,#FFB784,#E86A45)}
+  .center{text-align:center;margin-top:26px}
+  .ghost{display:inline-block;font-weight:800;text-decoration:none;border:1.5px solid var(--ink);border-radius:999px;padding:12px 26px}
+  .ghost:hover{background:var(--ink);color:var(--surface)}
+
+  /* ---------- Footer ---------- */
+  footer.site{background:var(--ink);color:#F6EEF2;margin-top:20px}
+  .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:28px;padding-block:44px}
+  @media(max-width:720px){.foot{grid-template-columns:1fr}}
+  footer h3{font-size:1.05rem;margin:0 0 12px;color:#fff}
+  footer a{color:#F6EEF2;text-decoration:none;opacity:.85}
+  footer a:hover{opacity:1}
+  .foot ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px;font-weight:600}
+  .foot .brand-lg{font-family:"Unbounded";font-size:1.3rem;font-weight:700;color:#fff;margin-bottom:8px}
+  .foot .small{font-size:.85rem;opacity:.7;line-height:1.6}
+  .foot-note{border-top:1px solid rgba(255,255,255,.14);padding-block:16px;font-size:.8rem;opacity:.6;text-align:center}
+</style>
+
+<header class="site">
+  <div class="wrap navbar">
+    <div class="brand"><span class="dot">🎈</span> Балони и Арки <span class="tagpill">мокъп</span></div>
+    <nav class="links">
+      <a href="#calc">Начало</a>
+      <a href="#catalog">Каталог</a>
+      <a href="#gallery">Галерия</a>
+      <a href="#about">За нас</a>
+    </nav>
+    <a class="call" href="#">📞 088 000 0000</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="calc">
+    <div class="balloons" aria-hidden="true">
+      <span class="balloon" style="--s:70px;background:var(--pink);left:4%;top:14%;animation-delay:0s"></span>
+      <span class="balloon" style="--s:52px;background:var(--yellow);left:16%;top:56%;animation-delay:1.2s"></span>
+      <span class="balloon" style="--s:60px;background:var(--blue);right:6%;top:10%;animation-delay:.6s"></span>
+      <span class="balloon" style="--s:44px;background:var(--orange);right:15%;top:52%;animation-delay:1.8s"></span>
+      <span class="balloon" style="--s:38px;background:var(--pink);right:30%;top:4%;animation-delay:2.3s"></span>
+    </div>
+
+    <div class="wrap">
+      <div class="hero-head">
+        <span class="eyebrow">Празнични украси · Варна</span>
+        <h1>Сглоби своята украса и виж цената веднага</h1>
+        <p>Избери какво искаш за твоя повод — арка, балони, фигурки — и получи ориентировъчна цена на момента.</p>
+      </div>
+
+      <form class="configurator" id="cfg">
+        <!-- Selection -->
+        <div class="panel panel-pad">
+          <h2>Твоята украса</h2>
+          <p class="hint">Маркирай това, което искаш. Цената се преизчислява веднага.</p>
+
+          <div class="item on" data-item>
+            <div class="item-top">
+              <input type="checkbox" id="i-arch" checked>
+              <label for="i-arch">Арка</label>
+              <span class="price-tag" data-price-label></span>
+            </div>
+            <div class="item-body">
+              <div class="field">
+                <label for="arch-type">Вид арка</label>
+                <select id="arch-type" data-price-source>
+                  <option value="60">Овална арка 180×80 см — 60 лв</option>
+                  <option value="55">Овална арка 165×50 см — 55 лв</option>
+                  <option value="65">Кръгла арка 180 см — 65 лв</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="item on" data-item>
+            <div class="item-top">
+              <input type="checkbox" id="i-cover" checked>
+              <label for="i-cover">Калъф за арка</label>
+              <span class="price-tag" data-price="30">30 лв</span>
+            </div>
+            <div class="item-body">
+              <div class="swatches" role="group" aria-label="Цвят на калъфа">
+                <button type="button" class="swatch" style="background:#FFFFFF" aria-pressed="true" data-color="Бял"></button>
+                <button type="button" class="swatch" style="background:#D33333" data-color="Червен"></button>
+                <button type="button" class="swatch" style="background:#F2C200" data-color="Жълт"></button>
+                <button type="button" class="swatch" style="background:#2E6FD6" data-color="Син"></button>
+                <button type="button" class="swatch" style="background:#E68AB8" data-color="Розов"></button>
+                <button type="button" class="swatch pattern" style="background:linear-gradient(135deg,#bfe0ff,#7fb0e6,#4f7fd6)" data-color="Замък на Елза"></button>
+                <button type="button" class="swatch pattern" style="background:repeating-linear-gradient(45deg,#2E6FD6 0 6px,#fff 6px 12px)" data-color="Син на квадратчета"></button>
+              </div>
+              <p class="swatch-note">Избран цвят: <strong id="cover-color">Бял</strong></p>
+            </div>
+          </div>
+
+          <div class="item on" data-item>
+            <div class="item-top">
+              <input type="checkbox" id="i-balloons" checked>
+              <label for="i-balloons">Балони (различни цветове)</label>
+              <span class="price-tag" data-price="40">40 лв</span>
+            </div>
+            <div class="item-body">
+              <div class="field">
+                <label for="bal-color">Основен цвят</label>
+                <select id="bal-color">
+                  <option>Пастел (микс)</option><option>Бял</option><option>Розов</option>
+                  <option>Син</option><option>Златен</option><option>Червен</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="item" data-item>
+            <div class="item-top">
+              <input type="checkbox" id="i-figure1">
+              <label for="i-figure1">Цифра „1“ с балони</label>
+              <span class="price-tag" data-price="50">50 лв</span>
+            </div>
+          </div>
+
+          <div class="item" data-item>
+            <div class="item-top">
+              <input type="checkbox" id="i-hero">
+              <label for="i-hero">Фигурка герой</label>
+              <span class="price-tag" data-price="40">40 лв</span>
+            </div>
+            <div class="item-body">
+              <div class="field">
+                <label for="hero-type">Избери герой</label>
+                <select id="hero-type">
+                  <option>Мечо Пух и приятели</option><option>Елза</option><option>Анна</option>
+                  <option>Олаф и Свен</option><option>Baby Boss (единица)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="item" data-item>
+            <div class="item-top">
+              <input type="checkbox" id="i-mirror">
+              <label for="i-mirror">Огледало за снимки</label>
+              <span class="price-tag" data-price="50">50 лв</span>
+            </div>
+          </div>
+
+          <div class="item" data-item data-quote>
+            <div class="item-top">
+              <input type="checkbox" id="i-custom">
+              <label for="i-custom">Персонализирана фигурка / надпис</label>
+              <span class="price-tag q">по запитване</span>
+            </div>
+            <div class="item-body">
+              <div class="field">
+                <label for="custom-text">Опиши какво искаш</label>
+                <input type="text" id="custom-text" placeholder="напр. фигурка „Спайдърмен“, надпис „Мартин на 5“">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary">
+          <div class="panel panel-pad total-card">
+            <div class="total-label">Ориентировъчна цена</div>
+            <div class="total-value"><span id="total">0</span> лв</div>
+            <div class="total-sub" id="total-sub">Примерна селекция — коригирай я вляво</div>
+            <ul class="lines" id="lines"></ul>
+          </div>
+
+          <div class="panel panel-pad event-fields" style="margin-top:16px">
+            <h2 style="font-size:1.02rem">Данни за събитието</h2>
+            <p class="hint">За да получиш крайна цена.</p>
+            <div class="field-row">
+              <div class="field"><label for="city">Град</label><input type="text" id="city" value="Варна"></div>
+              <div class="field"><label for="date">Дата</label><input type="date" id="date"></div>
+            </div>
+            <div class="field-row" style="margin-top:12px">
+              <div class="field"><label for="time">Час</label><input type="time" id="time"></div>
+              <div class="field"><label for="phone">Телефон</label><input type="text" id="phone" placeholder="0888 ..."></div>
+            </div>
+            <label class="check-line"><input type="checkbox" id="setup"> Може ли 2 часа преди събитието да дойдем за монтаж?</label>
+
+            <button type="submit" class="cta">Изпрати запитване</button>
+            <p class="disclaimer">Показаната цена е <strong>ориентировъчна</strong>. Крайната сума уточняваме на лична среща според избора и датата.</p>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="block" id="catalog" style="background:var(--surface-2)">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Каталог</span>
+        <h2>Какво предлагаме</h2>
+        <p>Всичко за арки, балони и фигурки под наем — или с изработка на място.</p>
+      </div>
+      <div class="cats">
+        <a class="cat c1" href="#"><span class="emoji">🌀</span>Арки</a>
+        <a class="cat c2" href="#"><span class="emoji">🎀</span>Калъфи</a>
+        <a class="cat c3" href="#"><span class="emoji">🎈</span>Балони</a>
+        <a class="cat c4" href="#"><span class="emoji">🧸</span>Фигурки</a>
+        <a class="cat c5" href="#"><span class="emoji">✨</span>Надписи</a>
+        <a class="cat c6" href="#"><span class="emoji">🪞</span>Аксесоари</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="gallery">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Галерия</span>
+        <h2>Нашите украси</h2>
+        <p>Разгледай реализирани декори по различни теми и поводи.</p>
+      </div>
+      <div class="gallery">
+        <div class="gcard g1"><span>Рожден ден · Замък на Елза</span></div>
+        <div class="gcard g2"><span>Кръщене · Небесно синьо</span></div>
+        <div class="gcard g3"><span>Първи рожден ден · Цифра 1</span></div>
+        <div class="gcard g4"><span>Bride to be · Пастел</span></div>
+      </div>
+      <div class="center"><a class="ghost" href="#">Виж всички украси</a></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site" id="about">
+  <div class="wrap foot">
+    <div>
+      <div class="brand-lg">🎈 Балони и Арки</div>
+      <p class="small">Изработваме балонени украси и арки за рождени дни, кръщенета и специални поводи във Варна. Наем на реквизит или пълна украса на място.</p>
+    </div>
+    <div>
+      <h3>Контакти</h3>
+      <ul>
+        <li><a href="tel:+3598800000000">📞 088 000 0000</a></li>
+        <li><a href="#">📷 Instagram</a></li>
+        <li><a href="#">👍 Facebook</a></li>
+        <li>📍 Варна</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Меню</h3>
+      <ul>
+        <li><a href="#calc">Конфигуратор</a></li>
+        <li><a href="#catalog">Каталог</a></li>
+        <li><a href="#gallery">Галерия</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-note">Примерен дизайн (мокъп) · имена, цени и снимки са примерни</div>
+</footer>
+
+<div class="toast" id="toast">Благодарим! Ще се свържем с теб за оферта. 🎉</div>
+
+<script>
+  const cfg = document.getElementById('cfg');
+  const totalEl = document.getElementById('total');
+  const linesEl = document.getElementById('lines');
+  const subEl = document.getElementById('total-sub');
+
+  // toggle "on" class + reveal body when a checkbox flips
+  cfg.querySelectorAll('[data-item] .item-top input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change',()=>{ cb.closest('[data-item]').classList.toggle('on', cb.checked); recalc(); });
+  });
+  cfg.querySelectorAll('select,input[type=text]').forEach(el=>el.addEventListener('input',recalc));
+
+  // arch price label mirrors the selected option
+  const archSel = document.getElementById('arch-type');
+  const archLabel = cfg.querySelector('[data-price-label]');
+
+  // swatches
+  const coverColor = document.getElementById('cover-color');
+  cfg.querySelectorAll('.swatch').forEach(s=>{
+    s.addEventListener('click',()=>{
+      cfg.querySelectorAll('.swatch').forEach(x=>x.setAttribute('aria-pressed','false'));
+      s.setAttribute('aria-pressed','true');
+      coverColor.textContent = s.dataset.color;
+    });
+  });
+
+  function recalc(){
+    let total = 0; const lines = [];
+    // Arch
+    const archOn = document.getElementById('i-arch').checked;
+    const archPrice = parseInt(archSel.value,10);
+    archLabel.textContent = archOn ? archPrice+' лв' : '';
+    if(archOn){ total+=archPrice; lines.push([archSel.options[archSel.selectedIndex].text.split(' — ')[0], archPrice+' лв']); }
+    // Fixed-price items
+    [['i-cover','Калъф за арка ('+coverColor.textContent+')'],
+     ['i-balloons','Балони'],
+     ['i-figure1','Цифра „1“ с балони'],
+     ['i-hero','Фигурка герой'],
+     ['i-mirror','Огледало за снимки']].forEach(([id,name])=>{
+      const cb=document.getElementById(id);
+      if(cb && cb.checked){
+        const p=parseInt(cb.closest('.item-top').querySelector('[data-price]').dataset.price,10);
+        total+=p; lines.push([name, p+' лв']);
+      }
+    });
+    // Quote-only
+    if(document.getElementById('i-custom').checked){ lines.push(['Персонализирано','по запитване']); }
+
+    totalEl.textContent = total;
+    subEl.textContent = total ? 'Ориентировъчно, без персонализираните артикули' : 'Избери поне един артикул';
+    linesEl.innerHTML = lines.length
+      ? lines.map(([n,v])=>`<li><span>${n}</span><span class="ln-q">${v}</span></li>`).join('')
+      : '<li class="empty">Няма избрани артикули</li>';
+  }
+
+  cfg.addEventListener('submit',e=>{
+    e.preventDefault();
+    const t=document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),3200);
+  });
+
+  recalc();
+</script>
