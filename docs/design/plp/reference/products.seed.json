@@ -1,0 +1,38 @@
+{
+  "_note": "Mockup data only. Prices are EXAMPLES — the real ones come from the admin. Shape mirrors the `products` table in claude/architecture-decision.md, flattened for the PLP.",
+
+  "categories": [
+    { "slug": "arches",           "name": "Арки" },
+    { "slug": "covers",           "name": "Калъфи за арки" },
+    { "slug": "balloons",         "name": "Балони" },
+    { "slug": "balloon-figures",  "name": "Фигури с балони" },
+    { "slug": "character-figures","name": "Фигурки герои" },
+    { "slug": "signs",            "name": "Надписи и табели" },
+    { "slug": "props",            "name": "Аксесоари" }
+  ],
+
+  "colors": [
+    { "slug": "white",  "name": "Бял",             "hex": "#FFFFFF" },
+    { "slug": "pink",   "name": "Розов",           "hex": "#F6A5C0" },
+    { "slug": "yellow", "name": "Жълт",            "hex": "#FCE08A" },
+    { "slug": "blue",   "name": "Син",             "hex": "#9BD3E6" },
+    { "slug": "red",    "name": "Червен",          "hex": "#E4572E" },
+    { "slug": "elsa",   "name": "Замъкът на Елза", "hex": null, "pattern": "repeating-linear-gradient(45deg, #9BD3E6 0 6px, #FFFFFF 6px 12px)" },
+    { "slug": "check",  "name": "Синьо каре",      "hex": null, "pattern": "repeating-linear-gradient(0deg, #9BD3E6 0 5px, #FFFFFF 5px 10px)" }
+  ],
+
+  "products": [
+    { "slug": "arch-round-180",  "category": "arches",            "name": "Кръгла арка 180 см",              "spec": "Метална основа · ⌀ 180 см",      "price": 50,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 3,    "track_availability": true,  "rentable": true,  "rank": 1,  "tint": "#9BD3E6" },
+    { "slug": "arch-oval-165x50","category": "arches",            "name": "Овална арка 165 × 50 см",         "spec": "Метална основа · 165 × 50 см",   "price": 40,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 2,    "track_availability": true,  "rentable": true,  "rank": 2,  "tint": "#FFB784" },
+    { "slug": "arch-oval-180x80","category": "arches",            "name": "Овална арка 180 × 80 см",         "spec": "Метална основа · 180 × 80 см",   "price": 45,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 2,    "track_availability": true,  "rentable": true,  "rank": 3,  "tint": "#F6A5C0" },
+    { "slug": "balloons",        "category": "balloons",          "name": "Балони · различни цветове",       "spec": "Латекс 30 см · цена на брой",    "price": 1.5,  "pricing_type": "fixed",        "unit": " / бр.", "colors": ["pink","yellow","blue","white"],    "quantity": null, "track_availability": false, "rentable": false, "rank": 4,  "tint": "#FCE08A" },
+    { "slug": "cover-white",     "category": "covers",            "name": "Калъф за арка · Бял",             "spec": "Плат · за овална и кръгла арка", "price": 25,   "pricing_type": "fixed",        "colors": ["white"],                             "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 5,  "tint": "#FFF3EA" },
+    { "slug": "cover-pink",      "category": "covers",            "name": "Калъф за арка · Розов",           "spec": "Плат · за овална и кръгла арка", "price": 25,   "pricing_type": "fixed",        "colors": ["pink"],                              "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 6,  "tint": "#F6A5C0" },
+    { "slug": "cover-elsa",      "category": "covers",            "name": "Калъф за арка · Замъкът на Елза", "spec": "Печат · за овална арка",         "price": 30,   "pricing_type": "fixed",        "colors": ["elsa"],                              "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 9,  "tint": "#9BD3E6", "_booked_on_demo_date": true },
+    { "slug": "figure-number-1", "category": "balloon-figures",   "name": "Цифра „1“ с кухина за балони",    "spec": "Дърво · височина 100 см",        "price": 35,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 7,  "tint": "#FCE08A" },
+    { "slug": "figure-elsa",     "category": "character-figures", "name": "Фигурка Елза · със стойка",       "spec": "Картон · височина 90 см",        "price": 20,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 8,  "tint": "#9BD3E6" },
+    { "slug": "figure-winnie",   "category": "character-figures", "name": "Мечо Пух и приятели · със стойка","spec": "Картон · комплект от 3",         "price": 20,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 10, "tint": "#FCE08A" },
+    { "slug": "sign-happy-birthday","category": "signs",          "name": "Надпис „Честит рожден ден“",      "spec": "Пластмасов надпис · по поръчка", "price": null, "pricing_type": "custom_quote", "colors": [],                                    "quantity": null, "track_availability": false, "rentable": true,  "rank": 11, "tint": "#F6A5C0" },
+    { "slug": "photo-mirror",    "category": "props",             "name": "Фото огледало",                   "spec": "Стойка включена · 160 см",       "price": 60,   "pricing_type": "fixed",        "colors": [],                                    "quantity": 1,    "track_availability": true,  "rentable": true,  "rank": 12, "tint": "#FFB784" }
+  ]
+}

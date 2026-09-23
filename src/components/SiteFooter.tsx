@@ -73,7 +73,9 @@ export default function SiteFooter() {
         </div>
       </div>
 
-      <div className="border-t border-white/15 py-4 text-center text-xs opacity-60">
+      {/* Extra room at the bottom on phones: the configurator's summary bar is
+          fixed to the viewport and would otherwise sit on top of this line. */}
+      <div className="border-t border-white/15 py-4 pb-24 text-center text-xs opacity-60 lg:pb-4">
         © {new Date().getFullYear()} {CONTACTS.brand} · {CONTACTS.city} · Цените
         в сайта са ориентировъчни
       </div>

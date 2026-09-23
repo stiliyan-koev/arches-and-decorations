@@ -1,0 +1,40 @@
+/* Brand tokens — matches claude/design.md and the approved homepage mockup.
+   Single committed light theme; body paints an explicit background so it
+   holds up under a dark OS. */
+
+:root {
+  color-scheme: light;
+
+  --color-bg:         #FFF9F3;
+  --color-surface:    #FFFFFF;
+  --color-surface-2:  #FFF3EA;
+
+  --color-ink:        #3B2F42; /* plum-charcoal text */
+  --color-muted:      #6B6175; /* secondary text — 5.9:1 on white, passes AA */
+  --color-muted-soft: #8A7F92; /* decorative only, never small text */
+
+  --color-pink:       #F6A5C0;
+  --color-yellow:     #FCE08A;
+  --color-orange:     #FFB784;
+  --color-blue:       #9BD3E6;
+
+  --color-cta:        #C93A72; /* deep rose — 4.85:1 on white both ways */
+  --color-cta-strong: #A82C5D;
+
+  --color-border:     #F0E4DA;
+  --color-border-2:   #E6D8CC; /* form controls */
+
+  --radius-card:      20px;
+  --radius-inner:     12px;
+  --radius-pill:      999px;
+
+  --shadow-hover:     0 10px 24px rgba(201, 58, 114, 0.14);
+
+  --font-display:     Unbounded, Nunito, system-ui, sans-serif;
+  --font-body:        Nunito, system-ui, sans-serif;
+
+  --page-max:         1140px;
+}
+
+/* Fonts: load with the cyrillic subset — the whole site is in Bulgarian.
+   next/font/google:  subsets: ["latin", "cyrillic"] */

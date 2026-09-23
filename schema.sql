@@ -10,7 +10,17 @@ create table categories (
   slug       text unique not null,
   name       text not null,            -- BG display name
   sort       int  not null default 0,
-  created_at timestamptz default now()
+  -- Configurator wiring (see migration-configurator.sql for the full rationale).
+  in_configurator boolean not null default true,   -- show as a family on the homepage
+  description     text,                             -- hint line under the family title
+  add_label       text,                             -- label on the green "add" button
+  picker          text not null default 'dropdown', -- 'dropdown' | 'grid'
+  recommend_category_id uuid references categories(id) on delete set null, -- add-on category
+  recommend_title text,
+  recommend_hint  text,
+  recommend_label text,
+  created_at timestamptz default now(),
+  constraint categories_picker_check check (picker in ('dropdown', 'grid'))
 );
 
 create table products (
@@ -19,6 +29,7 @@ create table products (
   category_id        uuid references categories(id) on delete set null,
   name               text not null,               -- BG
   description        text,                         -- BG
+  option_group       text,                         -- configurator first-dropdown grouping (null = skip)
   base_price         numeric(10,2),                -- null = price on request
   pricing_type       text not null default 'fixed',-- 'fixed' | 'custom_quote'
   quantity           int  not null default 1,      -- how many she physically owns
@@ -92,19 +103,49 @@ create table blackout_dates (
 --   rental  -> [start_date, end_date]
 -- Reserved qty of a product on a date range = sum of qty in CONFIRMED bookings that overlap it.
 
+-- `security definer` on purpose: the public configurator has to know what's
+-- free on a date, but RLS gives anon no SELECT on bookings. These two functions
+-- are the one crack in that wall, and they only ever return a count — never who
+-- booked, or when. The `coalesce(...) is not null` guard matters: a confirmed
+-- booking with no dates at all would otherwise produce an unbounded daterange
+-- that overlaps every query and blocks the whole catalog.
+
 create or replace function reserved_qty(p_product uuid, p_from date, p_to date)
-returns int language sql stable as $$
+returns int language sql stable security definer set search_path = public as $$
   select coalesce(sum(bi.qty), 0)
   from booking_items bi
   join bookings b on b.id = bi.booking_id
   where bi.product_id = p_product
     and b.status = 'confirmed'
+    and coalesce(b.start_date, b.event_date) is not null
     and daterange(
           coalesce(b.start_date, b.event_date),
           coalesce(b.end_date,   b.event_date),
           '[]'
         ) && daterange(p_from, p_to, '[]');
 $$;
+
+-- Same sum, but for every product at once. The configurator calls this once
+-- when the visitor picks a date instead of once per tile.
+create or replace function reserved_qty_all(p_from date, p_to date)
+returns table (product_id uuid, reserved int)
+language sql stable security definer set search_path = public as $$
+  select bi.product_id, sum(bi.qty)::int
+  from booking_items bi
+  join bookings b on b.id = bi.booking_id
+  where bi.product_id is not null
+    and b.status = 'confirmed'
+    and coalesce(b.start_date, b.event_date) is not null
+    and daterange(
+          coalesce(b.start_date, b.event_date),
+          coalesce(b.end_date,   b.event_date),
+          '[]'
+        ) && daterange(p_from, p_to, '[]')
+  group by bi.product_id;
+$$;
+
+grant execute on function reserved_qty(uuid, date, date) to anon, authenticated;
+grant execute on function reserved_qty_all(date, date)   to anon, authenticated;
 
 -- available = products.quantity - reserved_qty(...). track_availability=false items are always available.
 

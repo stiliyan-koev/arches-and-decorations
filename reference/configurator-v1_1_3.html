@@ -1,0 +1,587 @@
+<title>Configurator_v1_1_3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#FAF6F0; --surface:#FFFFFF; --rail:#F8EEEA;
+    --ink:#3E2F35; --muted:#8B7A80;
+    --rose:#C48CA2; --rose-soft:#F1DCE4; --rose-ink:#8E5A70;
+    --green:#CBE7C3; --green-hover:#B9DDB0; --green-edge:#AFD4A6; --green-ink:#2E4A33;
+    --cta:#493036; --cta-hover:#332025;
+    --border:#E9DFD5; --border-mid:#DCCEC2;
+    --r:18px; --r-sm:12px;
+    font-family:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);line-height:1.55}
+  h1,h2,h3,.serif{font-family:"Playfair Display",Georgia,serif;font-weight:600;line-height:1.15;text-wrap:balance}
+  button{font-family:inherit;cursor:pointer}
+  select,input{font-family:inherit}
+  .wrap{max-width:1140px;margin-inline:auto;padding-inline:20px}
+  .eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .num{font-variant-numeric:tabular-nums}
+  :focus-visible{outline:2px solid var(--rose-ink);outline-offset:2px}
+
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border)}
+  .topbar .wrap{display:flex;align-items:center;gap:14px;padding-block:14px;flex-wrap:wrap}
+  .mark{width:34px;height:34px;border-radius:50%;background:var(--rose-soft);display:grid;place-items:center;font-family:"Playfair Display",serif;font-style:italic;color:var(--rose-ink);font-size:1.1rem}
+  .brandname{font-family:"Playfair Display",serif;font-size:1.08rem}
+  .brandsub{font-size:.72rem;color:var(--muted)}
+  .vtag{margin-left:auto;font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--rose-ink);background:var(--rose-soft);border-radius:999px;padding:5px 12px}
+
+  .intro{padding-block:30px 22px}
+  .intro h1{font-size:clamp(1.5rem,3.4vw,2.1rem);margin:.25em 0 .35em}
+  .intro h1 em{font-style:italic;color:var(--rose-ink)}
+  .intro p{color:var(--muted);margin:0;max-width:62ch}
+
+  .cfg{display:grid;grid-template-columns:1.9fr 1fr;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:0 12px 34px rgba(62,47,53,.07)}
+  @media(max-width:940px){.cfg{grid-template-columns:1fr}}
+  .build{padding:24px}
+  .rail{background:var(--rail);padding:24px;border-left:1px solid var(--border)}
+  @media(max-width:940px){.rail{border-left:none;border-top:1px solid var(--border)}}
+
+  .headrow{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
+  .headrow h2{font-size:1.5rem;margin:.15em 0 0}
+  .steppill{margin-left:auto;font-size:.72rem;font-weight:700;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:5px 12px;white-space:nowrap}
+
+  /* the one add button */
+  .btn{display:inline-flex;align-items:center;gap:9px;background:var(--green);color:var(--green-ink);border:1px solid var(--green-edge);border-radius:999px;font-weight:800;font-size:.92rem;padding:11px 22px;box-shadow:0 2px 9px rgba(46,74,51,.14);transition:background .15s,transform .08s,box-shadow .15s}
+  .btn:hover{background:var(--green-hover);box-shadow:0 4px 14px rgba(46,74,51,.2)}
+  .btn:active{transform:translateY(1px);box-shadow:0 2px 6px rgba(46,74,51,.16)}
+  .btn .ic{width:21px;height:21px;border-radius:50%;background:rgba(46,74,51,.16);display:grid;place-items:center;font-size:1.05rem;line-height:1;font-weight:700}
+
+  /* families */
+  .fam{padding-block:20px;border-top:1px solid var(--border)}
+  .fam:first-of-type{border-top:none;padding-top:0}
+  .famtitle{font-size:1.35rem;margin:0 0 3px}
+  .famhint{font-size:.87rem;color:var(--muted);margin:0 0 14px;max-width:56ch}
+  .famrow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+  @media(max-width:780px){.famrow{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:460px){.famrow{grid-template-columns:1fr}}
+
+  .item{border:1px solid var(--rose);border-radius:var(--r-sm);overflow:hidden;background:var(--surface);display:flex;flex-direction:column;box-shadow:0 0 0 3px rgba(196,140,162,.12)}
+  .art{aspect-ratio:4/3;background:var(--bg);border-bottom:1px solid var(--border);display:grid;place-items:center}
+  .art svg{width:82%;height:82%}
+  .ibody{padding:11px 12px 12px;display:flex;flex-direction:column;gap:2px;flex:1}
+  .iname{font-weight:800;font-size:.92rem}
+  .imeta{font-size:.76rem;color:var(--muted);line-height:1.45}
+  .irow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:10px}
+  .iprice{font-weight:800;font-size:.92rem}
+  .iprice.q{font-size:.8rem;color:var(--rose-ink)}
+  .iacts{display:flex;gap:6px}
+  .mini{border:1px solid var(--border-mid);background:var(--surface);border-radius:999px;font-weight:800;font-size:.76rem;padding:6px 12px;color:var(--ink)}
+  .mini:hover{border-color:var(--rose);color:var(--rose-ink)}
+  .mini.x{padding:6px 10px;color:var(--muted)}
+
+  .event{margin-top:24px;border:1px solid var(--border);background:var(--bg);border-radius:var(--r-sm);padding:18px}
+  .event h3{font-family:"Nunito";font-size:1.05rem;font-weight:800;margin:0 0 3px}
+  .event > p{font-size:.85rem;color:var(--muted);margin:0 0 14px}
+  .egrid{display:flex;flex-wrap:wrap;gap:12px}
+  .f{flex:1;min-width:150px}
+  .f label{display:block;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .f input,.f select{width:100%;border:1px solid var(--border-mid);border-radius:9px;padding:10px 11px;background:var(--surface);color:var(--ink);font-size:.93rem}
+  .checkline{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:.89rem;font-weight:700;cursor:pointer}
+  .checkline input{appearance:none;width:20px;height:20px;border:2px solid var(--border-mid);border-radius:6px;flex:none;margin-top:2px;background:var(--surface);position:relative;cursor:pointer}
+  .checkline input:checked{background:var(--rose);border-color:var(--rose)}
+  .checkline input:checked::after{content:"";position:absolute;left:5px;top:1px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(42deg)}
+  .checkline small{display:block;font-weight:400;color:var(--muted);font-size:.79rem;margin-top:2px}
+
+  .rail h3{font-family:"Playfair Display",serif;font-size:1.35rem;margin:6px 0 10px;font-weight:500}
+  .lines{list-style:none;padding:0;margin:0 0 14px;font-size:.88rem}
+  .lines li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(62,47,53,.08)}
+  .lines li:last-child{border-bottom:none}
+  .lines .v{font-weight:700;white-space:nowrap}
+  .lines small{display:block;color:var(--muted);font-weight:400;font-size:.78rem}
+  .empty{font-size:.88rem;color:var(--muted);margin:0 0 14px}
+  .totlabel{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .total{font-family:"Playfair Display",serif;font-size:2.3rem;margin:2px 0 6px;font-weight:600}
+  .note{font-size:.78rem;color:var(--muted);margin:0 0 14px;line-height:1.5}
+  .cta{display:block;width:100%;background:var(--cta);color:#fff;border:none;font-weight:800;font-size:.98rem;border-radius:999px;padding:14px}
+  .cta:hover{background:var(--cta-hover)}
+  .cta[disabled]{background:#C9BDB5;cursor:not-allowed}
+  .fine{font-size:.75rem;color:var(--muted);text-align:center;margin-top:11px;line-height:1.5}
+
+  .ovl{position:fixed;inset:0;background:rgba(62,47,53,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
+  .ovl.on{display:flex}
+  .modal{background:var(--surface);border-radius:var(--r);width:min(880px,100%);max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(62,47,53,.3)}
+  .mhead{display:flex;align-items:center;gap:12px;padding:20px 22px 0}
+  .mhead h3{font-size:1.45rem;margin:0}
+  .close{margin-left:auto;border:1px solid var(--border-mid);background:var(--surface);width:34px;height:34px;border-radius:50%;font-size:1.05rem;color:var(--muted);line-height:1}
+  .close:hover{border-color:var(--rose);color:var(--rose-ink)}
+  .mbody{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:18px 22px 22px}
+  @media(max-width:700px){.mbody{grid-template-columns:1fr}}
+  .preview{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);aspect-ratio:1/1;display:grid;place-items:center;position:relative;align-self:start}
+  .preview svg{width:78%;height:78%}
+  .pcap{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:.72rem;color:var(--muted)}
+  .fields{display:flex;flex-direction:column;gap:14px}
+  .rec{border:1px solid var(--rose);background:rgba(196,140,162,.06);border-radius:var(--r-sm);padding:14px}
+  .rec p{margin:0 0 10px;font-size:.85rem;font-weight:700}
+  .rec p span{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:2px}
+
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media(max-width:700px){.pgrid{grid-template-columns:repeat(2,1fr)}}
+  .pcard{border:1.5px solid var(--border-mid);background:var(--surface);border-radius:var(--r-sm);padding:0;overflow:hidden;text-align:left;display:flex;flex-direction:column;position:relative}
+  .pcard:hover{border-color:var(--rose)}
+  .pcard[aria-pressed=true]{border-color:var(--rose);box-shadow:0 0 0 3px rgba(196,140,162,.18)}
+  .pcard[disabled]{opacity:.45;cursor:not-allowed}
+  .pcard .ph{aspect-ratio:1/1;display:grid;place-items:center;border-bottom:1px solid var(--border)}
+  .pcard .ph svg{width:88%;height:88%}
+  .pcard .pn{padding:8px 9px;font-size:.78rem;font-weight:800;line-height:1.3}
+  .pcard .pp{padding:0 9px 9px;font-size:.75rem;color:var(--muted);font-weight:700}
+  .pcard .tick{position:absolute;top:7px;right:7px;width:22px;height:22px;border-radius:50%;background:var(--rose);color:#fff;display:none;place-items:center;font-size:.78rem}
+  .pcard[aria-pressed=true] .tick{display:grid}
+  .glabel{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
+
+  .mfoot{display:flex;align-items:center;gap:12px;padding:0 22px 22px;flex-wrap:wrap}
+  .mprice{font-weight:800;font-size:1.05rem}
+  .mprice small{display:block;font-weight:700;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .confirm{margin-left:auto;background:var(--cta);color:#fff;border:none;font-weight:800;border-radius:999px;padding:13px 26px;font-size:.95rem;box-shadow:0 3px 10px rgba(73,48,54,.24)}
+  .confirm:hover{background:var(--cta-hover)}
+  .confirm[disabled]{background:#C9BDB5;cursor:not-allowed;box-shadow:none}
+
+  footer{padding-block:32px 46px;color:var(--muted);font-size:.82rem;text-align:center}
+</style>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="mark">а</div>
+    <div>
+      <div class="brandname">Арки и украси</div>
+      <div class="brandsub">с обич, за вашия празник</div>
+    </div>
+    <span class="vtag">Configurator_v1_1_3</span>
+  </div>
+</div>
+
+<div class="wrap intro">
+  <span class="eyebrow">Прототип · четвърта итерация</span>
+  <h1>Един бутон. <em>Ясни заглавия.</em></h1>
+  <p>Празните карета отпаднаха. Всяка категория има по-едро заглавие, кратко обяснение под него и един зелен бутон за добавяне.</p>
+</div>
+
+<main class="wrap">
+  <div class="cfg">
+    <section class="build">
+      <div class="headrow">
+        <div>
+          <span class="eyebrow">Да го направим ваше</span>
+          <h2>Създайте своята украса</h2>
+        </div>
+        <span class="steppill">Стъпка 1 от 2</span>
+      </div>
+
+      <div id="families"></div>
+
+      <section class="event">
+        <h3>Данни за събитието</h3>
+        <p>Нужни са ни, за да проверим наличността и да изчислим транспорта.</p>
+        <div class="egrid">
+          <div class="f"><label for="e-city">Град / населено място</label><input type="text" id="e-city" value="Варна"></div>
+          <div class="f"><label for="e-date">Дата на събитието</label><input type="date" id="e-date"></div>
+          <div class="f"><label for="e-time">Час</label><input type="time" id="e-time"></div>
+        </div>
+        <label class="checkline" for="e-setup">
+          <input type="checkbox" id="e-setup" checked>
+          <span>Може ли 2 часа преди събитието да дойдем за монтажа?
+            <small>Ако не е възможно, ще потърсим друг час заедно с вас.</small></span>
+        </label>
+      </section>
+    </section>
+
+    <aside class="rail">
+      <span class="eyebrow">Вашият празник</span>
+      <h3>Малко по малко,<br>става вълшебно.</h3>
+      <p class="empty" id="empty">Все още нямате избрани детайли.</p>
+      <ul class="lines" id="lines"></ul>
+      <div class="totlabel">Ориентировъчна сума</div>
+      <div class="total num" id="total" aria-live="polite">0,00 €</div>
+      <p class="note">Цената е ориентировъчна. Крайната оферта уточняваме лично.</p>
+      <button class="cta" id="cta" disabled>Данни за контакт →</button>
+      <p class="fine">Запитването не е резервация.<br>Потвърждаваме лично всеки празник.</p>
+    </aside>
+  </div>
+</main>
+
+<footer class="wrap">Мокъп за преглед · визуализациите заместват реалните снимки</footer>
+
+<div class="ovl" id="ovl">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+    <div class="mhead">
+      <h3 id="mtitle">Добави арка</h3>
+      <button class="close" id="mclose" aria-label="Затвори">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="preview" id="preview"></div>
+      <div class="fields" id="fields"></div>
+    </div>
+    <div class="mfoot">
+      <div class="mprice"><small>Ориентировъчно</small><span class="num" id="mprice">-</span></div>
+      <button class="confirm" id="mconfirm">Потвърди избора</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const COVERS = [
+  {v:'white', n:'Бял',   hex:'#F2EDE6'},
+  {v:'red',   n:'Червен',hex:'#D14A4A'},
+  {v:'yellow',n:'Жълт',  hex:'#F0C33C'},
+  {v:'blue',  n:'Син',   hex:'#3F73C4'},
+  {v:'pink',  n:'Розов', hex:'#E490B4'},
+  {v:'elsa',  n:'Замък на Елза', hex:'#7FB0E6'},
+  {v:'check', n:'Син на квадратчета', hex:'#5D8FD6'}
+];
+
+const FIGURES = [
+  {v:'winnie', n:'Мечо Пух и приятели', price:15, owned:1, pal:['#E9B44C','#C98F3F','#F6E3BC']},
+  {v:'boss',   n:'Baby Boss - единица', price:15, owned:1, pal:['#3B4A6B','#E9C46A','#DCE3EF']},
+  {v:'elsa',   n:'Елза',                price:15, owned:1, pal:['#A8D5E8','#6FA9C9','#E8F4FA']},
+  {v:'anna',   n:'Анна',                price:15, owned:1, pal:['#B5533C','#4C6B4F','#F3DCD2']},
+  {v:'olaf',   n:'Олаф и Свен',         price:15, owned:1, pal:['#EDEAE4','#B08A5B','#FFFFFF']},
+  {v:'custom', n:'По желание',          price:null, owned:99, pal:null}
+];
+
+const FAMILIES = [
+  {
+    key:'arch', title:'Арка', add:'Добави арка',
+    hint:'Основата на украсата - рамка, която обличаме в цвят.',
+    steps:[
+      {id:'type', label:'Тип арка', opts:[{v:'oval',n:'Овална арка'},{v:'round',n:'Кръгла арка'}]},
+      {id:'size', label:'Размер', dep:'type', opts:{
+        oval:[{v:'180x80',n:'180 × 80 см',price:25,owned:2},{v:'165x50',n:'165 × 50 см',price:20,owned:2}],
+        round:[{v:'180',n:'Ø 180 см',price:30,owned:3}]
+      }}
+    ],
+    rec:{id:'cover', title:'За тази арка препоръчваме да изберете калъф',
+         hint:'Калъфът се поставя върху рамката и задава цвета на украсата.',
+         label:'Калъф', opts:[{v:'',n:'Без калъф',price:0,owned:99}].concat(
+           COVERS.map(c=>({v:c.v,n:c.n,price:10,owned:6})))}
+  },
+  {
+    key:'balloons', title:'Балони', add:'Добави балони',
+    hint:'Цветовете, които задават настроението на празника.',
+    steps:[
+      {id:'type', label:'Палитра', opts:[{v:'pastel',n:'Пастелен микс'},{v:'classic',n:'Класически цветове'},{v:'gold',n:'Злато и бяло'}]},
+      {id:'size', label:'Плътност', dep:'type', opts:{
+        pastel:[{v:'std',n:'Стандартна',price:15,owned:99},{v:'rich',n:'Богата',price:25,owned:99}],
+        classic:[{v:'std',n:'Стандартна',price:15,owned:99},{v:'rich',n:'Богата',price:25,owned:99}],
+        gold:[{v:'std',n:'Стандартна',price:18,owned:99},{v:'rich',n:'Богата',price:28,owned:99}]
+      }}
+    ]
+  },
+  {
+    key:'figure', title:'Фигурка', add:'Добави фигурка',
+    hint:'Героят на празника - избира се направо от снимка.',
+    steps:[ {id:'size', label:'Изберете фигурка', ui:'grid', opts:FIGURES} ]
+  },
+  {
+    key:'sign', title:'Надпис', add:'Добави надпис',
+    hint:'Име, повод или цифра - за снимките и за масата.',
+    steps:[
+      {id:'type', label:'Тип', opts:[{v:'plastic',n:'Пластмасов надпис'},{v:'number',n:'Цифра с балони'}]},
+      {id:'size', label:'Избор', dep:'type', opts:{
+        plastic:[{v:'hb',n:'Честит рожден ден',price:8,owned:1},
+                 {v:'chr',n:'Свето кръщение',price:8,owned:1},
+                 {v:'btb',n:'Bride to be',price:8,owned:1}],
+        number:[{v:'one',n:'Цифра „1“',price:18,owned:1}]
+      }}
+    ],
+    rec:{id:'cover', title:'Препоръчваме стойка за надписа',
+         hint:'Без стойка надписът се поставя само на маса или стена.',
+         label:'Стойка', opts:[{v:'',n:'Без стойка',price:0,owned:99},{v:'stand',n:'Стойка за табели',price:5,owned:1}]}
+  },
+  {
+    key:'mirror', title:'Огледала и стойки', add:'Добави огледало / стойка',
+    hint:'За кът за снимки и за поставяне на табели.',
+    steps:[
+      {id:'type', label:'Тип', opts:[{v:'mirror',n:'Огледало за снимки'},{v:'easel',n:'Статив'}]},
+      {id:'size', label:'Вариант', dep:'type', opts:{
+        mirror:[{v:'one',n:'Огледало със стойка',price:20,owned:1}],
+        easel:[{v:'wood',n:'Дървен',price:12,owned:1},{v:'metal',n:'Метален',price:12,owned:1}]
+      }}
+    ]
+  },
+  {
+    key:'table', title:'За масата', add:'Добави за масата',
+    hint:'Дребните детайли по местата на гостите.',
+    steps:[
+      {id:'type', label:'Тип', opts:[{v:'cards',n:'Табелки за маса'}]},
+      {id:'size', label:'Вариант', dep:'type', opts:{ cards:[{v:'pink',n:'Комплект, розови',price:6,owned:1}] }}
+    ]
+  }
+];
+
+const famOf = k => FAMILIES.find(f => f.key === k);
+const eur = n => n.toFixed(2).replace('.', ',') + ' €';
+const optsFor = (step, sel) => Array.isArray(step.opts) ? step.opts : (step.opts[sel[step.dep]] || []);
+const sizeStep = fam => fam.steps.find(s => s.id === 'size');
+const typeStep = fam => fam.steps.find(s => s.id === 'type');
+
+/* ---------------- availability ---------------- */
+let eventDate = '';
+const hash = s => [...s].reduce((a,c)=>a+c.charCodeAt(0),0);
+function stockOf(o, key){
+  if (o.owned >= 99) return 99;
+  if (!eventDate) return o.owned;
+  const day = new Date(eventDate).getDate();
+  return Math.max(0, o.owned - ((day + hash(key + o.v)) % (o.owned + 1)));
+}
+
+/* ---------------- artwork ---------------- */
+function figureArt(v){
+  const f = FIGURES.find(x => x.v === v);
+  const ink = '#8B7A80';
+  const box = b => `<svg viewBox="0 0 200 200" role="img" aria-label="Визуализация">${b}</svg>`;
+  if (!f || !f.pal)
+    return box(`<rect x="46" y="46" width="108" height="108" rx="16" fill="none" stroke="${ink}" stroke-width="3" stroke-dasharray="8 8" opacity=".6"/>
+      <text x="100" y="108" text-anchor="middle" font-family="Nunito,sans-serif" font-size="15" font-weight="700" fill="${ink}">по желание</text>`);
+  const [a,b,c] = f.pal;
+  return box(`<rect x="0" y="0" width="200" height="200" fill="${c}" opacity=".55"/>
+    <ellipse cx="100" cy="168" rx="46" ry="9" fill="${ink}" opacity=".18"/>
+    <path d="M62 160 Q68 96 100 96 Q132 96 138 160 Z" fill="${a}"/>
+    <circle cx="100" cy="74" r="32" fill="${a}"/>
+    <circle cx="78" cy="52" r="13" fill="${b}"/><circle cx="122" cy="52" r="13" fill="${b}"/>
+    <circle cx="90" cy="74" r="4.5" fill="${ink}"/><circle cx="110" cy="74" r="4.5" fill="${ink}"/>
+    <path d="M92 88 Q100 95 108 88" stroke="${ink}" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="70" y="150" width="60" height="10" rx="5" fill="${b}"/>`);
+}
+
+function art(key, sel){
+  const cover = COVERS.find(c => c.v === sel.cover);
+  const col = cover ? cover.hex : '#C9BDB5';
+  const ink = '#8B7A80';
+  const svg = b => `<svg viewBox="0 0 200 180" role="img" aria-label="Визуализация">${b}</svg>`;
+  const base = `<rect x="52" y="160" width="96" height="5" rx="2.5" fill="${ink}" opacity=".35"/>`;
+
+  if (key === 'figure') return figureArt(sel.size);
+
+  if (key === 'arch'){
+    if (!sel.type) return svg(`<circle cx="100" cy="88" r="52" fill="none" stroke="${ink}" stroke-width="3" stroke-dasharray="7 7" opacity=".5"/>`);
+    if (sel.type === 'round')
+      return svg(`<circle cx="100" cy="82" r="62" fill="none" stroke="${col}" stroke-width="15"/>${base}`);
+    const wide = sel.size === '180x80';
+    return svg(`<ellipse cx="100" cy="82" rx="${wide?50:34}" ry="${wide?76:66}" fill="none" stroke="${col}" stroke-width="15"/>${base}`);
+  }
+
+  if (key === 'balloons'){
+    const sets = {pastel:['#F3C6D8','#FBE7A8','#BFDDEA','#E7D3EE','#F8D5BE'],
+                  classic:['#D14A4A','#3F73C4','#F0C33C','#5C9A63','#E490B4'],
+                  gold:['#E8C877','#F4E6C3','#FFFFFF','#DDB85B','#F7EFD9']};
+    const pal = sets[sel.type] || ['#DDD2C8','#E6DCD2','#D5C9BE','#EDE4DA','#CFC3B8'];
+    const pts = sel.size === 'rich'
+      ? [[62,58,22],[100,42,26],[140,58,22],[72,98,20],[128,98,20],[100,80,18],[46,86,15],[154,86,15]]
+      : [[70,62,22],[104,48,25],[136,66,20],[86,98,18],[124,100,17]];
+    return svg(pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${p[2]}" fill="${pal[i%pal.length]}"/>`).join('') + base);
+  }
+
+  if (key === 'sign'){
+    const label = sel.type === 'number' ? '1' : 'Честит!';
+    const fs = sel.type === 'number' ? 62 : 20;
+    return svg(`<rect x="38" y="52" width="124" height="74" rx="14" fill="#F6EDE4" stroke="${ink}" stroke-width="2"/>
+      <text x="100" y="${sel.type==='number'?112:96}" text-anchor="middle" font-family="Playfair Display,serif" font-size="${fs}" fill="${ink}">${label}</text>
+      ${sel.cover === 'stand' ? `<path d="M100 126 L100 158 M78 160 L122 160" stroke="${ink}" stroke-width="4" stroke-linecap="round" opacity=".6"/>` : base}`);
+  }
+
+  if (key === 'mirror'){
+    if (sel.type === 'easel')
+      return svg(`<path d="M100 34 L64 158 M100 34 L136 158 M74 118 L126 118" stroke="${sel.size==='metal'?'#9AA0A6':'#B08A5B'}" stroke-width="7" stroke-linecap="round" fill="none"/>${base}`);
+    return svg(`<rect x="52" y="30" width="96" height="120" rx="48" fill="#EFE8E0" stroke="${ink}" stroke-width="3"/>
+      <path d="M72 60 Q86 48 96 46" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"/>${base}`);
+  }
+
+  return svg(`<rect x="44" y="70" width="52" height="40" rx="7" fill="#F3D7E2" stroke="${ink}" stroke-width="2"/>
+    <rect x="106" y="86" width="52" height="40" rx="7" fill="#F8E7EE" stroke="${ink}" stroke-width="2"/>${base}`);
+}
+
+/* ---------------- state ---------------- */
+let items = [];
+let draft = null;
+
+function variant(fam, sel){ return optsFor(sizeStep(fam), sel).find(o => o.v === sel.size) || null; }
+function recOpt(fam, sel){ return fam.rec ? (fam.rec.opts.find(o => o.v === (sel.cover || '')) || null) : null; }
+function itemPrice(it){
+  const fam = famOf(it.fam);
+  const v = variant(fam, it), r = recOpt(fam, it);
+  if (!v) return 0;
+  if (v.price === null) return null;
+  return v.price + (r ? r.price : 0);
+}
+const usedCount = (famKey, type, size, skip) =>
+  items.filter((it,i) => i !== skip && it.fam === famKey && it.type === type && it.size === size).length;
+const usedRec = (famKey, val, skip) =>
+  items.filter((it,i) => i !== skip && it.fam === famKey && it.cover === val).length;
+
+/* ---------------- builder ---------------- */
+function renderFamilies(){
+  document.getElementById('families').innerHTML = FAMILIES.map(fam => {
+    const mine = items.map((it,i)=>({it,i})).filter(x => x.it.fam === fam.key);
+
+    const tiles = mine.map(({it,i}) => {
+      const v = variant(fam, it), r = recOpt(fam, it), p = itemPrice(it);
+      const ts = typeStep(fam);
+      const meta = [
+        ts ? ts.opts.find(o=>o.v===it.type)?.n : null,
+        v ? v.n : null,
+        r && r.v ? `${fam.rec.label}: ${r.n}` : null
+      ].filter(Boolean).join(' · ');
+      return `<article class="item">
+        <div class="art">${art(fam.key, it)}</div>
+        <div class="ibody">
+          <div class="iname">${fam.title}</div>
+          <div class="imeta">${meta}</div>
+          <div class="irow">
+            <span class="iprice ${p===null?'q':'num'}">${p===null?'По запитване':eur(p)}</span>
+            <span class="iacts">
+              <button class="mini" data-edit="${i}">Редактирай</button>
+              <button class="mini x" data-del="${i}" aria-label="Премахни">✕</button>
+            </span>
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+
+    return `<section class="fam">
+      <h3 class="famtitle">${fam.title}</h3>
+      <p class="famhint">${fam.hint}</p>
+      ${mine.length ? `<div class="famrow">${tiles}</div>` : ''}
+      <button class="btn" data-add="${fam.key}"><span class="ic">+</span>${fam.add}</button>
+    </section>`;
+  }).join('');
+}
+
+function renderRail(){
+  let total = 0;
+  const rows = items.map(it => {
+    const fam = famOf(it.fam);
+    const v = variant(fam, it), r = recOpt(fam, it), p = itemPrice(it);
+    if (p !== null) total += p;
+    const sub = [v?v.n:'', r && r.v ? r.n : ''].filter(Boolean).join(' · ');
+    return `<li><span>${fam.title}<small>${sub}</small></span>
+            <span class="v num">${p===null?'по запитване':eur(p)}</span></li>`;
+  });
+  document.getElementById('empty').hidden = items.length > 0;
+  document.getElementById('lines').innerHTML = rows.join('');
+  document.getElementById('total').textContent = eur(total);
+  document.getElementById('cta').disabled = items.length === 0;
+}
+function render(){ renderFamilies(); renderRail(); }
+
+/* ---------------- modal ---------------- */
+function openModal(famKey, editIndex){
+  const fam = famOf(famKey);
+  draft = {
+    fam,
+    sel: editIndex != null ? {...items[editIndex]} : {fam:famKey, type:'', size:'', cover:''},
+    editIndex: editIndex ?? null
+  };
+  document.getElementById('mtitle').textContent =
+    (editIndex != null ? 'Промени ' : 'Добави ') + fam.title.toLowerCase();
+  document.getElementById('mconfirm').textContent =
+    editIndex != null ? 'Запази промените' : 'Потвърди избора';
+  document.getElementById('ovl').classList.add('on');
+  renderModal();
+  document.getElementById('mclose').focus();
+}
+function closeModal(){ document.getElementById('ovl').classList.remove('on'); draft = null; }
+
+function renderModal(){
+  const {fam, sel, editIndex} = draft;
+  const ts = typeStep(fam), ss = sizeStep(fam);
+  let html = '';
+
+  if (ts){
+    html += `<div class="f">
+      <label for="s-type">${ts.label}</label>
+      <select id="s-type">
+        <option value="">- изберете -</option>
+        ${ts.opts.map(o=>`<option value="${o.v}" ${sel.type===o.v?'selected':''}>${o.n}</option>`).join('')}
+      </select></div>`;
+  }
+
+  const list = optsFor(ss, sel);
+
+  if (ss.ui === 'grid'){
+    html += `<div><span class="glabel">${ss.label}</span><div class="pgrid">` +
+      list.map(o => {
+        const left = o.owned >= 99 ? 99 : stockOf(o, fam.key) - usedCount(fam.key, sel.type, o.v, editIndex);
+        const out = left <= 0;
+        return `<button type="button" class="pcard" data-pick="${o.v}"
+                  aria-pressed="${sel.size===o.v}" ${out?'disabled':''}>
+          <span class="tick">✓</span>
+          <span class="ph">${figureArt(o.v)}</span>
+          <span class="pn">${o.n}</span>
+          <span class="pp">${o.price===null?'По запитване':eur(o.price)}${out?' · няма свободни':''}</span>
+        </button>`;
+      }).join('') + `</div></div>`;
+  } else {
+    html += `<div class="f">
+      <label for="s-size">${ss.label}</label>
+      <select id="s-size" ${(!ts || sel.type)?'':'disabled'}>
+        <option value="">${(!ts || sel.type)?'- изберете -':'първо изберете тип'}</option>
+        ${list.map(o=>{
+          const left = stockOf(o, fam.key) - usedCount(fam.key, sel.type, o.v, editIndex);
+          const out = o.owned < 99 && left <= 0;
+          return `<option value="${o.v}" ${sel.size===o.v?'selected':''} ${out?'disabled':''}>
+            ${o.n}${o.price===null?' · по запитване':` · ${eur(o.price)}`}${out?' · няма свободни':''}
+          </option>`;
+        }).join('')}
+      </select></div>`;
+  }
+
+  if (fam.rec){
+    html += `<div class="rec">
+      <p>${fam.rec.title}<span>${fam.rec.hint}</span></p>
+      <div class="f">
+        <label for="s-rec">${fam.rec.label}</label>
+        <select id="s-rec">
+          ${fam.rec.opts.map(o=>{
+            const left = o.v ? stockOf(o, fam.key) - usedRec(fam.key, o.v, editIndex) : 99;
+            const out = o.v && left <= 0;
+            return `<option value="${o.v}" ${((sel.cover||'')===o.v)?'selected':''} ${out?'disabled':''}>
+              ${o.n}${o.price?` · +${eur(o.price)}`:''}${out?' · няма свободни':''}
+            </option>`;
+          }).join('')}
+        </select>
+      </div></div>`;
+  }
+
+  document.getElementById('fields').innerHTML = html;
+  document.getElementById('preview').innerHTML =
+    art(fam.key, sel) + '<span class="pcap">Примерна визуализация · сменя се според избора</span>';
+
+  const v = variant(fam, sel);
+  const p = v ? itemPrice(sel) : null;
+  document.getElementById('mprice').textContent = v ? (p===null?'По запитване':eur(p)) : '-';
+  document.getElementById('mconfirm').disabled = !v;
+
+  const t = document.getElementById('s-type');
+  if (t) t.onchange = e => { sel.type = e.target.value; sel.size = ''; renderModal(); };
+  const s = document.getElementById('s-size');
+  if (s) s.onchange = e => { sel.size = e.target.value; renderModal(); };
+  const r = document.getElementById('s-rec');
+  if (r) r.onchange = e => { sel.cover = e.target.value; renderModal(); };
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.add)  return openModal(b.dataset.add, null);
+  if (b.dataset.edit) return openModal(items[+b.dataset.edit].fam, +b.dataset.edit);
+  if (b.dataset.del)  { items.splice(+b.dataset.del, 1); return render(); }
+  if (b.dataset.pick){ draft.sel.size = b.dataset.pick; return renderModal(); }
+  if (b.id === 'mclose') return closeModal();
+  if (b.id === 'mconfirm'){
+    const {sel, editIndex} = draft;
+    if (editIndex != null) items[editIndex] = {...sel}; else items.push({...sel});
+    closeModal(); return render();
+  }
+});
+document.getElementById('ovl').addEventListener('click', e => { if (e.target.id === 'ovl') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && draft) closeModal(); });
+document.getElementById('e-date').addEventListener('change', e => { eventDate = e.target.value; render(); });
+
+render();
+</script>
