@@ -118,4 +118,5 @@ Payments / Stripe, online booking commitments, blog, multi-language toggle (BG o
 
 Branches: `main` is live and only the owner merges into it. Work goes into one open `release/X.Y.Z` branch (cut from `main`) as small PRs by agents. The owner merges `release/X.Y.Z` → `main` (normal merge), then tags `vX.Y.Z`. Tags are the rollback points. No `develop` branch. Plan + progress: `pr-plan.md` (local only, git-excluded).
 Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
+No AI attribution: commit messages get no `Co-Authored-By:` trailer and PR bodies no "Generated with Claude Code" line (also switched off via `attribution` in `.claude/settings.json`).
 `gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.
