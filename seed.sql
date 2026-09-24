@@ -73,4 +73,46 @@ insert into product_colors (product_id, color_slug, color_name, hex, sort) value
 -- product_images: left empty — upload photos to the `catalog` bucket and insert rows
 -- following the naming in catalog-and-images.md, e.g. products/arch-cover/red--01.webp
 
+-- ---------- Configurator wiring ----------
+-- Same configuration as migration-configurator.sql, for a from-scratch seed.
+-- Hyphens, not em dashes, in customer-facing copy.
+
+update categories set
+  in_configurator = true, picker = 'dropdown', add_label = 'Добави арка',
+  description = 'Основата на украсата - рамка, която обличаме в цвят.',
+  recommend_category_id = (select id from categories where slug = 'covers'),
+  recommend_title = 'За тази арка препоръчваме да изберете калъф',
+  recommend_hint  = 'Калъфът се поставя върху рамката и задава цвета на украсата.',
+  recommend_label = 'Калъф'
+where slug = 'arches';
+
+-- covers = arch add-on only; balloon-figures ends up empty (its product moves below).
+update categories set in_configurator = false where slug in ('covers', 'balloon-figures');
+
+update categories set in_configurator = true, picker = 'dropdown', add_label = 'Добави балони',
+  description = 'Цветовете, които задават настроението на празника.' where slug = 'balloons';
+
+update categories set in_configurator = true, picker = 'grid', add_label = 'Добави фигурка',
+  description = 'Героят на празника - избира се направо от снимка.' where slug = 'character-figures';
+
+update categories set in_configurator = true, picker = 'dropdown', add_label = 'Добави надпис',
+  description = 'Име, повод или цифра - за снимките и за масата.' where slug = 'signs';
+
+update categories set in_configurator = true, picker = 'dropdown', add_label = 'Добави огледало / стойка',
+  description = 'За кът за снимки и за поставяне на табели.' where slug = 'props';
+
+-- Product groupings (the modal's first dropdown).
+update products set option_group = 'Овална арка' where slug in ('arch-oval-180x80', 'arch-oval-165x50');
+update products set option_group = 'Кръгла арка' where slug = 'arch-round-180';
+
+update products set category_id = (select id from categories where slug = 'signs'),
+  option_group = 'Цифра с балони' where slug = 'figure-number-1';
+update products set option_group = 'Пластмасов надпис'
+  where slug in ('sign-happy-birthday', 'sign-christening', 'sign-bride-to-be');
+update products set option_group = 'Табелки за маса' where slug = 'table-signs-pink';
+
+update products set option_group = 'Огледало за снимки' where slug = 'photo-mirror';
+update products set option_group = 'Статив' where slug = 'easel';
+-- sign-stand has no option_group, so it stays hidden in the modal until it gets one.
+
 commit;
