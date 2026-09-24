@@ -113,3 +113,9 @@ Don't build steps 4–6 before 1–3 are real and visible.
 
 ### Out of scope for now
 Payments / Stripe, online booking commitments, blog, multi-language toggle (BG only), user accounts for customers.
+
+## Agent workflow (PR pipeline)
+
+The 6k-line `project-init` branch is shipped to `develop` as small PRs by agents (`develop` → `main` once at the end, merged by the owner). Plan + progress: `pr-plan.md` (local only, git-excluded).
+Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
+`gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.
