@@ -172,8 +172,8 @@ are still open.
 - [ ] `/gallery` — real past work, grouped by theme
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
 - [ ] Responsive pass on a real phone
-- [ ] Push to GitHub → import to Vercel → add the two env vars → deploy
-- [ ] Point the domain at Vercel
+- [ ] Push to GitHub → import to Netlify → add the two env vars → deploy
+- [ ] Point the domain at Netlify
 
 ---
 

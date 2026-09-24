@@ -75,7 +75,7 @@ split/NN-*  ──PR──►  develop   (agents merge here, one chunk at a time
 ```
 
 Why `develop`: agents get a branch where they can merge freely, and `main` stays the
-"known good" branch that only a human moves. When you deploy to Vercel later, point
+"known good" branch that only a human moves. When you deploy to Netlify later, point
 production at `main` and previews at `develop`.
 
 ## How to run

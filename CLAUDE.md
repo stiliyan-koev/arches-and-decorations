@@ -66,7 +66,7 @@ A site for a Varna event-decoration business (balloon decorations, arches; birth
 ### Stack (decided — don't relitigate)
 - **Next.js (App Router)** + **TypeScript** + **Tailwind CSS**
 - **Supabase** — Postgres (data), Auth (admin login), Storage (images)
-- **Vercel** free tier for hosting
+- **Netlify** free tier for hosting
 - No other frameworks, no state-management libs, no CMS. Keep the dependency list short.
 
 ### Principles (the owner is a senior dev; he means these)
@@ -107,7 +107,7 @@ See `catalog-and-images.md` for the category tree, the seed product list, and th
 3. **Configurator** — select items → live estimate (labeled "ориентировъчна цена") → contact/meeting request form → writes a `bookings` row (status `requested`) + notifies the owner (email or Supabase → simple).
 4. **Admin auth + requests inbox** — Supabase Auth, requests list, confirm + set final price.
 5. **Admin calendar + availability** — month view of confirmed bookings; per-item availability query.
-6. **Admin CRUD + gallery + polish** — product/category CRUD, image upload to Storage, gallery page, SEO meta, responsive pass, deploy to Vercel.
+6. **Admin CRUD + gallery + polish** — product/category CRUD, image upload to Storage, gallery page, SEO meta, responsive pass, deploy to Netlify.
 
 Don't build steps 4–6 before 1–3 are real and visible.
 
