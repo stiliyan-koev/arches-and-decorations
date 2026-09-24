@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Unbounded, Nunito } from "next/font/google";
+import { Unbounded, Nunito, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 // Cyrillic subset is required — without it Bulgarian text renders as tofu boxes.
@@ -15,6 +15,13 @@ const nunito = Nunito({
   weight: ["400", "600", "700", "800"],
 });
 
+// The configurator's serif titles, matching reference/configurator-v1_1_3.html.
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin", "cyrillic"],
+  weight: ["500", "600"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Балони и арки — празнични украси във Варна",
@@ -28,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="bg"
-      className={`${unbounded.variable} ${nunito.variable} h-full antialiased`}
+      className={`${unbounded.variable} ${nunito.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
