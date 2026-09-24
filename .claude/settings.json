@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr *)",
+      "Bash(git fetch *)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push -u origin split/*)",
+      "Bash(git push origin split/*)",
+      "Bash(npm run build*)",
+      "Bash(npm run lint*)",
+      "PowerShell(gh pr *)",
+      "PowerShell(git fetch *)",
+      "PowerShell(git switch *)",
+      "PowerShell(git checkout *)",
+      "PowerShell(git pull *)",
+      "PowerShell(git add *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git push -u origin split/*)",
+      "PowerShell(git push origin split/*)",
+      "PowerShell(npm run build*)",
+      "PowerShell(npm run lint*)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push origin main*)",
+      "Bash(git push origin develop*)",
+      "Bash(git reset --hard*)",
+      "Bash(gh pr merge * --admin*)",
+      "Bash(gh repo *)",
+      "PowerShell(git push --force*)",
+      "PowerShell(git push -f*)",
+      "PowerShell(git push * --force*)",
+      "PowerShell(git push origin main*)",
+      "PowerShell(git push origin develop*)",
+      "PowerShell(git reset --hard*)",
+      "PowerShell(gh pr merge * --admin*)",
+      "PowerShell(gh repo *)",
+      "Read(./.env.local)"
+    ]
+  }
+}
