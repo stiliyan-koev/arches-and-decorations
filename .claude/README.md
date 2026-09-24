@@ -1,7 +1,7 @@
 # Agent PR pipeline: how it works and why
 
-A "team" of AI agents takes the big `project-init` branch (your backup) and ships it into `develop`
-as small, reviewed PRs. `main` is touched once, at the end, by you. This file explains each part so you can change it with confidence.
+A "team" of AI agents ships the work in `pr-plan.md` into the open release branch (`release/X.Y.Z`)
+as small, reviewed PRs. `main` is the live site and only you move it: once per release. This file explains each part so you can change it with confidence.
 
 ## The team
 
@@ -18,7 +18,7 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
              │                              LEAD filters, checks each MUST,
              │                              posts ONE review on GitHub
              └────────── fix PR #N ◄──── if CHANGES REQUESTED (max 2 fix rounds)
-                                          if APPROVED + CI green ──► squash merge into develop
+                                          if APPROVED + CI green ──► squash merge into release/X.Y.Z
 ```
 
 ## The files, and why each exists
@@ -28,7 +28,7 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
 | `.claude/commands/ship-next-pr.md` | The Lead's playbook. Typing `/ship-next-pr` loads it into your main session. | The orchestrator has to be the main session: agents can't start other agents. |
 | `.claude/agents/developer.md` | Developer agent: can edit, commit, push, open PRs. | Separate agent = separate memory. The Lead never "saw" the code being written, so it doesn't make excuses for it. |
 | `.claude/agents/*-reviewer.md` | 3 specialists: **read-only** tools, no GitHub posting. | Narrow job means a deeper look. Read-only means a reviewer can't "fix" things behind your back. |
-| `.claude/settings.json` | Allow list and deny list for commands. | Allow: the loop doesn't stop to ask you 40 times. Deny: force-push, pushing straight to `main`/`develop` and `--admin` merge are blocked **by the tool**, not just by a sentence in a prompt. The `.env.local` rule is best-effort: it only guards the Read tool, a shell command like `Get-Content .env.local` still works. Anything not on either list (like creating `develop`) makes Claude ask you first. That's a built-in human checkpoint. |
+| `.claude/settings.json` | Allow list and deny list for commands. | Allow: the loop doesn't stop to ask you 40 times. Deny: force-push, pushing straight to `main`/`release/*`, pushing tags and `--admin` merge are blocked **by the tool**, not just by a sentence in a prompt. The `.env.local` rule is best-effort: it only guards the Read tool, a shell command like `Get-Content .env.local` still works. Anything not on either list makes Claude ask you first. That's a built-in human checkpoint. |
 | `.github/workflows/ci.yml` | GitHub runs `lint` + `build` on every PR. | Free and never wrong. Anything a tool can check shouldn't use up an AI reviewer's attention. |
 | `.gitattributes` | Forces LF line endings in git. | Windows (CRLF) and Linux/GitHub (LF) otherwise see "changed" files that aren't. Agents on different machines would all trip on it. |
 | `pr-plan.md` | The split into 20 chunks + progress + log. | The shared "memory" of the team. Agents forget everything between runs; this file doesn't. |
@@ -63,20 +63,43 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
 - **Cost.** One chunk ≈ 1 developer run + 3 reviewers × up to 3 rounds. The reviewers can run on a
   cheaper model: add `model: sonnet` to their frontmatter and compare the quality.
 
-## Branches
+## Branches and versions
 
 ```
-project-init   backup of everything, never merged directly, only read from
-     │  git checkout project-init -- <files of chunk NN>
-     ▼
-split/NN-*  ──PR──►  develop   (agents merge here, one chunk at a time)
-                        │
-                        └──PR──►  main   (Lead opens it at the end, YOU merge it)
+main ──●──────────────●(v1.0.0)──────●(v1.0.1)───────●(v1.1.0)
+        \            /               /  hotfix       /
+         release/1.0.0               /               release/1.1.0
+          ▲    ▲    ▲                                  ▲    ▲
+     feature  fix  feature                        feature  fix
 ```
 
-Why `develop`: agents get a branch where they can merge freely, and `main` stays the
-"known good" branch that only a human moves. When you deploy to Netlify later, point
-production at `main` and previews at `develop`.
+- **`main`** = what's live. Only you merge into it. Every merge gets a tag.
+- **`release/X.Y.Z`** = the next version. You cut it from `main`, the agents squash-merge feature
+  and fix PRs into it. There is only one open at a time.
+- **Ship a release:** test the release branch's Netlify preview, merge the Lead's
+  `release/X.Y.Z` → `main` PR with a **normal merge** (not squash), then tag and delete the branch:
+  ```
+  git switch main; git pull; git tag v1.1.0; git push origin v1.1.0
+  git push origin --delete release/1.1.0
+  ```
+- **Start the next one:** `git push origin origin/main:refs/heads/release/1.2.0`.
+- **Hotfix:** branch off `main`, PR straight into `main`, tag a patch (`v1.1.1`). If a release branch
+  is open, merge `main` into it so the fix isn't lost.
+- **Version numbers:** new features → middle number (1.**2**.0). Only fixes → last (1.1.**1**).
+  Big redesign → first (**2**.0.0). Keep `package.json` `version` the same as the tag.
+
+**Rollback.** The tags are your stable versions.
+1. Fastest: Netlify → Deploys → open an older production deploy → "Publish deploy". Takes seconds,
+   no git. Then fix forward.
+2. Git: `git revert -m 1 <release merge commit>` on a branch, PR into `main`, tag a patch. Never
+   reset or force-push `main`.
+
+**Netlify:** production branch = `main`. Turn on branch deploys for `release/*` so every release
+branch gets its own preview URL to test before you merge.
+
+Why this and not `develop`: a release branch does the same job (agents merge freely, `main` stays
+known-good), but it also gives each release a name, a version number, and a clean rollback point.
+With both you'd just be merging the same code twice.
 
 ## How to run
 
@@ -87,14 +110,12 @@ In Claude Code, from the project folder:
 /ship-next-pr all      <- keeps going until done or blocked
 ```
 
-The first run takes chunk **00**: the pipeline ships itself. `develop` doesn't exist yet,
-so the Lead asks you once to create it from `main`. Then the developer puts the setup files
-(this folder, CI, `.gitattributes`) on `split/00-agents-and-ci`, the reviewers check them,
-and the Lead merges. CI first runs on this PR itself.
+If no `release/*` branch is open, the Lead stops and asks you to cut one from `main`. It can't do
+that itself (pushing to `release/*` is denied), so starting a release stays your decision.
 
 Start with one chunk at a time for the first 3-4 PRs. Read each Lead review and ask:
 *Would I have caught this? Did it drop something it shouldn't have?* When a comment keeps coming
 back, add the rule to CLAUDE.md or the reviewer's checklist. **Tuning these files is the skill.**
 
-Optional: on GitHub set `develop` as the default branch (Settings -> General). Then PRs and
-clones default to it and nobody opens a PR into `main` by mistake.
+Keep `main` as GitHub's default branch. The Lead always passes `--base release/X.Y.Z`, so nothing
+lands in `main` by accident.

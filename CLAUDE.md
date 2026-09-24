@@ -116,6 +116,6 @@ Payments / Stripe, online booking commitments, blog, multi-language toggle (BG o
 
 ## Agent workflow (PR pipeline)
 
-The 6k-line `project-init` branch is shipped to `develop` as small PRs by agents (`develop` → `main` once at the end, merged by the owner). Plan + progress: `pr-plan.md` (local only, git-excluded).
+Branches: `main` is live and only the owner merges into it. Work goes into one open `release/X.Y.Z` branch (cut from `main`) as small PRs by agents. The owner merges `release/X.Y.Z` → `main` (normal merge), then tags `vX.Y.Z`. Tags are the rollback points. No `develop` branch. Plan + progress: `pr-plan.md` (local only, git-excluded).
 Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
 `gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.
