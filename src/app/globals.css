@@ -14,6 +14,18 @@
   --color-border: #f0e4da;
   --color-border-strong: #e7d6c8;
 
+  /* Configurator palette — lifted from reference/configurator-v1_1_3.html.
+     Rose = chosen-tile borders + recommend block; green = the one "add" button;
+     rail = the blush summary column. */
+  --color-rose: #c48ca2;
+  --color-rose-soft: #f1dce4;
+  --color-rose-ink: #8e5a70;
+  --color-green: #cbe7c3;
+  --color-green-hover: #b9ddb0;
+  --color-green-edge: #afd4a6;
+  --color-green-ink: #2e4a33;
+  --color-rail: #f8eeea;
+
   /* Decorative pastels — floating balloons, gradients, gallery cards.
      Namespaced so they don't read as Tailwind's own pink/blue scales. */
   --color-balloon-pink: #f6a5c0;
@@ -32,6 +44,9 @@
 
   --font-display: var(--font-unbounded);
   --font-body: var(--font-nunito);
+  /* Playfair Display, for the configurator's serif titles (reference look).
+     Applied explicitly via `font-serif`; the rest of the site stays Unbounded. */
+  --font-serif: var(--font-playfair), Georgia, serif;
 }
 
 /* One warm light theme, deliberately no dark mode — the photos carry the colour. */
@@ -69,8 +84,23 @@
   animation: float 9s ease-in-out infinite;
 }
 
+/* Mobile filter bottom sheet — slides up from the bottom edge. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.22s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-float {
+  .animate-float,
+  .animate-sheet-up {
     animation: none;
   }
 }

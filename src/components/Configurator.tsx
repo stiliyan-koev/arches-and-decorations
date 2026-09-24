@@ -1,153 +1,381 @@
 "use client";
 
-import { useState } from "react";
-import ItemCard from "@/components/ItemCard";
-import Swatches from "@/components/Swatches";
-import PriceSummary, {
+import { useEffect, useState, type FormEvent } from "react";
+import FamilySection, {
+  type TileView,
+} from "@/components/configurator/FamilySection";
+import EventDetails, {
   type EventFields,
+} from "@/components/configurator/EventDetails";
+import ContactForm, {
+  type ContactFields,
+} from "@/components/configurator/ContactForm";
+import SummaryRail, {
   type SummaryLine,
-} from "@/components/PriceSummary";
-import { submitRequest, type RequestItem } from "@/app/actions";
-import type { CatalogGroup } from "@/lib/types";
+} from "@/components/configurator/SummaryRail";
+import MobileSummaryBar from "@/components/configurator/MobileSummaryBar";
+import OptionModal, {
+  type RecommendView,
+} from "@/components/configurator/OptionModal";
+import type { DropdownOption } from "@/components/configurator/OptionDropdown";
+import type { GridChoice } from "@/components/configurator/PhotoGridPicker";
+import {
+  getReservedQuantities,
+  submitRequest,
+  type RequestItem,
+} from "@/app/actions";
+import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
+import { resolvePreviewImage } from "@/lib/images";
+import type { CatalogGroup, Product } from "@/lib/types";
 
-// What the visitor has picked for one category.
-type Selection = {
-  checked: boolean;
+// One confirmed selection. A category can hold several, so items carry their own
+// id rather than being keyed by product. addon* is the recommended add-on (a
+// cover for an arch), null when none was chosen.
+type ConfItem = {
+  uid: string;
+  categoryId: string;
   productId: string;
-  colorId: string | null;
+  addonProductId: string | null;
+  addonColorId: string | null;
 };
 
-// Mirrors the mockup's sample selection: the first few categories start ticked
-// so the visitor lands on a real number instead of 0 лв.
-const PRECHECKED_GROUPS = 3;
+// The modal's working copy while adding or editing an item.
+type Draft = {
+  categoryId: string;
+  editUid: string | null;
+  optionGroup: string;
+  productId: string;
+  addonValue: string; // "" | productId | `${productId}::${colorId}`
+};
 
-const FIELD_LABEL =
-  "mb-1.5 block text-xs font-extrabold uppercase tracking-[0.06em] text-muted";
-const FIELD_INPUT =
-  "w-full rounded-[10px] border border-border-strong bg-surface px-[11px] py-2.5 text-[0.95rem] text-ink focus:outline-2 focus:outline-offset-2 focus:outline-ink/50";
-
-function initialSelections(groups: CatalogGroup[]) {
-  const selections: Record<string, Selection> = {};
-
-  groups.forEach((group, index) => {
-    const product = group.products[0];
-    selections[group.id] = {
-      checked: index < PRECHECKED_GROUPS,
-      productId: product.id,
-      colorId: product.colors[0]?.id ?? null,
-    };
-  });
-
-  return selections;
+function parseAddon(value: string) {
+  if (!value) return { addonProductId: null, addonColorId: null };
+  const [productId, colorId] = value.split("::");
+  return { addonProductId: productId, addonColorId: colorId ?? null };
 }
 
-function priceLabel(price: number | null) {
-  return price === null ? "по запитване" : `${price} лв`;
+function addonValueOf(productId: string | null, colorId: string | null) {
+  if (!productId) return "";
+  return colorId ? `${productId}::${colorId}` : productId;
+}
+
+// The distinct option_group labels among a category's products, in product order.
+function optionGroupsOf(category: CatalogGroup): string[] {
+  const seen: string[] = [];
+  for (const product of category.products) {
+    if (product.option_group && !seen.includes(product.option_group)) {
+      seen.push(product.option_group);
+    }
+  }
+  return seen;
 }
 
 export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
-  const [selections, setSelections] = useState(() => initialSelections(groups));
-  const [customChecked, setCustomChecked] = useState(false);
-  const [customText, setCustomText] = useState("");
+  const [items, setItems] = useState<ConfItem[]>([]);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [event, setEvent] = useState<EventFields>({
+    city: "Варна",
+    date: "",
+    time: "",
+    setup2hBefore: true,
+  });
+  const [contact, setContact] = useState<ContactFields>({
+    customerName: "",
+    phone: "",
+    note: "",
+  });
+  const [availability, setAvailability] = useState<{
+    key: string;
+    reserved: Record<string, number>;
+  }>({ key: "", reserved: {} });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  function update(groupId: string, patch: Partial<Selection>) {
-    setSelections((current) => ({
-      ...current,
-      [groupId]: { ...current[groupId], ...patch },
-    }));
+  const families = groups.filter((group) => group.in_configurator);
+
+  function groupById(id: string | null) {
+    return id ? groups.find((group) => group.id === id) : undefined;
   }
 
-  function findProduct(group: CatalogGroup, productId: string) {
-    return (
-      group.products.find((product) => product.id === productId) ??
-      group.products[0]
+  function productById(id: string | null): Product | undefined {
+    if (!id) return undefined;
+    for (const group of groups) {
+      const found = group.products.find((product) => product.id === id);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  // A service event occupies a single day, so from === to. The answer is stored
+  // with the date it was asked about — a changed date invalidates it by itself.
+  const hasDate = Boolean(event.date);
+  const rangeKey = hasDate ? `${event.date}:${event.date}` : "";
+  const reserved = availability.key === rangeKey ? availability.reserved : {};
+  const checking = hasDate && availability.key !== rangeKey;
+
+  useEffect(() => {
+    if (!rangeKey) return;
+    let cancelled = false;
+
+    getReservedQuantities(event.date, event.date)
+      .then((map) => {
+        if (!cancelled) setAvailability({ key: rangeKey, reserved: map });
+      })
+      .catch(() => {
+        // An unreachable database reads as "nothing booked" — she confirms every
+        // request by hand anyway, so a stale count annoys at worst.
+        if (!cancelled) setAvailability({ key: rangeKey, reserved: {} });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rangeKey, event.date]);
+
+  // How many of a product are free on the chosen date (Infinity when untracked),
+  // then minus what the current cart already spends on it — both as the main item
+  // and as an add-on, since those draw from the same pool.
+  function freeQty(product: Product) {
+    if (!product.track_availability) return Infinity;
+    if (!hasDate) return product.quantity;
+    return Math.max(0, product.quantity - (reserved[product.id] ?? 0));
+  }
+
+  function usedQty(productId: string, excludeUid: string | null) {
+    return items.reduce((sum, item) => {
+      if (item.uid === excludeUid) return sum;
+      let count = 0;
+      if (item.productId === productId) count += 1;
+      if (item.addonProductId === productId) count += 1;
+      return sum + count;
+    }, 0);
+  }
+
+  function soldOut(product: Product, excludeUid: string | null) {
+    if (!product.track_availability) return false;
+    return freeQty(product) - usedQty(product.id, excludeUid) <= 0;
+  }
+
+  function priceOf(product: Product | undefined) {
+    if (!product) return null;
+    if (product.pricing_type === "custom_quote" || product.base_price == null) {
+      return null;
+    }
+    return product.base_price;
+  }
+
+  function itemPrice(item: ConfItem): number | null {
+    const main = priceOf(productById(item.productId));
+    if (main === null) return null; // a quote item stays a quote, add-on or not
+    const addon = item.addonProductId
+      ? priceOf(productById(item.addonProductId))
+      : null;
+    return main + (addon ?? 0);
+  }
+
+  const total = items.reduce((sum, item) => {
+    const price = itemPrice(item);
+    return price === null ? sum : sum + price;
+  }, 0);
+
+  const hasQuoteItems = items.some((item) => itemPrice(item) === null);
+
+  // ---- tiles + summary ----
+
+  function addonMeta(item: ConfItem, label: string) {
+    const addon = item.addonProductId ? productById(item.addonProductId) : null;
+    if (!addon) return null;
+    const color = item.addonColorId
+      ? addon.colors.find((c) => c.id === item.addonColorId)
+      : null;
+    return `${label}: ${color ? color.color_name : addon.name}`;
+  }
+
+  function tilesFor(family: CatalogGroup): TileView[] {
+    const label = family.recommend_label ?? "Добавка";
+    return items
+      .filter((item) => item.categoryId === family.id)
+      .map((item) => {
+        const product = productById(item.productId);
+        const addon = item.addonProductId
+          ? productById(item.addonProductId)
+          : null;
+        const meta = [
+          product?.option_group,
+          product?.name,
+          addonMeta(item, label),
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        const price = itemPrice(item);
+        return {
+          uid: item.uid,
+          photo: resolvePreviewImage(product, addon, item.addonColorId),
+          title: family.name,
+          meta,
+          priceLabel: price === null ? "По запитване" : formatPrice(price),
+          isQuote: price === null,
+        };
+      });
+  }
+
+  const summaryLines: SummaryLine[] = items.map((item) => {
+    const family = groupById(item.categoryId);
+    const product = productById(item.productId);
+    const addon = item.addonProductId ? productById(item.addonProductId) : null;
+    const color =
+      addon && item.addonColorId
+        ? addon.colors.find((c) => c.id === item.addonColorId)
+        : null;
+    const sub = [product?.name, color ? color.color_name : addon?.name]
+      .filter(Boolean)
+      .join(" · ");
+    const price = itemPrice(item);
+    return {
+      key: item.uid,
+      name: family?.name ?? "",
+      sub,
+      value: price === null ? QUOTE_LABEL : formatPrice(price),
+    };
+  });
+
+  // ---- modal handlers ----
+
+  function openAdd(categoryId: string) {
+    setDraft({
+      categoryId,
+      editUid: null,
+      optionGroup: "",
+      productId: "",
+      addonValue: "",
+    });
+  }
+
+  function openEdit(uid: string) {
+    const item = items.find((entry) => entry.uid === uid);
+    if (!item) return;
+    setDraft({
+      categoryId: item.categoryId,
+      editUid: uid,
+      optionGroup: productById(item.productId)?.option_group ?? "",
+      productId: item.productId,
+      addonValue: addonValueOf(item.addonProductId, item.addonColorId),
+    });
+  }
+
+  function confirmDraft() {
+    if (!draft) return;
+    const { addonProductId, addonColorId } = parseAddon(draft.addonValue);
+    const item: ConfItem = {
+      uid: draft.editUid ?? crypto.randomUUID(),
+      categoryId: draft.categoryId,
+      productId: draft.productId,
+      addonProductId,
+      addonColorId,
+    };
+    setItems((current) =>
+      draft.editUid
+        ? current.map((entry) => (entry.uid === draft.editUid ? item : entry))
+        : [...current, item],
     );
+    setDraft(null);
   }
 
-  // Everything below is derived from `selections` on each render — that's what
-  // keeps the total live without any extra bookkeeping.
-  const chosen = groups
-    .filter((group) => selections[group.id].checked)
-    .map((group) => {
-      const selection = selections[group.id];
-      const product = findProduct(group, selection.productId);
-      const color = product.colors.find((c) => c.id === selection.colorId);
-      return { group, product, color };
-    });
-
-  const total = chosen.reduce(
-    (sum, { product }) => sum + (product.base_price ?? 0),
-    0,
-  );
-
-  const hasQuoteItems =
-    customChecked || chosen.some(({ product }) => product.base_price === null);
-
-  const lines: SummaryLine[] = chosen.map(({ group, product, color }) => ({
-    key: group.id,
-    name: color ? `${product.name} (${color.color_name})` : product.name,
-    value: priceLabel(product.base_price),
-  }));
-
-  if (customChecked) {
-    lines.push({
-      key: "custom",
-      name: customText.trim() || "Персонализирано",
-      value: "по запитване",
-    });
+  function removeItem(uid: string) {
+    setItems((current) => current.filter((entry) => entry.uid !== uid));
   }
 
-  async function handleSubmit(fields: EventFields) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setDraft(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ---- submit ----
+
+  const stepOneReady = items.length > 0 && hasDate;
+  const ctaDisabled =
+    step === 1 ? !stepOneReady : submitting || !contact.phone.trim();
+
+  const sendLabel = submitting ? "Изпращане…" : "Изпрати запитване";
+  const railCtaLabel = step === 1 ? "Данни за контакт →" : sendLabel;
+  const barCtaLabel = step === 1 ? "Напред →" : sendLabel;
+
+  const stepOneHint =
+    items.length === 0
+      ? "Добавете поне един детайл."
+      : !hasDate
+        ? "Изберете дата, за да продължим."
+        : null;
+
+  async function send() {
     setError(null);
 
-    const items: RequestItem[] = chosen.map(({ product, color }) => ({
-      productId: product.id,
-      colorId: color?.id ?? null,
-      customText: null,
-      linePrice: product.base_price,
-    }));
-
-    if (customChecked) {
-      items.push({
-        productId: null,
+    const requestItems: RequestItem[] = [];
+    for (const item of items) {
+      requestItems.push({
+        productId: item.productId,
         colorId: null,
-        customText: customText.trim() || "Персонализирана заявка",
-        linePrice: null,
+        qty: 1,
+        linePrice: priceOf(productById(item.productId)),
       });
+      // The recommended add-on is its own booking_items row, carrying the
+      // chosen colour.
+      if (item.addonProductId) {
+        requestItems.push({
+          productId: item.addonProductId,
+          colorId: item.addonColorId,
+          qty: 1,
+          linePrice: priceOf(productById(item.addonProductId)),
+        });
+      }
     }
 
     setSubmitting(true);
     const result = await submitRequest({
-      customerName: fields.customerName,
-      phone: fields.phone,
-      city: fields.city,
-      eventDate: fields.eventDate,
-      eventTime: fields.eventTime,
-      setup2hBefore: fields.setup2hBefore,
+      mode: "service",
+      customerName: contact.customerName,
+      phone: contact.phone,
+      city: event.city,
+      note: contact.note,
+      eventDate: event.date,
+      eventTime: event.time,
+      startDate: "",
+      endDate: "",
+      setup2hBefore: event.setup2hBefore,
       estimatedTotal: total,
-      items,
+      items: requestItems,
     });
     setSubmitting(false);
 
-    if (result.ok) {
-      setSubmitted(true);
-    } else {
-      setError(result.error);
+    if (result.ok) setSubmitted(true);
+    else setError(result.error);
+  }
+
+  function handleSubmit(formEvent: FormEvent) {
+    formEvent.preventDefault();
+    if (step === 1) {
+      setError(null);
+      setStep(2);
+      return;
     }
+    void send();
   }
 
   if (submitted) {
     return (
       <div className="relative z-10 mx-auto max-w-xl rounded-card border border-border bg-surface p-8 text-center shadow-card">
         <p className="text-5xl">🎈</p>
-        <h2 className="mt-4 text-2xl">Благодарим!</h2>
+        <h2 className="mt-4 font-serif text-2xl">Благодарим!</h2>
         <p className="mt-3 text-muted">
           Получихме вашето запитване за{" "}
-          <strong className="text-ink">{total} лв</strong> ориентировъчно. Ще се
-          свържем с вас по телефона, за да уговорим лична среща.
+          <strong className="text-ink">{formatPrice(total)}</strong>{" "}
+          ориентировъчно. Ще се свържем с вас по телефона, за да уговорим лична
+          среща.
         </p>
         <p className="mt-4 text-sm text-muted">
           Крайната сума и наличността за вашата дата уточняваме на срещата. Няма
@@ -158,98 +386,276 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
   }
 
   return (
-    <div className="relative z-10 grid items-start gap-[22px] lg:grid-cols-[1.55fr_1fr]">
-      <div className="rounded-card border border-border bg-surface p-[22px] shadow-card">
-        <h2 className="text-[1.15rem]">Твоята украса</h2>
-        <p className="mt-1 mb-[18px] text-sm text-muted">
-          Маркирай това, което искаш. Цената се преизчислява веднага.
-        </p>
+    <div className="relative z-10">
+      <p className="mb-4 rounded-item border border-border-strong bg-surface px-4 py-2.5 text-center text-sm text-muted">
+        Предварителен преглед · Цените са примерни. Крайната оферта уточняваме
+        лично.
+      </p>
 
-        {groups.map((group) => {
-          const selection = selections[group.id];
-          const product = findProduct(group, selection.productId);
-
-          return (
-            <ItemCard
-              key={group.id}
-              id={`item-${group.slug}`}
-              label={group.name}
-              priceLabel={priceLabel(product.base_price)}
-              isQuote={product.base_price === null}
-              checked={selection.checked}
-              onToggle={(checked) => update(group.id, { checked })}
-            >
-              {group.products.length > 1 && (
-                <div className="mb-3">
-                  <label
-                    className={FIELD_LABEL}
-                    htmlFor={`select-${group.slug}`}
-                  >
-                    Избери вариант
-                  </label>
-                  <select
-                    id={`select-${group.slug}`}
-                    value={selection.productId}
-                    onChange={(event) => {
-                      const next = findProduct(group, event.target.value);
-                      update(group.id, {
-                        productId: next.id,
-                        colorId: next.colors[0]?.id ?? null,
-                      });
-                    }}
-                    className={FIELD_INPUT}
-                  >
-                    {group.products.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name} — {priceLabel(option.base_price)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {product.colors.length > 0 && (
-                <Swatches
-                  colors={product.colors}
-                  selectedId={selection.colorId}
-                  onSelect={(colorId) => update(group.id, { colorId })}
-                  label={`Цвят — ${product.name}`}
-                />
-              )}
-            </ItemCard>
-          );
-        })}
-
-        <ItemCard
-          id="item-custom"
-          label="Персонализирана фигурка / надпис"
-          priceLabel="по запитване"
-          isQuote
-          checked={customChecked}
-          onToggle={setCustomChecked}
-        >
-          <label className={FIELD_LABEL} htmlFor="custom-text">
-            Опиши какво искаш
-          </label>
-          <input
-            id="custom-text"
-            type="text"
-            value={customText}
-            onChange={(event) => setCustomText(event.target.value)}
-            placeholder="напр. фигурка „Спайдърмен“, надпис „Мартин на 5“"
-            className={FIELD_INPUT}
-          />
-        </ItemCard>
-      </div>
-
-      <PriceSummary
-        lines={lines}
-        total={total}
-        hasQuoteItems={hasQuoteItems}
-        submitting={submitting}
-        error={error}
+      <form
         onSubmit={handleSubmit}
-      />
+        className="grid rounded-card border border-border bg-surface shadow-card lg:grid-cols-[1.9fr_1fr]"
+      >
+        {/* min-w-0 keeps the grid column from being widened by its content. */}
+        <div className="min-w-0 p-[22px]">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <span className="text-[0.72rem] font-extrabold tracking-[0.14em] text-muted uppercase">
+                Да го направим ваше
+              </span>
+              <h2 className="mt-1 font-serif text-[1.5rem]">
+                {step === 1
+                  ? "Създайте своята украса"
+                  : "Как да се свържем с вас?"}
+              </h2>
+            </div>
+            <span className="rounded-full border border-border bg-bg px-3 py-1 text-xs font-bold whitespace-nowrap text-muted">
+              Стъпка {step} от 2
+            </span>
+          </div>
+
+          {step === 1 ? (
+            <>
+              <div>
+                {families.map((family) => (
+                  <FamilySection
+                    key={family.id}
+                    title={family.name}
+                    description={family.description ?? ""}
+                    addLabel={family.add_label ?? "Добави"}
+                    tiles={tilesFor(family)}
+                    onAdd={() => openAdd(family.id)}
+                    onEdit={openEdit}
+                    onRemove={removeItem}
+                  />
+                ))}
+              </div>
+
+              <EventDetails
+                fields={event}
+                onChange={(patch) =>
+                  setEvent((current) => ({ ...current, ...patch }))
+                }
+                checking={checking}
+              />
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="mb-4 cursor-pointer text-sm font-extrabold text-rose-ink"
+              >
+                ← Към детайлите
+              </button>
+
+              <p className="mb-4 rounded-item bg-rail px-3.5 py-2.5 text-sm text-muted">
+                Дата: {formatDate(event.date)}
+                {event.time ? ` в ${event.time} ч.` : ""} · {event.city}
+              </p>
+
+              <ContactForm
+                fields={contact}
+                onChange={(patch) =>
+                  setContact((current) => ({ ...current, ...patch }))
+                }
+              />
+            </>
+          )}
+        </div>
+
+        <div className="min-w-0 rounded-b-card border-t border-border bg-rail p-[22px] lg:rounded-tr-card lg:rounded-b-none lg:border-t-0 lg:border-l">
+          <SummaryRail
+            lines={summaryLines}
+            total={total}
+            hasQuoteItems={hasQuoteItems}
+            ctaLabel={railCtaLabel}
+            ctaDisabled={ctaDisabled}
+            hint={step === 1 ? stepOneHint : null}
+            error={error}
+          />
+        </div>
+
+        {items.length > 0 && (
+          <MobileSummaryBar
+            itemCount={items.length}
+            total={total}
+            ctaLabel={barCtaLabel}
+            ctaDisabled={ctaDisabled}
+            hint={step === 1 ? stepOneHint : null}
+          />
+        )}
+      </form>
+
+      {draft && (
+        <ConfiguratorModal
+          draft={draft}
+          setDraft={setDraft}
+          productById={productById}
+          groupById={groupById}
+          freeInfo={{ soldOut }}
+          priceOf={priceOf}
+          onConfirm={confirmDraft}
+        />
+      )}
     </div>
+  );
+}
+
+// The modal's derived data is bulky enough to split out, but it stays inside the
+// same module because it leans on the parent's availability helpers. It renders
+// the shared OptionModal, computing every option list from the category's data.
+function ConfiguratorModal({
+  draft,
+  setDraft,
+  productById,
+  groupById,
+  freeInfo,
+  priceOf,
+  onConfirm,
+}: {
+  draft: Draft;
+  setDraft: (draft: Draft | null) => void;
+  productById: (id: string | null) => Product | undefined;
+  groupById: (id: string | null) => CatalogGroup | undefined;
+  freeInfo: { soldOut: (product: Product, excludeUid: string | null) => boolean };
+  priceOf: (product: Product | undefined) => number | null;
+  onConfirm: () => void;
+}) {
+  const category = groupById(draft.categoryId);
+  if (!category) return null;
+
+  const editing = draft.editUid != null;
+  const { soldOut } = freeInfo;
+
+  const optionGroups = optionGroupsOf(category);
+  const hasGroups = optionGroups.length > 0;
+
+  const stepProducts = hasGroups
+    ? category.products.filter((p) => p.option_group === draft.optionGroup)
+    : category.products;
+
+  const priceText = (product: Product, lower: boolean) => {
+    const price = priceOf(product);
+    if (price === null) return lower ? "по запитване" : "По запитване";
+    return formatPrice(price);
+  };
+
+  const optionGroupOptions: DropdownOption[] = optionGroups.map((group) => ({
+    value: group,
+    label: group,
+  }));
+
+  const productDropdownOptions: DropdownOption[] = stepProducts.map((product) => {
+    const out = soldOut(product, draft.editUid);
+    return {
+      value: product.id,
+      label: `${product.name} · ${priceText(product, true)}${
+        out ? " · няма свободни" : ""
+      }`,
+      disabled: out,
+    };
+  });
+
+  const gridChoices: GridChoice[] = stepProducts.map((product) => ({
+    id: product.id,
+    name: product.name,
+    priceLabel: priceText(product, false),
+    photo: resolvePreviewImage(product),
+    disabled: soldOut(product, draft.editUid),
+  }));
+
+  let recommend: RecommendView | null = null;
+  const target = groupById(category.recommend_category_id);
+  if (target) {
+    const multi = target.products.length > 1;
+    const options: DropdownOption[] = [];
+    for (const product of target.products) {
+      const out = soldOut(product, draft.editUid);
+      const price = priceOf(product);
+      const priceSuffix = price === null ? "" : ` · +${formatPrice(price)}`;
+      const outSuffix = out ? " · няма свободни" : "";
+      if (product.colors.length > 0) {
+        for (const color of product.colors) {
+          options.push({
+            value: `${product.id}::${color.id}`,
+            label: `${
+              multi ? `${product.name} · ${color.color_name}` : color.color_name
+            }${priceSuffix}${outSuffix}`,
+            disabled: out,
+          });
+        }
+      } else {
+        options.push({
+          value: product.id,
+          label: `${product.name}${priceSuffix}${outSuffix}`,
+          disabled: out,
+        });
+      }
+    }
+    recommend = {
+      title: category.recommend_title ?? "",
+      hint: category.recommend_hint ?? "",
+      label: category.recommend_label ?? "Добавка",
+      options,
+    };
+  }
+
+  const selectedProduct = draft.productId
+    ? productById(draft.productId)
+    : undefined;
+  const { addonProductId, addonColorId } = parseAddon(draft.addonValue);
+  const addonProduct = addonProductId ? productById(addonProductId) : undefined;
+
+  const previewPhoto = resolvePreviewImage(
+    selectedProduct,
+    addonProduct,
+    addonColorId,
+  );
+
+  const draftPrice = (() => {
+    if (!selectedProduct) return null;
+    const main = priceOf(selectedProduct);
+    if (main === null) return null;
+    return main + (addonProduct ? (priceOf(addonProduct) ?? 0) : 0);
+  })();
+
+  const priceLabel = !selectedProduct
+    ? "-"
+    : draftPrice === null
+      ? "По запитване"
+      : formatPrice(draftPrice);
+
+  const productPlaceholder =
+    hasGroups && !draft.optionGroup ? "първо изберете вид" : "- изберете -";
+
+  return (
+    <OptionModal
+      title={`${editing ? "Промени " : "Добави "}${category.name.toLowerCase()}`}
+      confirmLabel={editing ? "Запази промените" : "Потвърди избора"}
+      picker={category.picker}
+      optionGroupLabel="Вид"
+      optionGroupOptions={optionGroupOptions}
+      optionGroup={draft.optionGroup}
+      onOptionGroup={(value) =>
+        setDraft({ ...draft, optionGroup: value, productId: "" })
+      }
+      productStepLabel={category.picker === "grid" ? "Изберете" : "Изберете вариант"}
+      productPlaceholder={productPlaceholder}
+      productDropdownOptions={productDropdownOptions}
+      gridChoices={gridChoices}
+      productDisabled={hasGroups && !draft.optionGroup}
+      productId={draft.productId}
+      onProduct={(value) => setDraft({ ...draft, productId: value })}
+      recommend={recommend}
+      addonValue={draft.addonValue}
+      onAddon={(value) => setDraft({ ...draft, addonValue: value })}
+      previewPhoto={previewPhoto}
+      previewAlt={selectedProduct?.name ?? category.name}
+      priceLabel={priceLabel}
+      canConfirm={Boolean(selectedProduct)}
+      onConfirm={onConfirm}
+      onClose={() => setDraft(null)}
+    />
   );
 }
