@@ -74,7 +74,7 @@ Keep it flat. No `features/`, no `domain/`, no barrel-file mazes.
 > Build `/configurator`: a checklist of products grouped by category, quantity inputs, and a free-text field for the custom figure. Show a live running total labeled "Ориентировъчна цена" that recalculates on every change. Signs (custom_quote) show "по запитване" and don't add to the number. Below it, a contact form (name, phone, city, event date OR pickup/return range, "може ли 2 часа преди събитието") that writes a `bookings` row with status 'requested' and its `booking_items`, then shows a thank-you. Make clear the final price is agreed at a personal meeting.
 
 ## 6. Deploy (when step 3 works)
-Push to GitHub → Netlify: **Add new site → Import an existing project** → pick the repo. Netlify detects Next.js and runs it through its Next.js runtime (OpenNext) — no `netlify.toml` needed. Build settings:
+Push to GitHub → Netlify: **Add new project → Import an existing project** → pick the repo. Netlify detects Next.js and runs it through its Next.js runtime (OpenNext) — no `netlify.toml` needed. Build settings:
 
 | Field | Value |
 |---|---|
@@ -83,7 +83,7 @@ Push to GitHub → Netlify: **Add new site → Import an existing project** → 
 | Publish directory | `.next` |
 | Functions directory | *(leave the default — the Next.js runtime generates the functions)* |
 
-Add the two env vars under **Site configuration → Environment variables** *before* the first deploy: `NEXT_PUBLIC_*` values are baked in at build time, so adding them later needs a redeploy. Add your domain under **Domain management**.
+Add the two env vars under **Project configuration → Environment variables** *before* the first deploy: `NEXT_PUBLIC_*` values are baked in at build time, so adding them later needs a redeploy. Add your domain under **Domain management**.
 
 ## Definition of done for v1
 A visitor in Varna can: see what's offered with photos, open a product and switch colors, build a selection and get an approximate price, and send a request. Your wife can: log in, see incoming requests, see a calendar of confirmed bookings, and add/edit products with images. No payments, no online booking commitment.

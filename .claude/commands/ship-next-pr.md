@@ -26,15 +26,16 @@ Branches: `main` = live site, only the owner moves it. Work goes into ONE open r
 Find REL: `git ls-remote --heads origin "release/*"`.
 - Exactly one -> that is REL.
 - None -> STOP and tell the owner: "No open release. Cut one from `main`:
-  `git push origin origin/main:refs/heads/release/X.Y.Z`" (suggest X.Y.Z: the latest tag from
-  `git tag --sort=-v:refname`, next minor for features, next patch for fixes only).
+  `git fetch origin; git push origin origin/main:refs/heads/release/X.Y.Z`" (suggest X.Y.Z: the latest tag from
+  `git tag -l --sort=-v:refname`, next minor for features, next patch for fixes only).
   You can't create it yourself: pushing to `release/*` is denied on purpose.
 - More than one -> STOP and ask the owner which one.
 
 Read `pr-plan.md`. Take the first chunk that is not ticked in "Progress".
 Check if it already has a PR: `gh pr list --head <branch> --state all`.
 - Merged already -> tick it in pr-plan.md and take the next chunk.
-- Open -> if its base is not REL, retarget it: `gh pr edit <N> --base <REL>`. Then go to step 2.
+- Open -> if its base is not REL, retarget it: `gh pr edit <N> --base <REL>`, then
+  `gh pr close <N>; gh pr reopen <N>` so CI runs against REL (CI ignores the `edited` event). Then go to step 2.
 - None -> step 1.
 
 ## 1. Build

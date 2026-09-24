@@ -28,7 +28,7 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
 | `.claude/commands/ship-next-pr.md` | The Lead's playbook. Typing `/ship-next-pr` loads it into your main session. | The orchestrator has to be the main session: agents can't start other agents. |
 | `.claude/agents/developer.md` | Developer agent: can edit, commit, push, open PRs. | Separate agent = separate memory. The Lead never "saw" the code being written, so it doesn't make excuses for it. |
 | `.claude/agents/*-reviewer.md` | 3 specialists: **read-only** tools, no GitHub posting. | Narrow job means a deeper look. Read-only means a reviewer can't "fix" things behind your back. |
-| `.claude/settings.json` | Allow list and deny list for commands. | Allow: the loop doesn't stop to ask you 40 times. Deny: force-push, pushing straight to `main`/`release/*`, pushing tags and `--admin` merge are blocked **by the tool**, not just by a sentence in a prompt. The `.env.local` rule is best-effort: it only guards the Read tool, a shell command like `Get-Content .env.local` still works. Anything not on either list makes Claude ask you first. That's a built-in human checkpoint. |
+| `.claude/settings.json` | Allow list and deny list for commands. | Allow: the loop doesn't stop to ask you 40 times. Deny: force-push, pushing to `main`/`release/*` (by name, `HEAD`/`@`, refspecs, `--all`/`--mirror`), deleting remote refs, pushing tags and `--admin` merge are caught **by the tool**, not just by a sentence in a prompt. The deny list is **best-effort**: it matches the command text, so grouped short flags (`-uf`) and shell quoting can slip past. The real wall would be a GitHub ruleset on `main`, `release/**` and `v*` tags (your call; needs GitHub Pro on a private repo). The `.env.local` rule is best-effort too: it only guards the Read tool, a shell command like `Get-Content .env.local` still works. Anything not on either list makes Claude ask you first. That's a built-in human checkpoint. |
 | `.github/workflows/ci.yml` | GitHub runs `lint` + `build` on every PR. | Free and never wrong. Anything a tool can check shouldn't use up an AI reviewer's attention. |
 | `.gitattributes` | Forces LF line endings in git. | Windows (CRLF) and Linux/GitHub (LF) otherwise see "changed" files that aren't. Agents on different machines would all trip on it. |
 | `pr-plan.md` | The split into 20 chunks + progress + log. | The shared "memory" of the team. Agents forget everything between runs; this file doesn't. |
@@ -82,7 +82,7 @@ main ──●──────────────●(v1.0.0)────�
   git switch main; git pull; git tag v1.1.0; git push origin v1.1.0
   git push origin --delete release/1.1.0
   ```
-- **Start the next one:** `git push origin origin/main:refs/heads/release/1.2.0`.
+- **Start the next one:** `git fetch origin; git push origin origin/main:refs/heads/release/1.2.0`.
 - **Hotfix:** branch off `main`, PR straight into `main`, tag a patch (`v1.1.1`). If a release branch
   is open, merge `main` into it so the fix isn't lost.
 - **Version numbers:** new features → middle number (1.**2**.0). Only fixes → last (1.1.**1**).
@@ -94,8 +94,9 @@ main ──●──────────────●(v1.0.0)────�
 2. Git: `git revert -m 1 <release merge commit>` on a branch, PR into `main`, tag a patch. Never
    reset or force-push `main`.
 
-**Netlify:** production branch = `main`. Turn on branch deploys for `release/*` so every release
-branch gets its own preview URL to test before you merge.
+**Netlify:** production branch = `main`. Branch deploys: All branches, or add each `release/X.Y.Z`
+by name when you cut it (Netlify takes exact branch names, not a `release/*` pattern). The
+release → `main` PR gets a Deploy Preview either way, so there is always a preview to test before you merge.
 
 Why this and not `develop`: a release branch does the same job (agents merge freely, `main` stays
 known-good), but it also gives each release a name, a version number, and a clean rollback point.
