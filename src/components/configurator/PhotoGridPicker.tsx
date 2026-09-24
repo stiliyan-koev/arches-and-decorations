@@ -59,6 +59,7 @@ export default function PhotoGridPicker({
                     alt={choice.name}
                     width={200}
                     height={200}
+                    sizes="(max-width: 640px) 45vw, 140px"
                     className="h-full w-full object-cover"
                   />
                 ) : (

@@ -27,6 +27,20 @@ export type RequestPayload = {
 
 export type RequestResult = { ok: true } | { ok: false; error: string };
 
+// Limits for what one request may carry. The form only ever sends qty 1, a few
+// items and short texts, but submitRequest is a public endpoint that anyone can
+// call with a hand-built payload, so the limits are checked here.
+const MAX_ITEMS = 30;
+const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed
+const MAX_SHORT_TEXT = 200; // name, phone, city
+const MAX_NOTE = 3000; // same as the note textarea's maxLength
+
+const SEND_FAILED = "Нещо се обърка при изпращането. Моля, опитайте отново.";
+
+function isTextUpTo(value: unknown, maxLength: number) {
+  return typeof value === "string" && value.length <= maxLength;
+}
+
 // How many of each product are already spoken for between two dates. The
 // configurator subtracts this from products.quantity to decide what a tile can
 // still offer. Anything that goes wrong returns {} — an empty map means "assume
@@ -65,6 +79,32 @@ export async function submitRequest(
     };
   }
 
+  // The form can never fail these checks, so failing one means a hand-built
+  // call and the generic message is enough.
+  if (payload.mode !== "service" && payload.mode !== "rental") {
+    return { ok: false, error: SEND_FAILED };
+  }
+
+  if (
+    !isTextUpTo(payload.customerName, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.phone, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.city, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.note, MAX_NOTE)
+  ) {
+    return { ok: false, error: SEND_FAILED };
+  }
+
+  if (!Array.isArray(payload.items) || payload.items.length > MAX_ITEMS) {
+    return { ok: false, error: SEND_FAILED };
+  }
+
+  for (const item of payload.items) {
+    const qty = item?.qty;
+    if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
+      return { ok: false, error: SEND_FAILED };
+    }
+  }
+
   const isRental = payload.mode === "rental";
 
   if (!payload.phone.trim()) {
@@ -86,6 +126,13 @@ export async function submitRequest(
   // an insert would be rejected.
   const bookingId = crypto.randomUUID();
 
+  // Only an estimate for the admin to read; anything that isn't a sane number
+  // is stored as "unknown" rather than as-is.
+  const estimatedTotal =
+    Number.isFinite(payload.estimatedTotal) && payload.estimatedTotal >= 0
+      ? payload.estimatedTotal
+      : null;
+
   const { error: bookingError } = await supabase.from("bookings").insert({
     id: bookingId,
     type: payload.mode,
@@ -101,14 +148,11 @@ export async function submitRequest(
     customer_name: payload.customerName.trim() || null,
     phone: payload.phone.trim(),
     note: payload.note.trim() || null,
-    estimated_total: payload.estimatedTotal,
+    estimated_total: estimatedTotal,
   });
 
   if (bookingError) {
-    return {
-      ok: false,
-      error: "Нещо се обърка при изпращането. Моля, опитайте отново.",
-    };
+    return { ok: false, error: SEND_FAILED };
   }
 
   const { error: itemsError } = await supabase.from("booking_items").insert(

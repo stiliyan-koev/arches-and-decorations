@@ -169,10 +169,10 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
   function itemPrice(item: ConfItem): number | null {
     const main = priceOf(productById(item.productId));
     if (main === null) return null; // a quote item stays a quote, add-on or not
-    const addon = item.addonProductId
-      ? priceOf(productById(item.addonProductId))
-      : null;
-    return main + (addon ?? 0);
+    if (!item.addonProductId) return main;
+    const addon = priceOf(productById(item.addonProductId));
+    if (addon === null) return null; // a quote add-on makes the line a quote
+    return main + addon;
   }
 
   const total = items.reduce((sum, item) => {
@@ -573,7 +573,8 @@ function ConfiguratorModal({
     for (const product of target.products) {
       const out = soldOut(product, draft.editUid);
       const price = priceOf(product);
-      const priceSuffix = price === null ? "" : ` · +${formatPrice(price)}`;
+      const priceSuffix =
+        price === null ? ` · ${QUOTE_LABEL}` : ` · +${formatPrice(price)}`;
       const outSuffix = out ? " · няма свободни" : "";
       if (product.colors.length > 0) {
         for (const color of product.colors) {
@@ -617,7 +618,9 @@ function ConfiguratorModal({
     if (!selectedProduct) return null;
     const main = priceOf(selectedProduct);
     if (main === null) return null;
-    return main + (addonProduct ? (priceOf(addonProduct) ?? 0) : 0);
+    if (!addonProduct) return main;
+    const addon = priceOf(addonProduct);
+    return addon === null ? null : main + addon;
   })();
 
   const priceLabel = !selectedProduct

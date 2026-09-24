@@ -16,10 +16,25 @@ const LABEL =
 const INPUT =
   "w-full rounded-[9px] border border-border-strong bg-surface px-[11px] py-2.5 text-[0.93rem] text-ink focus:outline-2 focus:outline-offset-2 focus:outline-rose-ink";
 
+// Today's date in Bulgaria as yyyy-mm-dd. toISOString() gives the UTC date,
+// which is still yesterday here until 02:00/03:00. The time zone is pinned
+// rather than taken from the machine, so the server render (UTC on Vercel) and
+// the browser agree during hydration.
+function todayInBulgaria() {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Europe/Sofia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((p) => p.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 // „Данни за събитието" — under the families. Changing the date is what drives
 // availability everywhere, so the parent re-checks stock whenever it moves.
 export default function EventDetails({ fields, onChange, checking }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInBulgaria();
 
   return (
     <section className="mt-6 rounded-item border border-border bg-bg p-[18px]">
