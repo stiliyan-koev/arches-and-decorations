@@ -44,6 +44,8 @@ export default function ColorManager({ productId, colors }: Props) {
   }
 
   async function handleDelete(color: ProductColor) {
+    if (!confirm(`Да изтрия цвета „${color.color_name}“ заедно с всичките му снимки?`)) return;
+
     setBusy(true);
     const result = await deleteColor(color.id);
     setBusy(false);

@@ -49,7 +49,12 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
     ? await supabase.from("categories").update(row).eq("id", input.id)
     : await supabase.from("categories").insert(row);
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: error.code === "23505" ? "Вече има категория с този slug." : error.message,
+    };
+  }
 
   revalidateCatalog();
   return { ok: true };
@@ -88,6 +93,9 @@ export async function saveProduct(
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
+  if (input.pricing_type === "fixed" && input.base_price == null) {
+    return { ok: false, error: "Въведете цена или изберете „По запитване“." };
+  }
 
   const supabase = await createClient();
   const row = {
@@ -111,7 +119,12 @@ export async function saveProduct(
       .from("products")
       .update(row)
       .eq("id", input.id);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      return {
+        ok: false,
+        error: error.code === "23505" ? "Вече има продукт с този slug." : error.message,
+      };
+    }
 
     revalidateCatalog();
     return { ok: true, id: input.id };
@@ -126,7 +139,12 @@ export async function saveProduct(
     .select("id")
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      error: error.code === "23505" ? "Вече има продукт с този slug." : error.message,
+    };
+  }
 
   revalidateCatalog();
   return { ok: true, id: data.id };
@@ -224,34 +242,23 @@ export async function attachImage(input: {
   return { ok: true };
 }
 
-export async function deleteImage(
-  id: string,
-  path: string,
-): Promise<ActionResult> {
+export async function deleteImage(id: string): Promise<ActionResult> {
   const supabase = await createClient();
+
+  // The file path comes from the row, not from the browser, so this can only
+  // ever remove the file that belongs to this photo.
+  const { data: image } = await supabase
+    .from("product_images")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
 
   const { error } = await supabase.from("product_images").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   // Best effort: the row is what the site reads, so a stranded file is
   // untidy rather than broken.
-  await supabase.storage.from(BUCKET).remove([path]);
-
-  revalidateCatalog();
-  return { ok: true };
-}
-
-export async function moveImage(
-  id: string,
-  sort: number,
-): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("product_images")
-    .update({ sort })
-    .eq("id", id);
-
-  if (error) return { ok: false, error: error.message };
+  if (image) await supabase.storage.from(BUCKET).remove([image.path]);
 
   revalidateCatalog();
   return { ok: true };

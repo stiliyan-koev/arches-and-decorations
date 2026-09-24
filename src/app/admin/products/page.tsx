@@ -30,6 +30,7 @@ export default async function AdminProductsPage() {
       )
       .order("sort"),
   ]);
+  if (categoriesResult.error || productsResult.error) throw categoriesResult.error ?? productsResult.error;
 
   const categories = categoriesResult.data ?? [];
   const products = (productsResult.data ?? []) as ProductListRow[];

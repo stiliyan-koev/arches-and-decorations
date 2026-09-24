@@ -1,3 +1,5 @@
+const ALLOWED_EXTENSIONS = ["heic", "heif", "jpg", "jpeg", "png", "webp"];
+
 // Browser-only. Phone photos are 3–5 MB and the site renders them a few hundred
 // pixels wide, so shrink before upload: it keeps the free-tier Storage quota
 // sane and makes uploading over mobile data bearable.
@@ -30,10 +32,12 @@ export async function resizeToWebp(
   } catch {
     // Some formats the browser can't decode (HEIC outside Safari, mainly).
     // Upload exactly what she picked rather than failing — a big file that
-    // works beats a small one that doesn't.
+    // works beats a small one that doesn't. The extension goes into the
+    // storage path, so only known image extensions get through.
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     return {
       blob: file,
-      ext: file.name.split(".").pop()?.toLowerCase() || "jpg",
+      ext: ALLOWED_EXTENSIONS.includes(ext) ? ext : "jpg",
     };
   }
 }

@@ -30,6 +30,7 @@ export default async function EditProductPage({
       .maybeSingle(),
     supabase.from("categories").select("id, slug, name, sort").order("sort"),
   ]);
+  if (productResult.error || categoriesResult.error) throw productResult.error ?? categoriesResult.error;
 
   const product = productResult.data as ProductDetail | null;
   if (!product) notFound();

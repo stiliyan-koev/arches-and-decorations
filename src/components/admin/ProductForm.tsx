@@ -46,7 +46,8 @@ export default function ProductForm({ product, categories }: Props) {
 
   // While she's typing a new product's name the slug follows along; the moment
   // she edits the slug herself it stops, and on an existing product it never
-  // moves — the storage paths are built from it.
+  // follows the name. She can still change it by hand, but photos already
+  // uploaded stay in the folder named after the old slug.
   function handleName(value: string) {
     setName(value);
     if (!slugTouched) setSlug(slugify(value));
@@ -185,6 +186,7 @@ export default function ProductForm({ product, categories }: Props) {
             min="0"
             step="0.01"
             inputMode="decimal"
+            required={pricingType === "fixed"}
             disabled={pricingType === "custom_quote"}
             value={pricingType === "custom_quote" ? "" : basePrice}
             onChange={(event) => setBasePrice(event.target.value)}

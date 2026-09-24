@@ -8,6 +8,7 @@ export default async function AdminCategoriesPage() {
     supabase.from("categories").select("id, slug, name, sort").order("sort"),
     supabase.from("products").select("category_id"),
   ]);
+  if (categoriesResult.error || productsResult.error) throw categoriesResult.error ?? productsResult.error;
 
   // Deleting a category that still holds products would orphan them (the FK is
   // `on delete set null`), so the row shows the count and refuses.

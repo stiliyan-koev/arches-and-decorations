@@ -93,7 +93,7 @@ export default function PhotoManager({
 
   async function handleDelete(image: ProductImage) {
     setBusy("Изтриване…");
-    const result = await deleteImage(image.id, image.path);
+    const result = await deleteImage(image.id);
     setBusy("");
 
     if (!result.ok) {
