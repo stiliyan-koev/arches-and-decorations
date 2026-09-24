@@ -20,9 +20,14 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     .from("categories")
     .select(
       `id, slug, name, sort,
+       in_configurator, description, add_label, picker,
+       recommend_category_id, recommend_title, recommend_hint, recommend_label,
        products (
-         id, slug, name, base_price, pricing_type, active, sort,
-         product_colors ( id, color_slug, color_name, hex, sort )
+         id, slug, name, description, option_group, base_price, pricing_type,
+         active, sort, created_at,
+         quantity, track_availability, rentable, service_only,
+         product_colors ( id, color_slug, color_name, hex, sort ),
+         product_images ( id, color_id, path, sort )
        )`,
     )
     .order("sort")
@@ -34,15 +39,31 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     id: category.id,
     slug: category.slug,
     name: category.name,
+    in_configurator: category.in_configurator,
+    description: category.description,
+    add_label: category.add_label,
+    picker: category.picker,
+    recommend_category_id: category.recommend_category_id,
+    recommend_title: category.recommend_title,
+    recommend_hint: category.recommend_hint,
+    recommend_label: category.recommend_label,
     products: category.products
       .filter((product) => product.active)
       .map((product) => ({
         id: product.id,
         slug: product.slug,
         name: product.name,
+        description: product.description,
+        option_group: product.option_group,
         base_price: product.base_price,
         pricing_type: product.pricing_type,
+        created_at: product.created_at,
+        quantity: product.quantity,
+        track_availability: product.track_availability,
+        rentable: product.rentable,
+        service_only: product.service_only,
         colors: [...product.product_colors].sort((a, b) => a.sort - b.sort),
+        images: [...product.product_images].sort((a, b) => a.sort - b.sort),
       })),
   }));
 

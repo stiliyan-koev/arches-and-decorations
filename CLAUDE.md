@@ -37,7 +37,7 @@ There is **no test suite** — don't invent test commands or reference a runner.
 
 ## Current state & where to look
 
-[`PROGRESS.md`](PROGRESS.md) is the live checklist — read it before picking up work. In short:
+[`docs/PROGRESS.md`](docs/PROGRESS.md) is the live checklist — read it before picking up work. In short:
 
 - **Steps 1–2 are done**: scaffold, tokens, Supabase clients, public shell, and the homepage configurator (built from `getCatalog()`, submits to `bookings`/`booking_items`).
 - **Step 0 (Supabase project, run `schema.sql` + `seed.sql`, create the `catalog` Storage bucket, add admin users) is the owner's job and is BLOCKING** — the DB write path has never run against real Postgres, so anything downstream is unverified.
@@ -45,7 +45,7 @@ There is **no test suite** — don't invent test commands or reference a runner.
 
 ## Companion docs
 
-- [`PROGRESS.md`](PROGRESS.md) — the running checklist; keep it in sync as you complete work.
+- [`docs/PROGRESS.md`](docs/PROGRESS.md) — the running checklist; keep it in sync as you complete work.
 - [`GETTING-STARTED.md`](GETTING-STARTED.md) — cold-start setup (Supabase, env vars, deploy) and the intended file tree.
 - [`schema.sql`](schema.sql) / [`seed.sql`](seed.sql) — DB schema (+ RLS + `reserved_qty`) and seed data; run in the Supabase SQL editor.
 - [`catalog-and-images.md`](catalog-and-images.md) — category tree, seed product list, image naming/storage convention, and the swatch→image logic for the PDP.
@@ -113,3 +113,9 @@ Don't build steps 4–6 before 1–3 are real and visible.
 
 ### Out of scope for now
 Payments / Stripe, online booking commitments, blog, multi-language toggle (BG only), user accounts for customers.
+
+## Agent workflow (PR pipeline)
+
+The 6k-line `project-init` branch is shipped to `develop` as small PRs by agents (`develop` → `main` once at the end, merged by the owner). Plan + progress: `pr-plan.md` (local only, git-excluded).
+Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
+`gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.
