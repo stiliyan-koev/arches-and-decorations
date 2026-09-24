@@ -1,0 +1,26 @@
+# Runs on every PR. This is the "robot reviewer" that is never wrong:
+# if the site does not build or lint fails, the PR shows a red X.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, 'release/**']
+
+# Read-only token: CI only needs to check out the code.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # No Supabase env vars here on purpose: getCatalog() falls back to
+      # catalog-fallback.ts, so the build works without a database.
+      - run: npm run build

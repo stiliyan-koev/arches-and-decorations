@@ -37,7 +37,7 @@ There is **no test suite** — don't invent test commands or reference a runner.
 
 ## Current state & where to look
 
-[`PROGRESS.md`](PROGRESS.md) is the live checklist — read it before picking up work. In short:
+[`docs/PROGRESS.md`](docs/PROGRESS.md) is the live checklist — read it before picking up work. In short:
 
 - **Steps 1–2 are done**: scaffold, tokens, Supabase clients, public shell, and the homepage configurator (built from `getCatalog()`, submits to `bookings`/`booking_items`).
 - **Step 0 (Supabase project, run `schema.sql` + `seed.sql`, create the `catalog` Storage bucket, add admin users) is the owner's job and is BLOCKING** — the DB write path has never run against real Postgres, so anything downstream is unverified.
@@ -45,7 +45,7 @@ There is **no test suite** — don't invent test commands or reference a runner.
 
 ## Companion docs
 
-- [`PROGRESS.md`](PROGRESS.md) — the running checklist; keep it in sync as you complete work.
+- [`docs/PROGRESS.md`](docs/PROGRESS.md) — the running checklist; keep it in sync as you complete work.
 - [`GETTING-STARTED.md`](GETTING-STARTED.md) — cold-start setup (Supabase, env vars, deploy) and the intended file tree.
 - [`schema.sql`](schema.sql) / [`seed.sql`](seed.sql) — DB schema (+ RLS + `reserved_qty`) and seed data; run in the Supabase SQL editor.
 - [`catalog-and-images.md`](catalog-and-images.md) — category tree, seed product list, image naming/storage convention, and the swatch→image logic for the PDP.
@@ -66,7 +66,7 @@ A site for a Varna event-decoration business (balloon decorations, arches; birth
 ### Stack (decided — don't relitigate)
 - **Next.js (App Router)** + **TypeScript** + **Tailwind CSS**
 - **Supabase** — Postgres (data), Auth (admin login), Storage (images)
-- **Vercel** free tier for hosting
+- **Netlify** free tier for hosting
 - No other frameworks, no state-management libs, no CMS. Keep the dependency list short.
 
 ### Principles (the owner is a senior dev; he means these)
@@ -107,9 +107,15 @@ See `catalog-and-images.md` for the category tree, the seed product list, and th
 3. **Configurator** — select items → live estimate (labeled "ориентировъчна цена") → contact/meeting request form → writes a `bookings` row (status `requested`) + notifies the owner (email or Supabase → simple).
 4. **Admin auth + requests inbox** — Supabase Auth, requests list, confirm + set final price.
 5. **Admin calendar + availability** — month view of confirmed bookings; per-item availability query.
-6. **Admin CRUD + gallery + polish** — product/category CRUD, image upload to Storage, gallery page, SEO meta, responsive pass, deploy to Vercel.
+6. **Admin CRUD + gallery + polish** — product/category CRUD, image upload to Storage, gallery page, SEO meta, responsive pass, deploy to Netlify.
 
 Don't build steps 4–6 before 1–3 are real and visible.
 
 ### Out of scope for now
 Payments / Stripe, online booking commitments, blog, multi-language toggle (BG only), user accounts for customers.
+
+## Agent workflow (PR pipeline)
+
+Branches: `main` is live and only the owner merges into it. Work goes into one open `release/X.Y.Z` branch (cut from `main`) as small PRs by agents. The owner merges `release/X.Y.Z` → `main` (normal merge), then tags `vX.Y.Z`. Tags are the rollback points. No `develop` branch. Plan + progress: `pr-plan.md` (local only, git-excluded).
+Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
+`gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.

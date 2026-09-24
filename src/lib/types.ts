@@ -1,10 +1,32 @@
 // Database row types, mirroring schema.sql. Add the rest as we start using them.
 
+// How a category is chosen in the configurator modal: a dropdown of products,
+// or a grid of photo cards.
+export type Picker = "dropdown" | "grid";
+
+// The bare category fields the admin lists and product form need (name/slug/sort
+// editing, and the category <select>). Kept separate from the full Category so
+// those admin queries don't have to fetch the configurator columns.
+export type CategorySummary = {
+  id: string;
+  slug: string;
+  name: string;
+  sort: number;
+};
+
 export type Category = {
   id: string;
   slug: string;
   name: string;
   sort: number;
+  in_configurator: boolean;
+  description: string | null; // hint line under the family title
+  add_label: string | null; // green "add" button label
+  picker: Picker;
+  recommend_category_id: string | null; // add-on category shown inside the modal
+  recommend_title: string | null;
+  recommend_hint: string | null;
+  recommend_label: string | null;
 };
 
 export type ProductColor = {
@@ -15,20 +37,68 @@ export type ProductColor = {
   sort: number;
 };
 
+export type ProductImage = {
+  id: string;
+  color_id: string | null; // null = colour-agnostic photo of the product
+  path: string; // storage path inside the `catalog` bucket
+  sort: number;
+};
+
 export type Product = {
   id: string;
   slug: string;
   name: string;
+  option_group: string | null; // configurator first-dropdown grouping (null = skip)
   base_price: number | null;
   pricing_type: "fixed" | "custom_quote";
+  quantity: number; // how many she physically owns
+  track_availability: boolean; // false = consumable (balloons), always available
+  rentable: boolean; // can be loaned out on its own, without her setting it up
+  service_only: boolean; // only offered together with setup
   colors: ProductColor[];
+  // Optional only because catalog-fallback.ts has no photos. Once that file is
+  // deleted this can become required.
+  images?: ProductImage[];
+  // Used by the catalog page (PLP): the spec line under a card and the "Най-нови"
+  // sort. Optional because the temporary fallback has neither; the configurator
+  // ignores both. Once catalog-fallback.ts is deleted these can become required.
+  description?: string | null; // BG spec line, e.g. "Метална основа · ⌀ 180 см"
+  created_at?: string | null; // ISO timestamp, for newest-first sorting
 };
 
-// A category plus its products — this is what the configurator renders,
-// one ItemCard per group.
+// The full products row, as the admin edits it. `Product` above is the trimmed
+// shape the public configurator needs; this one is everything schema.sql has.
+export type ProductRow = {
+  id: string;
+  category_id: string | null;
+  slug: string;
+  name: string;
+  description: string | null;
+  base_price: number | null;
+  pricing_type: "fixed" | "custom_quote";
+  quantity: number;
+  track_availability: boolean;
+  rentable: boolean;
+  service_only: boolean;
+  active: boolean;
+  sort: number;
+};
+
+// A category plus its products — this is what the configurator renders, one
+// family section per group (those with in_configurator = true). Categories that
+// are only add-ons (e.g. covers) still arrive here so a family can resolve its
+// recommend_category_id against them.
 export type CatalogGroup = {
   id: string;
   slug: string;
   name: string;
+  in_configurator: boolean;
+  description: string | null;
+  add_label: string | null;
+  picker: Picker;
+  recommend_category_id: string | null;
+  recommend_title: string | null;
+  recommend_hint: string | null;
+  recommend_label: string | null;
   products: Product[];
 };
