@@ -18,7 +18,7 @@ const INPUT =
 
 // Today's date in Bulgaria as yyyy-mm-dd. toISOString() gives the UTC date,
 // which is still yesterday here until 02:00/03:00. The time zone is pinned
-// rather than taken from the machine, so the server render (UTC on Vercel) and
+// rather than taken from the machine, so the server render (UTC on Netlify) and
 // the browser agree during hydration.
 function todayInBulgaria() {
   const parts = new Intl.DateTimeFormat("en", {

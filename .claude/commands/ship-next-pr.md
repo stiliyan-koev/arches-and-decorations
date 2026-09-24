@@ -17,22 +17,30 @@ and stops the run with a prompt. You already run in the project folder.
 
 If `gh` is not found in PowerShell: `$env:Path += ";C:\Program Files\GitHub CLI"`.
 
-All chunk PRs go `split/NN-*` -> `develop`. `main` is only touched once, at the very end (step 7).
+Branches: `main` = live site, only the owner moves it. Work goes into ONE open release branch,
+`release/X.Y.Z` (below: REL). Every chunk PR goes `<branch from plan>` -> REL.
+`main` is only touched when the release is done (step 7), and the owner merges that PR.
 
 ## 0. Find the work
 
-First time only: if `origin/develop` does not exist (`git ls-remote --heads origin develop` prints nothing),
-STOP and ask the owner: "Create `develop` from `main`?" On yes: `git push origin origin/main:refs/heads/develop`.
+Find REL: `git ls-remote --heads origin "release/*"`.
+- Exactly one -> that is REL.
+- None -> STOP and tell the owner: "No open release. Cut one from `main`:
+  `git fetch origin; git push origin origin/main:refs/heads/release/X.Y.Z`" (suggest X.Y.Z: the latest tag from
+  `git tag -l --sort=-v:refname`, next minor for features, next patch for fixes only).
+  You can't create it yourself: pushing to `release/*` is denied on purpose.
+- More than one -> STOP and ask the owner which one.
 
 Read `pr-plan.md`. Take the first chunk that is not ticked in "Progress".
 Check if it already has a PR: `gh pr list --head <branch> --state all`.
 - Merged already -> tick it in pr-plan.md and take the next chunk.
-- Open -> if its base is not `develop`, retarget it: `gh pr edit <N> --base develop`. Then go to step 2.
+- Open -> if its base is not REL, retarget it: `gh pr edit <N> --base <REL>`, then
+  `gh pr close <N>; gh pr reopen <N>` so CI runs against REL (CI ignores the `edited` event). Then go to step 2.
 - None -> step 1.
 
 ## 1. Build
 
-Start the `developer` agent: "build chunk NN". Wait for the PR number.
+Start the `developer` agent: "build chunk NN, base <REL>". Wait for the PR number.
 
 ## 2. Review (round K, starting at 1)
 
@@ -84,7 +92,7 @@ Only when ALL are true:
 - The chunk is not ⚠️, or pr-plan.md "Owner decisions" already covers it.
   If a ⚠️ chunk has no recorded decision -> STOP and ask the owner.
 
-Then: `gh pr merge <N> --squash --delete-branch`, `git switch develop`, `git pull`.
+Then: `gh pr merge <N> --squash --delete-branch`, `git switch <REL>`, `git pull`.
 Tick the chunk in pr-plan.md "Progress". Add one line under "Review fixes":
 `NN — K rounds — what the review caught (short)`.
 
@@ -93,14 +101,18 @@ Tick the chunk in pr-plan.md "Progress". Add one line under "Review fixes":
 If every chunk is ticked -> step 7. If $ARGUMENTS is `all`, go back to step 0. Otherwise stop and give the owner a
 5-line summary: PR link, rounds, what the reviewers caught, what you dropped and why.
 
-## 7. Release (once, at the end)
+## 7. Release
 
-When all chunks are ticked: open `gh pr create --base main --head develop --title "release: project-init split complete"`
-with the list of merged chunk PRs in the body. Do NOT merge it. Tell the owner it is ready for him to merge.
+When all chunks are ticked: open `gh pr create --base main --head <REL> --title "release: X.Y.Z"`
+with the list of merged chunk PRs in the body. Do NOT merge it. Tell the owner it is ready, and remind him:
+1. Test the release branch's Netlify preview.
+2. Merge with a **normal merge** (not squash).
+3. Tag it: `git switch main`, `git pull`, `git tag vX.Y.Z`, `git push origin vX.Y.Z`.
+4. Delete the release branch.
 
 ## Never
 
 - Never write feature code yourself. Send it to `developer`.
 - Never merge with red checks or an open MUST.
 - Never merge anything into `main`. Never use `--admin` on merge, never force-push,
-  never push directly to `main` or `develop`.
+  never push directly to `main` or `release/*`, never create or push tags.

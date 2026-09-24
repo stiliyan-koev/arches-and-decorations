@@ -16,20 +16,20 @@ Read CLAUDE.md and pr-plan.md first. They are the rules and the plan.
 
 ## Job A: "build chunk NN"
 
-All PRs go into `develop`, never `main`.
+The Lead gives you the base branch, `release/X.Y.Z` (below: REL). All PRs go into REL, never `main`.
 
-1. `git fetch origin` then `git switch -c <branch from plan> origin/develop`.
+1. `git fetch origin` then `git switch -c <branch from plan> origin/<REL>`.
    If the branch already exists, switch to it and continue from where it is.
-2. Bring in ONLY the files listed for this chunk in pr-plan.md, taken from `project-init`
-   (exception: chunk 00. Its files are the new setup files already in your working folder, so just `git add` them):
-   `git checkout project-init -- <file> <file> ...`
-   For files marked **partial**, copy only the sections the plan names (see "Partial-file notes").
+2. Do what the chunk's row in pr-plan.md says:
+   - Row says to take files from `project-init` -> bring in ONLY those files:
+     `git checkout project-init -- <file> <file> ...`
+   - Otherwise -> build the feature the row describes. Touch only what it needs.
 3. Apply any owner decision the plan records for this chunk (see "Owner decisions").
 4. Run `npm run build` and `npm run lint`. Both must pass. If they fail, fix it with the
    smallest change possible and say what you changed in the PR body.
 5. Commit with the chunk title from the plan as the message. Push: `git push -u origin <branch>`.
-6. Open the PR against `develop`:
-   `gh pr create --base develop --title "<chunk title>" --body "<body>"`
+6. Open the PR against REL:
+   `gh pr create --base <REL> --title "<chunk title>" --body "<body>"`
    The body has: what this chunk adds (2-4 lines), files, anything a reviewer
    will find odd on purpose (e.g. "components not used yet, wired in chunk 07"),
    and "Checks: build OK, lint OK".
@@ -50,7 +50,7 @@ All PRs go into `develop`, never `main`.
 
 ## Never
 
-- Never push directly to `main` or `develop`, never force-push, never rewrite history.
+- Never push directly to `main` or `release/*`, never force-push, never rewrite history, never tag.
 - Never merge a PR. Never approve a PR.
 - Never add files that are not in this chunk. Never "improve" code outside the diff.
 - Never commit `.env*` files or secrets.

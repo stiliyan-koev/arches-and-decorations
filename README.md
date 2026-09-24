@@ -5,7 +5,7 @@ A site for a Varna event-decoration business (balloon decorations, arches — bi
 - **Public site** — browse what's offered and get an *approximate* price from a configurator. No payments, no online booking; a request is a lead, and the final price and availability are settled at a personal meeting.
 - **Admin** (not built yet) — an ops tool for the owner to manage products, images, and a booking calendar.
 
-Built with **Next.js (App Router) + TypeScript + Tailwind v4** and **Supabase** (Postgres, Auth, Storage), deployed on **Vercel**.
+Built with **Next.js (App Router) + TypeScript + Tailwind v4** and **Supabase** (Postgres, Auth, Storage), deployed on **Netlify**.
 
 ## Quick start
 

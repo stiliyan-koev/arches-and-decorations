@@ -66,7 +66,7 @@ A site for a Varna event-decoration business (balloon decorations, arches; birth
 ### Stack (decided — don't relitigate)
 - **Next.js (App Router)** + **TypeScript** + **Tailwind CSS**
 - **Supabase** — Postgres (data), Auth (admin login), Storage (images)
-- **Vercel** free tier for hosting
+- **Netlify** free tier for hosting
 - No other frameworks, no state-management libs, no CMS. Keep the dependency list short.
 
 ### Principles (the owner is a senior dev; he means these)
@@ -107,7 +107,7 @@ See `catalog-and-images.md` for the category tree, the seed product list, and th
 3. **Configurator** — select items → live estimate (labeled "ориентировъчна цена") → contact/meeting request form → writes a `bookings` row (status `requested`) + notifies the owner (email or Supabase → simple).
 4. **Admin auth + requests inbox** — Supabase Auth, requests list, confirm + set final price.
 5. **Admin calendar + availability** — month view of confirmed bookings; per-item availability query.
-6. **Admin CRUD + gallery + polish** — product/category CRUD, image upload to Storage, gallery page, SEO meta, responsive pass, deploy to Vercel.
+6. **Admin CRUD + gallery + polish** — product/category CRUD, image upload to Storage, gallery page, SEO meta, responsive pass, deploy to Netlify.
 
 Don't build steps 4–6 before 1–3 are real and visible.
 
@@ -116,6 +116,6 @@ Payments / Stripe, online booking commitments, blog, multi-language toggle (BG o
 
 ## Agent workflow (PR pipeline)
 
-The 6k-line `project-init` branch is shipped to `develop` as small PRs by agents (`develop` → `main` once at the end, merged by the owner). Plan + progress: `pr-plan.md` (local only, git-excluded).
+Branches: `main` is live and only the owner merges into it. Work goes into one open `release/X.Y.Z` branch (cut from `main`) as small PRs by agents. The owner merges `release/X.Y.Z` → `main` (normal merge), then tags `vX.Y.Z`. Tags are the rollback points. No `develop` branch. Plan + progress: `pr-plan.md` (local only, git-excluded).
 Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
 `gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.
