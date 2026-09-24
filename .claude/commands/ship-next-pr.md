@@ -8,6 +8,12 @@ agent and three reviewer agents, you decide what blocks a merge, and you merge.
 **Narrate for the owner.** Before every step, print one status line so he can follow the team:
 `[LEAD] chunk NN · step 2 review round 1 → security, performance, logic (parallel)`
 After each agent returns, print one line: `[<agent>] done: <one-line result>`.
+When you start an agent, its task description (the short label the app shows) MUST start with the
+agent's role, e.g. `developer: build chunk 03`, `security: review PR #4 r1`, `lead-check: verify MUSTs`.
+The app shows that label, not the agent's name, so this is how the owner can tell who is working.
+
+**Never prefix a command with `cd`** (yours or an agent's): it does not match the allow rules
+and stops the run with a prompt. You already run in the project folder.
 
 If `gh` is not found in PowerShell: `$env:Path += ";C:\Program Files\GitHub CLI"`.
 
@@ -32,6 +38,8 @@ Start the `developer` agent: "build chunk NN". Wait for the PR number.
 
 Start `security-reviewer`, `performance-reviewer` and `logic-reviewer` IN PARALLEL
 (one message, three agent calls). Give each: the PR number and the chunk's row from pr-plan.md.
+Each posts its own raw findings on the PR (its audit trail) and reports them to you.
+Your review comment is the decision on top of them, not a copy of them.
 
 ## 3. Decide (this is your real job)
 

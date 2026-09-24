@@ -28,7 +28,7 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
 | `.claude/commands/ship-next-pr.md` | The Lead's playbook. Typing `/ship-next-pr` loads it into your main session. | The orchestrator has to be the main session: agents can't start other agents. |
 | `.claude/agents/developer.md` | Developer agent: can edit, commit, push, open PRs. | Separate agent = separate memory. The Lead never "saw" the code being written, so it doesn't make excuses for it. |
 | `.claude/agents/*-reviewer.md` | 3 specialists: **read-only** tools, no GitHub posting. | Narrow job means a deeper look. Read-only means a reviewer can't "fix" things behind your back. |
-| `.claude/settings.json` | Allow list and deny list for commands. | Allow: the loop doesn't stop to ask you 40 times. Deny: force-push, pushing straight to `main`/`develop`, `--admin` merge and reading `.env.local` are blocked **by the tool**, not just by a sentence in a prompt. Anything not on either list (like creating `develop`) makes Claude ask you first. That's a built-in human checkpoint. |
+| `.claude/settings.json` | Allow list and deny list for commands. | Allow: the loop doesn't stop to ask you 40 times. Deny: force-push, pushing straight to `main`/`develop` and `--admin` merge are blocked **by the tool**, not just by a sentence in a prompt. The `.env.local` rule is best-effort: it only guards the Read tool, a shell command like `Get-Content .env.local` still works. Anything not on either list (like creating `develop`) makes Claude ask you first. That's a built-in human checkpoint. |
 | `.github/workflows/ci.yml` | GitHub runs `lint` + `build` on every PR. | Free and never wrong. Anything a tool can check shouldn't use up an AI reviewer's attention. |
 | `.gitattributes` | Forces LF line endings in git. | Windows (CRLF) and Linux/GitHub (LF) otherwise see "changed" files that aren't. Agents on different machines would all trip on it. |
 | `pr-plan.md` | The split into 20 chunks + progress + log. | The shared "memory" of the team. Agents forget everything between runs; this file doesn't. |
@@ -90,7 +90,7 @@ In Claude Code, from the project folder:
 The first run takes chunk **00**: the pipeline ships itself. `develop` doesn't exist yet,
 so the Lead asks you once to create it from `main`. Then the developer puts the setup files
 (this folder, CI, `.gitattributes`) on `split/00-agents-and-ci`, the reviewers check them,
-and the Lead merges. That merge is also the first time CI runs.
+and the Lead merges. CI first runs on this PR itself.
 
 Start with one chunk at a time for the first 3-4 PRs. Read each Lead review and ask:
 *Would I have caught this? Did it drop something it shouldn't have?* When a comment keeps coming

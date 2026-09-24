@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [develop, main]
 
+# Read-only token: CI only needs to check out the code.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
