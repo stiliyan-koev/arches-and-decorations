@@ -183,6 +183,10 @@ are still open.
       `storage.objects` has its own RLS, separate from the table policies in `schema.sql`.
       Until this runs, every upload fails with "new row violates row-level security policy"
       even though she's logged in.
+- [ ] **Run `migration-euro-and-balloon-theme.sql`** in the SQL editor **(you)**. It marks
+      the money columns as EUR.
+- [ ] **Re-price every product in admin (you).** The site switched from лв to € by
+      relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the
       whole refactor. ~674 insertions / 500 deletions sit uncommitted, plus 6 untracked
       files (`src/components/configurator/*`, `src/lib/format.ts`) and 2 untracked docs.

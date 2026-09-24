@@ -30,7 +30,7 @@ create table products (
   name               text not null,               -- BG
   description        text,                         -- BG
   option_group       text,                         -- configurator first-dropdown grouping (null = skip)
-  base_price         numeric(10,2),                -- null = price on request
+  base_price         numeric(10,2),                -- EUR; null = price on request
   pricing_type       text not null default 'fixed',-- 'fixed' | 'custom_quote'
   quantity           int  not null default 1,      -- how many she physically owns
   track_availability boolean not null default true,-- false for consumables (balloons)
@@ -76,7 +76,7 @@ create table bookings (
   customer_name   text,
   phone           text,
   note            text,
-  estimated_total numeric(10,2),
+  estimated_total numeric(10,2),                 -- EUR
   created_at      timestamptz default now()
 );
 
@@ -87,8 +87,14 @@ create table booking_items (
   color_id    uuid references product_colors(id) on delete set null,
   custom_text text,                    -- e.g. the figure the customer described
   qty         int not null default 1,
-  line_price  numeric(10,2)
+  line_price  numeric(10,2)            -- EUR
 );
+
+-- Every money column is in euro. The comments show up in the Supabase table
+-- editor, so the currency is visible where she edits the data.
+comment on column products.base_price      is 'EUR';
+comment on column bookings.estimated_total  is 'EUR';
+comment on column booking_items.line_price  is 'EUR';
 
 -- Optional: owner days off / manual blocks
 create table blackout_dates (

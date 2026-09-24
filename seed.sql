@@ -1,6 +1,6 @@
 -- Decoration & Arch Rental — seed data
 -- Run AFTER schema.sql. Safe to re-run: it clears catalog tables first.
--- ⚠️ PRICES BELOW ARE PLACEHOLDERS (BGN). Replace with real ones via admin.
+-- ⚠️ PRICES BELOW ARE PLACEHOLDERS (EUR). Replace with real ones via admin.
 
 begin;
 
