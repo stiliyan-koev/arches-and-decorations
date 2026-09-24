@@ -4,8 +4,8 @@ Follow top to bottom. Assumes Node 20+, a Supabase account, a Vercel account, an
 
 ## 0. Scaffold
 ```bash
-npx create-next-app@latest decor-site --ts --tailwind --app --eslint --src-dir --import-alias "@/*"
-cd decor-site
+npx create-next-app@latest ukrasivarna --ts --tailwind --app --eslint --src-dir --import-alias "@/*"
+cd ukrasivarna
 npm i @supabase/supabase-js @supabase/ssr
 ```
 Drop these at the repo root so Claude Code has full context:
