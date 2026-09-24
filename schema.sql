@@ -106,9 +106,13 @@ create table blackout_dates (
 -- `security definer` on purpose: the public configurator has to know what's
 -- free on a date, but RLS gives anon no SELECT on bookings. These two functions
 -- are the one crack in that wall, and they only ever return a count — never who
--- booked, or when. The `coalesce(...) is not null` guard matters: a confirmed
--- booking with no dates at all would otherwise produce an unbounded daterange
--- that overlaps every query and blocks the whole catalog.
+-- booked, or when.
+-- Bad booking rows are skipped, never trusted:
+--   * no dates at all -> would be an unbounded range that blocks the whole
+--     catalog (the `is not null` line);
+--   * end before start -> daterange() would throw and break the function for
+--     every product (the `>=` line).
+-- A booking with a start but no end counts as that single day.
 
 create or replace function reserved_qty(p_product uuid, p_from date, p_to date)
 returns int language sql stable security definer set search_path = public as $$
@@ -118,9 +122,10 @@ returns int language sql stable security definer set search_path = public as $$
   where bi.product_id = p_product
     and b.status = 'confirmed'
     and coalesce(b.start_date, b.event_date) is not null
+    and coalesce(b.end_date, b.start_date, b.event_date) >= coalesce(b.start_date, b.event_date)
     and daterange(
           coalesce(b.start_date, b.event_date),
-          coalesce(b.end_date,   b.event_date),
+          coalesce(b.end_date, b.start_date, b.event_date),
           '[]'
         ) && daterange(p_from, p_to, '[]');
 $$;
@@ -136,9 +141,10 @@ language sql stable security definer set search_path = public as $$
   where bi.product_id is not null
     and b.status = 'confirmed'
     and coalesce(b.start_date, b.event_date) is not null
+    and coalesce(b.end_date, b.start_date, b.event_date) >= coalesce(b.start_date, b.event_date)
     and daterange(
           coalesce(b.start_date, b.event_date),
-          coalesce(b.end_date,   b.event_date),
+          coalesce(b.end_date, b.start_date, b.event_date),
           '[]'
         ) && daterange(p_from, p_to, '[]')
   group by bi.product_id;

@@ -5,6 +5,11 @@
 -- own RLS, which is why this lives in its own file. Without it the admin
 -- upload fails with "new row violates row-level security policy" even though
 -- the user is logged in.
+--
+-- ASSUMPTION: "authenticated" = admin. That only holds while public sign-up is
+-- OFF (Supabase: Authentication -> Sign In / Providers -> "Allow new users to
+-- sign up"). It is ON by default. If it stays on, anyone can create an account
+-- and write to this bucket (and to every table schema.sql gives "admin all").
 
 -- Anyone may read: the bucket is public and the site links straight to it.
 -- The dashboard's "Public bucket" toggle usually creates this one already.

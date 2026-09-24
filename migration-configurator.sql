@@ -1,11 +1,13 @@
 -- Migration: slot-based configurator
 -- Run once in the Supabase SQL editor, AFTER schema.sql + seed.sql are already live.
 -- Adds the columns the homepage configurator reads to decide how each category
--- behaves, then records the configuration.
+-- behaves, upgrades the availability functions so the public configurator can
+-- call them, then records the configuration.
 --
--- Idempotent on purpose: every ADD COLUMN is guarded and every UPDATE keys off a
--- slug, so running it against the current live DB — which already has these
--- columns and this exact configuration — changes nothing. Note that the UPDATE
+-- Idempotent on purpose: every ADD COLUMN is guarded, the functions use
+-- CREATE OR REPLACE, and every UPDATE keys off a slug, so running it against the
+-- current live DB — which already has these columns, functions and this exact
+-- configuration — changes nothing. Note that the UPDATE
 -- block below is the source of truth for these specific fields, so re-running it
 -- would revert any later admin edits to them (category copy, option groups).
 --
@@ -17,6 +19,10 @@
 --   categories.recommend_category_id-- add-on category offered inside the modal (null = none)
 --   categories.recommend_title/hint/label -- copy for that add-on block
 --   products.option_group           -- first-dropdown grouping (null = skip the first step)
+--
+-- Functions (copied from schema.sql; keep the two copies identical):
+--   reserved_qty(product, from, to) -- now security definer, granted to anon
+--   reserved_qty_all(from, to)      -- new: the same count for every product at once
 
 begin;
 
@@ -35,6 +41,48 @@ alter table products   add column if not exists option_group          text;
 
 alter table categories drop constraint if exists categories_picker_check;
 alter table categories add  constraint categories_picker_check check (picker in ('dropdown', 'grid'));
+
+-- ---------- Availability functions ----------
+-- Same as schema.sql; the comment there explains `security definer` and the
+-- bad-row guards. The old schema.sql ran reserved_qty with the caller's rights,
+-- so for anon RLS hid every booking and it always returned 0.
+
+create or replace function reserved_qty(p_product uuid, p_from date, p_to date)
+returns int language sql stable security definer set search_path = public as $$
+  select coalesce(sum(bi.qty), 0)
+  from booking_items bi
+  join bookings b on b.id = bi.booking_id
+  where bi.product_id = p_product
+    and b.status = 'confirmed'
+    and coalesce(b.start_date, b.event_date) is not null
+    and coalesce(b.end_date, b.start_date, b.event_date) >= coalesce(b.start_date, b.event_date)
+    and daterange(
+          coalesce(b.start_date, b.event_date),
+          coalesce(b.end_date, b.start_date, b.event_date),
+          '[]'
+        ) && daterange(p_from, p_to, '[]');
+$$;
+
+create or replace function reserved_qty_all(p_from date, p_to date)
+returns table (product_id uuid, reserved int)
+language sql stable security definer set search_path = public as $$
+  select bi.product_id, sum(bi.qty)::int
+  from booking_items bi
+  join bookings b on b.id = bi.booking_id
+  where bi.product_id is not null
+    and b.status = 'confirmed'
+    and coalesce(b.start_date, b.event_date) is not null
+    and coalesce(b.end_date, b.start_date, b.event_date) >= coalesce(b.start_date, b.event_date)
+    and daterange(
+          coalesce(b.start_date, b.event_date),
+          coalesce(b.end_date, b.start_date, b.event_date),
+          '[]'
+        ) && daterange(p_from, p_to, '[]')
+  group by bi.product_id;
+$$;
+
+grant execute on function reserved_qty(uuid, date, date) to anon, authenticated;
+grant execute on function reserved_qty_all(date, date)   to anon, authenticated;
 
 -- ---------- Configuration (matches the live catalog) ----------
 -- Hyphens, not em dashes, in customer-facing copy.
