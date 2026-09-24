@@ -30,7 +30,7 @@ The homepage renders from bundled seed data until Supabase is configured, so `np
 
 - **[CLAUDE.md](CLAUDE.md)** — project brief, architecture, and conventions (start here).
 - **[GETTING-STARTED.md](GETTING-STARTED.md)** — cold-start setup: Supabase, env vars, deploy.
-- **[PROGRESS.md](PROGRESS.md)** — what's done and what's next.
+- **[docs/PROGRESS.md](docs/PROGRESS.md)** — what's done and what's next.
 - **[schema.sql](schema.sql)** / **[seed.sql](seed.sql)** — database schema and seed data.
 - **[catalog-and-images.md](catalog-and-images.md)** — catalog structure and image conventions.
 - **[DESIGN.md](DESIGN.md)** — original design/brand proposal.
