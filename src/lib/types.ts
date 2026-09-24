@@ -1,8 +1,9 @@
 // Database row types, mirroring schema.sql. Add the rest as we start using them.
 
 // How a category is chosen in the configurator modal: a dropdown of products,
-// or a grid of photo cards.
-export type Picker = "dropdown" | "grid";
+// a grid of photo cards, or a text box where the customer describes what they
+// want (the category's first product is the item — used for balloons).
+export type Picker = "dropdown" | "grid" | "text";
 
 // The bare category fields the admin lists and product form need (name/slug/sort
 // editing, and the category <select>). Kept separate from the full Category so

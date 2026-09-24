@@ -14,13 +14,13 @@ create table categories (
   in_configurator boolean not null default true,   -- show as a family on the homepage
   description     text,                             -- hint line under the family title
   add_label       text,                             -- label on the green "add" button
-  picker          text not null default 'dropdown', -- 'dropdown' | 'grid'
+  picker          text not null default 'dropdown', -- 'dropdown' | 'grid' | 'text' (describe it in a text box)
   recommend_category_id uuid references categories(id) on delete set null, -- add-on category
   recommend_title text,
   recommend_hint  text,
   recommend_label text,
   created_at timestamptz default now(),
-  constraint categories_picker_check check (picker in ('dropdown', 'grid'))
+  constraint categories_picker_check check (picker in ('dropdown', 'grid', 'text'))
 );
 
 create table products (

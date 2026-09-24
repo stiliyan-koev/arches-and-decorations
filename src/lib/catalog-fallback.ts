@@ -85,7 +85,7 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
     in_configurator: true,
     description: "Цветовете, които задават настроението на празника.",
     add_label: "Добави балони",
-    picker: "dropdown",
+    picker: "text",
     recommend_category_id: null,
     recommend_title: null,
     recommend_hint: null,

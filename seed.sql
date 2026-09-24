@@ -89,7 +89,7 @@ where slug = 'arches';
 -- covers = arch add-on only; balloon-figures ends up empty (its product moves below).
 update categories set in_configurator = false where slug in ('covers', 'balloon-figures');
 
-update categories set in_configurator = true, picker = 'dropdown', add_label = 'Добави балони',
+update categories set in_configurator = true, picker = 'text', add_label = 'Добави балони',
   description = 'Цветовете, които задават настроението на празника.' where slug = 'balloons';
 
 update categories set in_configurator = true, picker = 'grid', add_label = 'Добави фигурка',

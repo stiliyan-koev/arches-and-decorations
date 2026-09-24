@@ -184,7 +184,9 @@ are still open.
       Until this runs, every upload fails with "new row violates row-level security policy"
       even though she's logged in.
 - [ ] **Run `migration-euro-and-balloon-theme.sql`** in the SQL editor **(you)**. It marks
-      the money columns as EUR.
+      the money columns as EUR and switches „Балони" to `picker = 'text'`: instead of a
+      dropdown, the customer describes the theme in a text box, which is saved to
+      `booking_items.custom_text`. Until it runs, balloons keep the old dropdown.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the

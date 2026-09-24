@@ -8,6 +8,7 @@ export type RequestItem = {
   colorId: string | null;
   qty: number;
   linePrice: number | null;
+  customText: string | null; // what the customer described, e.g. the balloon theme
 };
 
 export type RequestPayload = {
@@ -34,6 +35,7 @@ const MAX_ITEMS = 30;
 const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed
 const MAX_SHORT_TEXT = 200; // name, phone, city
 const MAX_NOTE = 3000; // same as the note textarea's maxLength
+const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength
 
 const SEND_FAILED = "Нещо се обърка при изпращането. Моля, опитайте отново.";
 
@@ -103,6 +105,13 @@ export async function submitRequest(
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
       return { ok: false, error: SEND_FAILED };
     }
+    // Missing (undefined) counts as "no text", same as null.
+    if (
+      item.customText != null &&
+      !isTextUpTo(item.customText, MAX_CUSTOM_TEXT)
+    ) {
+      return { ok: false, error: SEND_FAILED };
+    }
   }
 
   const isRental = payload.mode === "rental";
@@ -160,6 +169,7 @@ export async function submitRequest(
       booking_id: bookingId,
       product_id: item.productId,
       color_id: item.colorId,
+      custom_text: item.customText?.trim() || null,
       qty: item.qty,
       line_price: item.linePrice,
     })),
