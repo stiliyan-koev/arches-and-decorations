@@ -1,10 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import { imageUrl } from "@/lib/images";
-import { selection, useSelection } from "@/lib/selection";
+import { selection, useIsSelected } from "@/lib/selection";
 import type { PlpProduct } from "@/lib/catalog-plp";
 
 // One catalog card. Five states (brief): standard, hover, added, "заето на тази
@@ -18,11 +17,10 @@ export default function ProductCard({
   product: PlpProduct;
   priority?: boolean;
 }) {
-  const picked = useSelection();
-  const added = picked.includes(product.slug);
+  const added = useIsSelected(product.slug);
   const booked = product.isBooked;
   const quote = product.price === null;
-  const href = `/products/${product.slug}`;
+  // Link to /product/[slug] once the product page exists (brief route is singular).
 
   const cardBorder = booked
     ? "border-border"
@@ -56,9 +54,7 @@ export default function ProductCard({
         booked ? "opacity-70" : ""
       }`}
     >
-      <Link
-        href={href}
-        aria-label={product.name}
+      <div
         className="relative flex aspect-[4/3] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
         style={{ background: product.tint }}
       >
@@ -81,15 +77,12 @@ export default function ProductCard({
             Заето на тази дата
           </span>
         )}
-      </Link>
+      </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
-        <Link
-          href={href}
-          className="text-[0.95rem] leading-snug font-bold text-ink hover:underline focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
-        >
+        <p className="text-[0.95rem] leading-snug font-bold text-ink hover:underline focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta">
           {product.name}
-        </Link>
+        </p>
         {product.spec && (
           <p className="text-[0.78rem] leading-snug text-muted">{product.spec}</p>
         )}

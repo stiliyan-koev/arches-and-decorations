@@ -120,3 +120,13 @@ export function useSelectionCount() {
     () => 0,
   );
 }
+
+// Whether one product is picked — what a catalog card needs. A boolean is a
+// stable snapshot, so toggling one card re-renders only that card, not all of them.
+export function useIsSelected(slug: string) {
+  return useSyncExternalStore(
+    subscribe,
+    () => getSnapshot().includes(slug),
+    () => false,
+  );
+}
