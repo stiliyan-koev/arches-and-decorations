@@ -181,7 +181,11 @@ export default function PhotoManager({
     const result = path ? await replaceImage(current.image.id, path) : null;
     setBusy("");
 
-    if (result && !result.ok) setError(result.error);
+    if (path && result && !result.ok) {
+      // The row still points at the old file, so the new one is unused.
+      await createClient().storage.from(BUCKET).remove([path]);
+      setError(result.error);
+    }
     if (result?.ok) router.refresh();
   }
 

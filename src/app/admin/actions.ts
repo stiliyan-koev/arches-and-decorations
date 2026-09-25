@@ -248,6 +248,12 @@ export async function replaceImage(
   id: string,
   path: string,
 ): Promise<ActionResult> {
+  // The new path comes from the browser, so only accept one inside the
+  // product photos folder.
+  if (!path.startsWith("products/") || path.includes("..")) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
   const supabase = await createClient();
 
   const { data: image } = await supabase
@@ -256,11 +262,17 @@ export async function replaceImage(
     .eq("id", id)
     .maybeSingle();
 
-  const { error } = await supabase
+  // An unknown id (or one RLS hides) updates nothing and is not an error, so
+  // check that a row actually changed before removing any file.
+  const { data: updated, error } = await supabase
     .from("product_images")
     .update({ path })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
 
   // Best effort, as in deleteImage.
   if (image && image.path !== path) {

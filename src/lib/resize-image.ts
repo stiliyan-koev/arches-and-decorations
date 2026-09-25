@@ -1,6 +1,6 @@
 const ALLOWED_EXTENSIONS = ["heic", "heif", "jpg", "jpeg", "png", "webp"];
 
-// The part of the source photo to keep, in the photo's own pixels.
+// The part of the photo to keep, in the photo's own pixels.
 export type CropRect = { x: number; y: number; width: number; height: number };
 
 // Browser-only. Phone photos are 3–5 MB and the site renders them a few hundred
@@ -8,21 +8,21 @@ export type CropRect = { x: number; y: number; width: number; height: number };
 // sane and makes uploading over mobile data bearable. With a crop, only that
 // rectangle is kept (and shrunk).
 export async function resizeToWebp(
-  file: Blob,
+  photo: Blob,
   crop?: CropRect,
   maxSize = 1600,
 ): Promise<{ blob: Blob; ext: string }> {
   try {
-    const bitmap = await createImageBitmap(file);
-    const source = crop ?? {
+    const bitmap = await createImageBitmap(photo);
+    const area = crop ?? {
       x: 0,
       y: 0,
       width: bitmap.width,
       height: bitmap.height,
     };
-    const scale = Math.min(1, maxSize / Math.max(source.width, source.height));
-    const width = Math.round(source.width * scale);
-    const height = Math.round(source.height * scale);
+    const scale = Math.min(1, maxSize / Math.max(area.width, area.height));
+    const width = Math.round(area.width * scale);
+    const height = Math.round(area.height * scale);
 
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -33,10 +33,10 @@ export async function resizeToWebp(
 
     context.drawImage(
       bitmap,
-      source.x,
-      source.y,
-      source.width,
-      source.height,
+      area.x,
+      area.y,
+      area.width,
+      area.height,
       0,
       0,
       width,
@@ -55,10 +55,10 @@ export async function resizeToWebp(
     // Upload exactly what she picked rather than failing — a big file that
     // works beats a small one that doesn't. The extension goes into the
     // storage path, so only known image extensions get through.
-    const name = file instanceof File ? file.name : "";
+    const name = photo instanceof File ? photo.name : "";
     const ext = name.split(".").pop()?.toLowerCase() ?? "";
     return {
-      blob: file,
+      blob: photo,
       ext: ALLOWED_EXTENSIONS.includes(ext) ? ext : "jpg",
     };
   }
