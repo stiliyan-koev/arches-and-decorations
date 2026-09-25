@@ -14,7 +14,8 @@ const SMALL_WIDTH = 500;
 
 // What she chose. "Цялата снимка" is a crop too (one that reaches past the
 // photo's edges); "original" is "Без изрязване", or a photo the browser can't
-// open (HEIC outside Safari), which is uploaded as it is.
+// open (HEIC outside Safari), which is uploaded as it is (unless the parent
+// passes onLoadError).
 export type CropResult =
   | { mode: "crop"; crop: CropRect }
   | { mode: "original" };
@@ -27,6 +28,9 @@ type Props = {
   initialCrop?: CropRect;
   onConfirm: (result: CropResult) => void;
   onCancel: () => void;
+  // Re-crops pass this: a stored photo the browser can't open has nothing to
+  // save "as it is". Without it, such a photo comes back as "original".
+  onLoadError?: () => void;
 };
 
 // The photo, measured before the cropper mounts (see the effect below).
@@ -43,6 +47,7 @@ export default function ImageCropper({
   initialCrop,
   onConfirm,
   onCancel,
+  onLoadError,
 }: Props) {
   const [photo, setPhoto] = useState<Photo | null>(null);
   // The frame's position and zoom, as react-easy-crop wants them.
@@ -55,8 +60,10 @@ export default function ImageCropper({
   // The parent passes a new arrow function every render; keep the latest one
   // without re-running the measuring effect.
   const onConfirmRef = useRef(onConfirm);
+  const onLoadErrorRef = useRef(onLoadError);
   useEffect(() => {
     onConfirmRef.current = onConfirm;
+    onLoadErrorRef.current = onLoadError;
   });
 
   // Measure the photo BEFORE mounting <Cropper>. It applies initialCrop
@@ -69,7 +76,10 @@ export default function ImageCropper({
     const probe = new Image();
     probe.onload = () =>
       setPhoto({ url, width: probe.naturalWidth, height: probe.naturalHeight });
-    probe.onerror = () => onConfirmRef.current({ mode: "original" });
+    probe.onerror = () => {
+      if (onLoadErrorRef.current) onLoadErrorRef.current();
+      else onConfirmRef.current({ mode: "original" });
+    };
     probe.src = url;
     return () => {
       probe.onload = null;
@@ -155,6 +165,9 @@ export default function ImageCropper({
               maxZoom={MAX_ZOOM}
               // Zoomed in, she can't drag empty space into the frame by
               // accident. Zoomed out (whole photo), it moves freely.
+              // This is the zoom before a wheel/pinch step, so the one step
+              // that crosses below 1 may pin the photo to an edge; she can
+              // drag it back.
               restrictPosition={zoom >= 1}
               initialCroppedAreaPixels={initialCrop}
               onCropChange={setCrop}

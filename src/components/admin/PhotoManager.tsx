@@ -248,9 +248,13 @@ export default function PhotoManager({
     // the old tile file but never the whole photo. An old photo has no whole
     // photo to go back to, and an uncropped one is already there.
     if (choice.mode === "original") {
-      if (!image.full_path || image.path === image.full_path) return;
+      if (!image.full_path) {
+        setError("Тази снимка няма оригинал — изтрийте я и я качете отново.");
+        return;
+      }
+      if (image.path === image.full_path) return;
       setBusy("Запазване…");
-      await saveReplace(image.id, image.full_path, null, null);
+      await saveReplace(image.id, image.full_path, null, false);
       return;
     }
 
@@ -264,16 +268,16 @@ export default function PhotoManager({
     }
     // An old photo has no whole photo (what was downloaded is its old tile),
     // so there is no full-photo crop to remember for it.
-    await saveReplace(image.id, path, image.full_path ? choice.crop : null, path);
+    await saveReplace(image.id, path, image.full_path ? choice.crop : null, true);
   }
 
-  // Points a row at a new tile. `newFile` is the tile just uploaded for it,
-  // removed again if the row still points at the old one.
+  // Points a row at a new tile. With `removeOnFail`, `path` is a tile just
+  // uploaded for it, removed again if the row still points at the old one.
   async function saveReplace(
     id: string,
     path: string,
     crop: CropRect | null,
-    newFile: string | null,
+    removeOnFail: boolean,
   ) {
     let result: SaveResult;
     try {
@@ -284,7 +288,7 @@ export default function PhotoManager({
     setBusy("");
 
     if (!result.ok) {
-      if (newFile) await removeFiles([newFile]);
+      if (removeOnFail) await removeFiles([path]);
       setError(result.error ?? SAVE_FAILED);
       return;
     }
@@ -439,6 +443,12 @@ export default function PhotoManager({
           cancelLabel="Отказ"
           onConfirm={(choice) => handleRecropped(recrop, choice)}
           onCancel={() => setRecrop(null)}
+          onLoadError={() => {
+            setRecrop(null);
+            setError(
+              "Тази снимка не може да се изреже — изтрийте я и я качете отново.",
+            );
+          }}
         />
       )}
     </section>
