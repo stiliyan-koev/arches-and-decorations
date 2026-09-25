@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
 import { imageUrl } from "@/lib/images";
+import PhotoViewer from "@/components/PhotoViewer";
 import { selection, useIsSelected } from "@/lib/selection";
 import type { PlpProduct } from "@/lib/catalog-plp";
 
@@ -71,6 +72,9 @@ export default function ProductCard({
           <span className="text-[0.7rem] font-bold tracking-[0.1em] text-ink/55 uppercase">
             Снимка предстои
           </span>
+        )}
+        {product.fullImagePath && (
+          <PhotoViewer src={imageUrl(product.fullImagePath)} alt={product.name} />
         )}
         {booked && (
           <span className="absolute bottom-2.5 left-2.5 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-bold text-white">

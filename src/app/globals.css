@@ -122,3 +122,8 @@
 .crop-square-guide::after {
   top: 90%;
 }
+
+/* Lock page scroll while a modal <dialog> (the photo viewer) is open. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}

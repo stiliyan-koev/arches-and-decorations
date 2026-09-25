@@ -8,6 +8,7 @@ import { resizeToWebp } from "@/lib/resize-image";
 import type { CropRect } from "@/lib/resize-image";
 import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
 import { attachImage, deleteImage, replaceImage } from "@/app/admin/actions";
+import PhotoViewer from "@/components/PhotoViewer";
 import ImageCropper from "@/components/admin/ImageCropper";
 import type { CropResult } from "@/components/admin/ImageCropper";
 import type { ProductColor, ProductImage } from "@/lib/types";
@@ -384,6 +385,10 @@ export default function PhotoManager({
                     fill
                     sizes="200px"
                     className="object-cover"
+                  />
+                  <PhotoViewer
+                    src={imageUrl(fullImagePath(image))}
+                    alt={`Снимка – ${colorLabel(image.color_id)}`}
                   />
                   {label && (
                     <span className="absolute top-1.5 left-1.5 rounded-full bg-ink/80 px-2 py-0.5 text-[0.68rem] font-bold text-white">

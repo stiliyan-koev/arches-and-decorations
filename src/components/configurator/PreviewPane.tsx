@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { imageUrl } from "@/lib/images";
+import { fullImagePath, imageUrl } from "@/lib/images";
+import PhotoViewer from "@/components/PhotoViewer";
 import type { ProductImage } from "@/lib/types";
 
 type Props = {
@@ -15,13 +16,16 @@ export default function PreviewPane({ photo, alt }: Props) {
   return (
     <div className="relative grid aspect-square place-items-center self-start overflow-hidden rounded-item border border-border bg-bg">
       {photo ? (
-        <Image
-          src={imageUrl(photo.path)}
-          alt={alt}
-          fill
-          sizes="(max-width: 700px) 90vw, 380px"
-          className="object-cover"
-        />
+        <>
+          <Image
+            src={imageUrl(photo.path)}
+            alt={alt}
+            fill
+            sizes="(max-width: 700px) 90vw, 380px"
+            className="object-cover"
+          />
+          <PhotoViewer src={imageUrl(fullImagePath(photo))} alt={alt} />
+        </>
       ) : (
         <span className="px-4 text-center text-sm text-muted">
           Снимка предстои
