@@ -1,9 +1,10 @@
-// Prices are plain numbers in the database (BGN). One formatter so the tiles,
+// Prices are plain numbers in the database (EUR). One formatter so the tiles,
 // the summary lines and the total all render digits the same way. Written by
 // hand rather than with Intl so the server and the browser can't disagree
-// during hydration.
+// during hydration. The space before "€" is non-breaking, so the sign never
+// wraps onto a line of its own.
 export function formatPrice(value: number) {
-  return `${value.toFixed(2).replace(".", ",")} лв`;
+  return `${value.toFixed(2).replace(".", ",")} €`;
 }
 
 // Shown wherever a price can't be computed yet — custom_quote products and the

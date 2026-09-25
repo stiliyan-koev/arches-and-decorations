@@ -30,7 +30,8 @@ type Props = {
   optionGroup: string;
   onOptionGroup: (value: string) => void;
 
-  // Second step — the product, as a dropdown or a photo grid.
+  // Second step — the product, as a dropdown or a photo grid. A 'text' picker
+  // shows the text box below instead.
   productStepLabel: string;
   productPlaceholder: string;
   productDropdownOptions: DropdownOption[];
@@ -38,6 +39,10 @@ type Props = {
   productDisabled: boolean;
   productId: string;
   onProduct: (value: string) => void;
+
+  // The customer's own description, for a 'text' picker. Optional.
+  customText: string;
+  onCustomText: (value: string) => void;
 
   // Optional add-on.
   recommend: RecommendView | null;
@@ -55,7 +60,7 @@ type Props = {
 
 // One modal for every family. What it shows is entirely decided by the props
 // the Configurator computes from the category's data — there is no per-category
-// branching here beyond dropdown-vs-grid.
+// branching here beyond the picker (dropdown, grid or text box).
 export default function OptionModal({
   title,
   confirmLabel,
@@ -71,6 +76,8 @@ export default function OptionModal({
   productDisabled,
   productId,
   onProduct,
+  customText,
+  onCustomText,
   recommend,
   addonValue,
   onAddon,
@@ -132,7 +139,28 @@ export default function OptionModal({
               />
             )}
 
-            {picker === "grid" ? (
+            {picker === "text" ? (
+              <div>
+                <label
+                  htmlFor="custom-text"
+                  className="mb-1.5 block text-[0.72rem] font-extrabold tracking-[0.06em] text-muted uppercase"
+                >
+                  Опишете темата
+                </label>
+                <textarea
+                  id="custom-text"
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Напр. рожден ден на 5-годишно момиче, тема „Замръзналото кралство“, в синьо и бяло."
+                  value={customText}
+                  onChange={(event) => onCustomText(event.target.value)}
+                  className="w-full rounded-[10px] border border-border-strong bg-surface px-[11px] py-2.5 text-[0.93rem] text-ink focus:outline-2 focus:outline-offset-2 focus:outline-rose-ink"
+                />
+                <p className="mt-1.5 text-[0.78rem] leading-snug text-muted">
+                  Според темата ще ви предложим подходящи балони и цветове.
+                </p>
+              </div>
+            ) : picker === "grid" ? (
               <PhotoGridPicker
                 label={productStepLabel}
                 choices={gridChoices}

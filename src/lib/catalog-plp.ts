@@ -110,14 +110,13 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
 
 export type Band = { id: string; label: string; min: number; max: number };
 
-// Currency note: card prices use formatPrice() ("лв"), so the band labels match
-// it. The reference mockup used "€"; if the site switches to euro that's one
-// change in formatPrice plus these labels.
+// Currency note: card prices use formatPrice() ("€"), so the band labels match
+// it. If the currency ever changes again, that's formatPrice plus these labels.
 export const BANDS: Band[] = [
-  { id: "b0", label: "До 20 лв", min: 0, max: 20 },
-  { id: "b1", label: "20 – 40 лв", min: 20, max: 40 },
-  { id: "b2", label: "40 – 60 лв", min: 40, max: 60 },
-  { id: "b3", label: "Над 60 лв", min: 60, max: Infinity },
+  { id: "b0", label: "До 20 €", min: 0, max: 20 },
+  { id: "b1", label: "20 – 40 €", min: 20, max: 40 },
+  { id: "b2", label: "40 – 60 €", min: 40, max: 60 },
+  { id: "b3", label: "Над 60 €", min: 60, max: Infinity },
 ];
 
 function inBand(price: number, band: Band) {
