@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { CropRect } from "@/lib/resize-image";
+import { TILE_ASPECT } from "@/lib/images";
 
-// Tiles show photos at 4:3, so that's the only shape she can cut. The square
-// views (configurator preview) keep the middle of it — the dashed lines.
-const ASPECT = 4 / 3;
+// Tiles show photos at 4:5, so that's the only shape she can cut. The square
+// views (configurator preview) keep the middle of it — between the dashed lines.
+const ASPECT = TILE_ASPECT;
 
 // The smallest frame, as a share of the photo's width. Any tighter and the
 // tile would be blowing up a handful of pixels.
@@ -199,8 +200,8 @@ export default function ImageCropper({
         <h3 className="text-lg">{title}</h3>
         <p className="mt-1 text-[0.85rem] text-muted">
           Плъзнете рамката, за да изберете какво да се вижда; ъглите я
-          уголемяват. Средата (между пунктирите) се вижда в квадратните
-          изгледи.
+          уголемяват. Частта между пунктирите (горе и долу) се вижда в
+          квадратните изгледи.
         </p>
 
         {!size && (
@@ -237,7 +238,7 @@ export default function ImageCropper({
                 }}
                 className="absolute cursor-move touch-none border-2 border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]"
               >
-                <span className="pointer-events-none absolute inset-y-0 right-[12.5%] left-[12.5%] border-x border-dashed border-white/80" />
+                <span className="pointer-events-none absolute inset-x-0 top-[10%] bottom-[10%] border-y border-dashed border-white/80" />
                 {CORNERS.map((corner) => (
                   <span
                     key={corner}

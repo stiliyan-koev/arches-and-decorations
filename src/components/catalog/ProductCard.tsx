@@ -55,7 +55,7 @@ export default function ProductCard({
       }`}
     >
       <div
-        className="relative flex aspect-[4/3] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
+        className="relative flex aspect-[4/5] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
         style={{ background: product.tint }}
       >
         {product.imagePath ? (
@@ -79,15 +79,15 @@ export default function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <p className="text-[0.95rem] leading-snug font-bold text-ink hover:underline focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta">
+      <div className="flex flex-1 flex-col gap-0.5 p-3 sm:p-4">
+        <p className="line-clamp-2 text-[0.9rem] leading-tight font-bold text-ink hover:underline sm:text-[0.95rem] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta">
           {product.name}
         </p>
         {product.spec && (
-          <p className="text-[0.78rem] leading-snug text-muted">{product.spec}</p>
+          <p className="line-clamp-1 text-[0.78rem] leading-snug text-muted">{product.spec}</p>
         )}
 
-        <div className="mt-auto flex items-center gap-2.5 pt-3">
+        <div className="mt-auto flex items-center gap-2.5 pt-2">
           <span
             className={
               quote
@@ -104,7 +104,7 @@ export default function ProductCard({
             aria-label={buttonAria}
             aria-pressed={added}
             onClick={() => selection.toggle(product.slug)}
-            className={`ml-auto inline-flex h-11 w-11 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
+            className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
           >
             {/* Icon on narrow phones, full label from sm up. */}
             <span aria-hidden className="sm:hidden">

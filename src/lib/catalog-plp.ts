@@ -3,6 +3,7 @@
 // docs/design/plp/reference/plp-desktop.html; this ports the logic, not the DOM.
 
 import type { CatalogGroup } from "@/lib/types";
+import { fullImagePath } from "@/lib/images";
 
 // ---------------------------------------------------------------- flat product
 
@@ -19,6 +20,7 @@ export type PlpProduct = {
   isBooked: boolean; // tracked item she owns none of right now — see note below
   colors: string[]; // color slugs, for the swatch filter
   imagePath: string | null; // first image, or null -> tinted placeholder
+  fullImagePath: string | null; // the same photo uncropped, for the full-size view
   tint: string; // placeholder colour, per category
   createdAt: string | null; // for the "Най-нови" sort
 };
@@ -97,6 +99,7 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         isBooked: product.track_availability && product.quantity <= 0,
         colors: product.colors.map((color) => color.color_slug),
         imagePath: product.images?.[0]?.path ?? null,
+        fullImagePath: product.images?.[0] ? fullImagePath(product.images[0]) : null,
         tint: tintFor(group.slug),
         createdAt: product.created_at ?? null,
       });

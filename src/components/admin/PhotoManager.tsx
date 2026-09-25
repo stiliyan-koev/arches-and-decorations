@@ -6,12 +6,18 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { resizeToWebp } from "@/lib/resize-image";
 import type { CropRect } from "@/lib/resize-image";
-import { imageUrl } from "@/lib/images";
+import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
 import { attachImage, deleteImage, replaceImage } from "@/app/admin/actions";
 import ImageCropper from "@/components/admin/ImageCropper";
 import type { ProductColor, ProductImage } from "@/lib/types";
 
 const BUCKET = "catalog";
+
+// Longest side of the stored whole photo, and the tile's height (a 4:5 tile's
+// long side). Big enough to look at full screen on a phone, small enough for
+// the free Storage quota.
+const FULL_SIZE = 2000;
+const TILE_SIZE = 1200;
 
 type Props = {
   productId: string;
@@ -30,20 +36,49 @@ type Queue = {
   done: number;
 };
 
-// An existing photo being re-cropped, already downloaded.
+// An existing photo being re-cropped, its whole photo already downloaded.
 type Recrop = { image: ProductImage; blob: Blob };
 
 // The next NN for products/{slug}/{prefix}NN.ext. Scanning the paths we already
 // have beats counting rows: deleting photo 02 of three shouldn't make the next
-// upload collide with 03.
+// upload collide with 03. Whole photos sit in a full/ subfolder under the same
+// name, and a re-crop moves a tile to a new NN while its whole photo keeps the
+// old one, so both paths count.
 function nextIndex(images: ProductImage[], base: string) {
   let max = 0;
   for (const image of images) {
-    if (!image.path.startsWith(base)) continue;
-    const index = parseInt(image.path.slice(base.length), 10);
-    if (Number.isFinite(index) && index > max) max = index;
+    const paths = [image.path, image.full_path?.replace("/full/", "/")];
+    for (const path of paths) {
+      if (!path?.startsWith(base)) continue;
+      const index = parseInt(path.slice(base.length), 10);
+      if (Number.isFinite(index) && index > max) max = index;
+    }
   }
   return max + 1;
+}
+
+// Two-digit file number: 1 -> "01".
+function fileNumber(index: number) {
+  return String(index).padStart(2, "0");
+}
+
+// The crop is chosen on the original file but stored in the whole photo's
+// pixels (the file a later re-crop opens), so shrink it by the same factor.
+function scaleCrop(crop: CropRect, scale: number): CropRect {
+  return {
+    x: Math.round(crop.x * scale),
+    y: Math.round(crop.y * scale),
+    width: Math.round(crop.width * scale),
+    height: Math.round(crop.height * scale),
+  };
+}
+
+// Small label on a photo in the grid, so she can tell how it was saved.
+function photoLabel(image: ProductImage) {
+  // Uploaded before we kept whole photos: re-uploading gives a better result.
+  if (image.full_path == null) return "Няма оригинал";
+  if (image.path === image.full_path) return "Без изрязване";
+  return null;
 }
 
 export default function PhotoManager({
@@ -61,32 +96,29 @@ export default function PhotoManager({
   const [error, setError] = useState("");
 
   // products/{slug}/ plus the colour prefix, if the photo belongs to a colour.
-  function pathBase(id: string | null) {
+  // Whole photos go in a full/ subfolder under the same file name.
+  function pathBase(id: string | null, full = false) {
     const color = colors.find((item) => item.id === id);
     const prefix = color ? `${color.color_slug}--` : "";
-    return `products/${productSlug}/${prefix}`;
+    return `products/${productSlug}/${full ? "full/" : ""}${prefix}`;
   }
 
-  // Shrinks (and crops) the photo and puts it in Storage. Returns the path, or
-  // null once the error is on screen.
-  async function uploadPhoto(
-    source: Blob,
-    crop: CropRect | null,
-    base: string,
-    index: number,
-  ) {
-    const { blob, ext } = await resizeToWebp(source, crop ?? undefined);
-    const path = `${base}${String(index).padStart(2, "0")}.${ext}`;
-
+  // Puts one file in Storage. False once the error is on screen.
+  async function upload(path: string, blob: Blob) {
     const { error: uploadError } = await createClient()
       .storage.from(BUCKET)
       .upload(path, blob, { upsert: true, contentType: blob.type });
 
     if (uploadError) {
       setError(`Качването се провали: ${uploadError.message}`);
-      return null;
+      return false;
     }
-    return path;
+    return true;
+  }
+
+  // Best effort: clears files a failed save left behind.
+  async function removeFiles(paths: string[]) {
+    if (paths.length) await createClient().storage.from(BUCKET).remove(paths);
   }
 
   function handleFiles(files: FileList) {
@@ -120,26 +152,50 @@ export default function PhotoManager({
     });
   }
 
+  // Each photo becomes two files: the whole photo, only shrunk, and the
+  // cropped tile the site's grids show. With no crop (the cropper couldn't
+  // open it) or a file the browser can't decode, one file serves as both.
   // Sequential, not all at once: each upload needs to know which index the
   // previous one took, and she's adding two or three photos, not two hundred.
   async function handleCropped(current: Queue, crop: CropRect | null) {
     const file = current.files[0];
     setBusy(`Качване на ${file.name}…`);
 
-    const path = await uploadPhoto(
-      file,
-      crop,
-      pathBase(current.colorId),
-      current.index,
-    );
+    const name = fileNumber(current.index);
+    const full = await resizeToWebp(file, undefined, FULL_SIZE);
+    const fullPath = `${pathBase(current.colorId, true)}${name}.${full.ext}`;
+    const uploaded: string[] = [];
+    let path: string | null = null;
+    let savedCrop: CropRect | null = null;
+
+    if (await upload(fullPath, full.blob)) {
+      uploaded.push(fullPath);
+      if (!crop || full.ext !== "webp") {
+        path = fullPath;
+      } else {
+        const tile = await resizeToWebp(file, crop, TILE_SIZE, PAGE_BG);
+        const tilePath = `${pathBase(current.colorId)}${name}.${tile.ext}`;
+        if (await upload(tilePath, tile.blob)) {
+          uploaded.push(tilePath);
+          path = tilePath;
+          savedCrop = scaleCrop(crop, full.scale);
+        }
+      }
+    }
+
     const result = path
       ? await attachImage({
           product_id: productId,
           color_id: current.colorId,
           path,
+          full_path: fullPath,
+          crop: savedCrop,
           sort: current.index,
         })
       : null;
+
+    // No row points at them, so the files just uploaded would be orphans.
+    if (!result?.ok) await removeFiles(uploaded);
 
     setBusy("");
     if (result && !result.ok) setError(result.error);
@@ -152,11 +208,13 @@ export default function PhotoManager({
     nextInQueue(current, true);
   }
 
+  // Downloads the whole photo, not the tile, so a re-crop can widen the frame
+  // again instead of only cutting more off.
   async function startRecrop(image: ProductImage) {
     setError("");
     setBusy("Зареждане на снимката…");
     try {
-      const response = await fetch(imageUrl(image.path));
+      const response = await fetch(imageUrl(fullImagePath(image)));
       if (!response.ok) throw new Error(String(response.status));
       setRecrop({ image, blob: await response.blob() });
     } catch {
@@ -165,9 +223,10 @@ export default function PhotoManager({
     setBusy("");
   }
 
-  // Saved under a new name rather than over the old file: the old URL is
-  // cached by the browser and the CDN, so an overwrite would keep showing the
-  // old framing for a while. The row keeps its place in the order.
+  // The new tile is saved under a new name rather than over the old file: the
+  // old URL is cached by the browser and the CDN, so an overwrite would keep
+  // showing the old framing for a while. The row keeps its place in the order,
+  // and the whole photo is never touched.
   async function handleRecropped(current: Recrop, crop: CropRect | null) {
     setRecrop(null);
     if (!crop) {
@@ -177,13 +236,22 @@ export default function PhotoManager({
 
     setBusy("Запазване…");
     const base = pathBase(current.image.color_id);
-    const path = await uploadPhoto(current.blob, crop, base, nextIndex(images, base));
-    const result = path ? await replaceImage(current.image.id, path) : null;
+    const tile = await resizeToWebp(current.blob, crop, TILE_SIZE, PAGE_BG);
+    const path = `${base}${fileNumber(nextIndex(images, base))}.${tile.ext}`;
+    const uploaded = await upload(path, tile.blob);
+    // An old photo has no whole photo (what was downloaded is its old tile),
+    // so there is no full-photo crop to remember for it.
+    const result = uploaded
+      ? await replaceImage(current.image.id, {
+          path,
+          crop: current.image.full_path ? crop : null,
+        })
+      : null;
     setBusy("");
 
-    if (path && result && !result.ok) {
-      // The row still points at the old file, so the new one is unused.
-      await createClient().storage.from(BUCKET).remove([path]);
+    if (result && !result.ok) {
+      // The row still points at the old tile, so the new one is unused.
+      await removeFiles([path]);
       setError(result.error);
     }
     if (result?.ok) router.refresh();
@@ -214,7 +282,9 @@ export default function PhotoManager({
       <h2 className="text-lg">Снимки</h2>
       <p className="mt-1 text-[0.85rem] text-muted">
         Изберете снимка и нагласете рамката върху нея — така ще изглежда в
-        плочките на сайта. Файлът се преоразмерява и преименува автоматично.
+        плочките на сайта. Цялата снимка също се пази, така че по-късно можете
+        да я изрежете отново. Файловете се преоразмеряват и преименуват
+        автоматично.
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -262,43 +332,51 @@ export default function PhotoManager({
         </p>
       ) : (
         <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {images.map((image) => (
-            <li
-              key={image.id}
-              className="overflow-hidden rounded-item border border-border"
-            >
-              <div className="relative aspect-[4/3] bg-surface-2">
-                <Image
-                  src={imageUrl(image.path)}
-                  alt=""
-                  fill
-                  sizes="200px"
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex items-center gap-2 p-2">
-                <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
-                  {colorLabel(image.color_id)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => startRecrop(image)}
-                  disabled={locked}
-                  className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-ink hover:underline disabled:opacity-50"
-                >
-                  Изрежи
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(image)}
-                  disabled={locked}
-                  className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
-                >
-                  Изтрий
-                </button>
-              </div>
-            </li>
-          ))}
+          {images.map((image) => {
+            const label = photoLabel(image);
+            return (
+              <li
+                key={image.id}
+                className="overflow-hidden rounded-item border border-border"
+              >
+                <div className="relative aspect-[4/5] bg-surface-2">
+                  <Image
+                    src={imageUrl(image.path)}
+                    alt=""
+                    fill
+                    sizes="200px"
+                    className="object-cover"
+                  />
+                  {label && (
+                    <span className="absolute top-1.5 left-1.5 rounded-full bg-ink/80 px-2 py-0.5 text-[0.68rem] font-bold text-white">
+                      {label}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 p-2">
+                  <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
+                    {colorLabel(image.color_id)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => startRecrop(image)}
+                    disabled={locked}
+                    className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-ink hover:underline disabled:opacity-50"
+                  >
+                    Изрежи
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(image)}
+                    disabled={locked}
+                    className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
+                  >
+                    Изтрий
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 

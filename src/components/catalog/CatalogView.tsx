@@ -248,7 +248,7 @@ export default function CatalogView({
 
           {visible.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
                 {shown.map((product, index) => (
                   <ProductCard
                     key={product.slug}

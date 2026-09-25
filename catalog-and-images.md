@@ -52,6 +52,7 @@ Supabase Storage bucket `catalog` (public read). Folder-per-product keeps names 
 ```
 products/{product-slug}/{NN}.webp                    # color-agnostic / base image
 products/{product-slug}/{color-slug}--{NN}.webp      # color-specific image
+products/{product-slug}/full/{color-slug--}{NN}.webp # the whole photo behind a tile, same name
 gallery/{theme-slug}/{NN}.webp                        # past-work gallery, grouped by theme
 ```
 
@@ -59,6 +60,16 @@ Rules:
 - lowercase, ASCII, `webp`, two-digit index `01`, `02`, …
 - `--` separates the color segment from the index (slugs may contain single `-`)
 - Examples: `products/arch-cover/red--01.webp`, `products/arch-cover/elsa-castle--01.webp`, `products/figure-elsa/01.webp`, `gallery/frozen-theme/03.webp`
+
+### Tile vs full
+Each product photo is two files:
+- **tile** (`product_images.path`): the 4:5 portrait crop, max 1200px tall.
+- **full** (`product_images.full_path`): the whole photo, only shrunk (max 2000px long side), under `full/`.
+- Saved "Без изрязване" = one file: `path` and `full_path` both point at the `full/` file.
+- Re-crop cuts a new tile from the full file and saves it under a new `NN`; the full file never changes.
+- Old rows have `full_path = null` (the original was never kept); `fullImagePath()` falls back to the tile.
+
+Rule of thumb: **grids and cards → tile, anything "look closer" → full.**
 
 ## Swatch → image logic (PDP)
 1. Load `product_images` for the product.

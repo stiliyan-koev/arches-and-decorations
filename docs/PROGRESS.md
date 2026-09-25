@@ -168,7 +168,8 @@ are still open.
 - [x] `/admin/products` — add/edit/hide products, `/admin/categories` for categories
 - [x] Edit prices and quantities without touching Supabase
 - [x] Upload product photos from the admin (resized in the browser, straight to Storage)
-- [x] Crop photos to 4:3 on upload, and re-crop existing ones („Изрежи“)
+- [x] Crop photos to 4:5 on upload, and re-crop existing ones („Изрежи“)
+- [x] Keep the whole photo next to the cropped tile (`full_path`); re-crop starts from it. Tighter 4:5 catalog cards
 - [x] Manage colours/swatches per product
 - [ ] `/gallery` — real past work, grouped by theme
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
@@ -211,7 +212,7 @@ Payments / Stripe · online booking commitments · customer accounts · blog · 
 ## Adding product photos
 
 **Use the admin panel** — `/admin/products` → pick a product → Снимки → choose the colour
-(or „Всички цветове") → pick the file → drag the 4:3 frame to choose what the tiles show
+(or „Всички цветове") → pick the file → drag the 4:5 frame to choose what the tiles show
 (the dashed middle is what the square views keep). It crops and resizes in the browser, names the file to the
 `catalog-and-images.md` convention, uploads it and records the row. She never sees a path.
 
@@ -220,13 +221,16 @@ The naming convention it generates, for reference when looking at the bucket:
 ```
 products/{product-slug}/01.webp                  # colour-agnostic
 products/{product-slug}/{color-slug}--01.webp    # colour-specific
+products/{product-slug}/full/01.webp             # the whole photo behind a tile
 ```
 
 A photo attached to a colour wins for that swatch; otherwise the colour-agnostic one shows.
 
-„Изрежи" on an existing photo re-crops it. Only the cropped file is kept, so it can only
-tighten the frame; the new crop gets a new file name (the old URL is cached) and the old file
-is deleted.
+Each photo is stored twice: the cropped 4:5 tile and the whole photo (only shrunk) under `full/`.
+„Изрежи" re-crops from the whole photo, so she can widen the frame again, not just tighten it. The new
+tile gets a new file name (the old URL is cached) and the old tile is deleted; the whole photo never is.
+Photos uploaded before this have no original (the admin grid shows „Няма оригинал"): re-upload them for
+the best result.
 
 **iPhone note:** `.heic` files only convert to webp in Safari. Uploading from Chrome on
 Windows stores the original, which browsers can't display — upload from the phone, or

@@ -4,6 +4,20 @@ import type { Product, ProductImage } from "@/lib/types";
 // the folder convention.
 const BUCKET = "catalog";
 
+// Every tile (catalog card, configurator, admin grid) shows photos at 4:5
+// portrait. Square views show the middle of it.
+export const TILE_ASPECT = 4 / 5;
+
+// The page background (--color-bg in globals.css). Fills the gaps when a crop
+// reaches past the photo's edges.
+export const PAGE_BG = "#fff9f3";
+
+// The whole photo, for anything "look closer". Rows from before we kept it
+// only have the tile, so fall back to that.
+export function fullImagePath(image: ProductImage) {
+  return image.full_path ?? image.path;
+}
+
 // Public bucket, so the URL is predictable and needs no SDK call or signing.
 export function imageUrl(path: string) {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
