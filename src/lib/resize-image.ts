@@ -1,17 +1,28 @@
 const ALLOWED_EXTENSIONS = ["heic", "heif", "jpg", "jpeg", "png", "webp"];
 
+// The part of the photo to keep, in the photo's own pixels.
+export type CropRect = { x: number; y: number; width: number; height: number };
+
 // Browser-only. Phone photos are 3–5 MB and the site renders them a few hundred
 // pixels wide, so shrink before upload: it keeps the free-tier Storage quota
-// sane and makes uploading over mobile data bearable.
+// sane and makes uploading over mobile data bearable. With a crop, only that
+// rectangle is kept (and shrunk).
 export async function resizeToWebp(
-  file: File,
+  photo: Blob,
+  crop?: CropRect,
   maxSize = 1600,
 ): Promise<{ blob: Blob; ext: string }> {
   try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-    const width = Math.round(bitmap.width * scale);
-    const height = Math.round(bitmap.height * scale);
+    const bitmap = await createImageBitmap(photo);
+    const area = crop ?? {
+      x: 0,
+      y: 0,
+      width: bitmap.width,
+      height: bitmap.height,
+    };
+    const scale = Math.min(1, maxSize / Math.max(area.width, area.height));
+    const width = Math.round(area.width * scale);
+    const height = Math.round(area.height * scale);
 
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -20,7 +31,17 @@ export async function resizeToWebp(
     const context = canvas.getContext("2d");
     if (!context) throw new Error("no 2d context");
 
-    context.drawImage(bitmap, 0, 0, width, height);
+    context.drawImage(
+      bitmap,
+      area.x,
+      area.y,
+      area.width,
+      area.height,
+      0,
+      0,
+      width,
+      height,
+    );
     bitmap.close();
 
     const blob = await new Promise<Blob | null>((resolve) =>
@@ -34,9 +55,10 @@ export async function resizeToWebp(
     // Upload exactly what she picked rather than failing — a big file that
     // works beats a small one that doesn't. The extension goes into the
     // storage path, so only known image extensions get through.
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const name = photo instanceof File ? photo.name : "";
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
     return {
-      blob: file,
+      blob: photo,
       ext: ALLOWED_EXTENSIONS.includes(ext) ? ext : "jpg",
     };
   }

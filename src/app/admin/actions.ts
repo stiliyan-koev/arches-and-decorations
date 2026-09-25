@@ -242,6 +242,47 @@ export async function attachImage(input: {
   return { ok: true };
 }
 
+// A re-cropped photo is uploaded under a new name (the old public URL is
+// cached), so point the row at it and drop the old file.
+export async function replaceImage(
+  id: string,
+  path: string,
+): Promise<ActionResult> {
+  // The new path comes from the browser, so only accept one inside the
+  // product photos folder.
+  if (!path.startsWith("products/") || path.includes("..")) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: image } = await supabase
+    .from("product_images")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+
+  // An unknown id (or one RLS hides) updates nothing and is not an error, so
+  // check that a row actually changed before removing any file.
+  const { data: updated, error } = await supabase
+    .from("product_images")
+    .update({ path })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  // Best effort, as in deleteImage.
+  if (image && image.path !== path) {
+    await supabase.storage.from(BUCKET).remove([image.path]);
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
 export async function deleteImage(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
