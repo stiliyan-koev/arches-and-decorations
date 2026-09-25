@@ -9,9 +9,16 @@ import type { CropRect } from "@/lib/resize-image";
 import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
 import { attachImage, deleteImage, replaceImage } from "@/app/admin/actions";
 import ImageCropper from "@/components/admin/ImageCropper";
+import type { CropResult } from "@/components/admin/ImageCropper";
 import type { ProductColor, ProductImage } from "@/lib/types";
 
 const BUCKET = "catalog";
+
+// What a save action tells us back. A thrown action (network drop, server
+// error) is turned into the same shape, so the busy message always clears and
+// files nobody points at get cleaned up.
+type SaveResult = { ok: boolean; error?: string };
+const SAVE_FAILED = "Запазването се провали. Опитайте отново.";
 
 // Longest side of the stored whole photo, and the tile's height (a 4:5 tile's
 // long side). Big enough to look at full screen on a phone, small enough for
@@ -153,11 +160,12 @@ export default function PhotoManager({
   }
 
   // Each photo becomes two files: the whole photo, only shrunk, and the
-  // cropped tile the site's grids show. With no crop (the cropper couldn't
-  // open it) or a file the browser can't decode, one file serves as both.
+  // cropped tile the site's grids show. With "Без изрязване" (or a file the
+  // browser can't decode) one file serves as both.
   // Sequential, not all at once: each upload needs to know which index the
   // previous one took, and she's adding two or three photos, not two hundred.
-  async function handleCropped(current: Queue, crop: CropRect | null) {
+  async function handleCropped(current: Queue, choice: CropResult) {
+    const crop = choice.mode === "crop" ? choice.crop : null;
     const file = current.files[0];
     setBusy(`Качване на ${file.name}…`);
 
@@ -183,22 +191,27 @@ export default function PhotoManager({
       }
     }
 
-    const result = path
-      ? await attachImage({
+    let result: SaveResult | null = null;
+    if (path) {
+      try {
+        result = await attachImage({
           product_id: productId,
           color_id: current.colorId,
           path,
           full_path: fullPath,
           crop: savedCrop,
           sort: current.index,
-        })
-      : null;
+        });
+      } catch {
+        result = { ok: false, error: SAVE_FAILED };
+      }
+    }
 
     // No row points at them, so the files just uploaded would be orphans.
     if (!result?.ok) await removeFiles(uploaded);
 
     setBusy("");
-    if (result && !result.ok) setError(result.error);
+    if (result && !result.ok) setError(result.error ?? SAVE_FAILED);
 
     // On any failure, stop here — but still refresh so the ones that made it show.
     if (!result?.ok) {
@@ -227,34 +240,59 @@ export default function PhotoManager({
   // old URL is cached by the browser and the CDN, so an overwrite would keep
   // showing the old framing for a while. The row keeps its place in the order,
   // and the whole photo is never touched.
-  async function handleRecropped(current: Recrop, crop: CropRect | null) {
+  async function handleRecropped(current: Recrop, choice: CropResult) {
     setRecrop(null);
-    if (!crop) {
-      setError("Тази снимка не може да се изреже — изтрийте я и я качете отново.");
+    const { image } = current;
+
+    // "Без изрязване": point the tile at the whole photo; replaceImage drops
+    // the old tile file but never the whole photo. An old photo has no whole
+    // photo to go back to, and an uncropped one is already there.
+    if (choice.mode === "original") {
+      if (!image.full_path) {
+        setError("Тази снимка няма оригинал — изтрийте я и я качете отново.");
+        return;
+      }
+      if (image.path === image.full_path) return;
+      setBusy("Запазване…");
+      await saveReplace(image.id, image.full_path, null, false);
       return;
     }
 
     setBusy("Запазване…");
-    const base = pathBase(current.image.color_id);
-    const tile = await resizeToWebp(current.blob, crop, TILE_SIZE, PAGE_BG);
+    const base = pathBase(image.color_id);
+    const tile = await resizeToWebp(current.blob, choice.crop, TILE_SIZE, PAGE_BG);
     const path = `${base}${fileNumber(nextIndex(images, base))}.${tile.ext}`;
-    const uploaded = await upload(path, tile.blob);
+    if (!(await upload(path, tile.blob))) {
+      setBusy("");
+      return;
+    }
     // An old photo has no whole photo (what was downloaded is its old tile),
     // so there is no full-photo crop to remember for it.
-    const result = uploaded
-      ? await replaceImage(current.image.id, {
-          path,
-          crop: current.image.full_path ? crop : null,
-        })
-      : null;
+    await saveReplace(image.id, path, image.full_path ? choice.crop : null, true);
+  }
+
+  // Points a row at a new tile. With `removeOnFail`, `path` is a tile just
+  // uploaded for it, removed again if the row still points at the old one.
+  async function saveReplace(
+    id: string,
+    path: string,
+    crop: CropRect | null,
+    removeOnFail: boolean,
+  ) {
+    let result: SaveResult;
+    try {
+      result = await replaceImage(id, { path, crop });
+    } catch {
+      result = { ok: false, error: SAVE_FAILED };
+    }
     setBusy("");
 
-    if (result && !result.ok) {
-      // The row still points at the old tile, so the new one is unused.
-      await removeFiles([path]);
-      setError(result.error);
+    if (!result.ok) {
+      if (removeOnFail) await removeFiles([path]);
+      setError(result.error ?? SAVE_FAILED);
+      return;
     }
-    if (result?.ok) router.refresh();
+    router.refresh();
   }
 
   async function handleDelete(image: ProductImage) {
@@ -281,7 +319,7 @@ export default function PhotoManager({
     <section className="rounded-card border border-border bg-surface p-5">
       <h2 className="text-lg">Снимки</h2>
       <p className="mt-1 text-[0.85rem] text-muted">
-        Изберете снимка и нагласете рамката върху нея — така ще изглежда в
+        Изберете снимка и я наместете в рамката — така ще изглежда в
         плочките на сайта. Цялата снимка също се пази, така че по-късно можете
         да я изрежете отново. Файловете се преоразмеряват и преименуват
         автоматично.
@@ -391,7 +429,7 @@ export default function PhotoManager({
               : "Изрежете снимката"
           }
           cancelLabel={queueTotal > 1 ? "Пропусни" : "Отказ"}
-          onConfirm={(crop) => handleCropped(queue, crop)}
+          onConfirm={(choice) => handleCropped(queue, choice)}
           onCancel={() => nextInQueue(queue, false)}
         />
       )}
@@ -400,10 +438,17 @@ export default function PhotoManager({
         <ImageCropper
           key={recrop.image.id}
           source={recrop.blob}
+          initialCrop={recrop.image.crop ?? undefined}
           title="Изрежете снимката"
           cancelLabel="Отказ"
-          onConfirm={(crop) => handleRecropped(recrop, crop)}
+          onConfirm={(choice) => handleRecropped(recrop, choice)}
           onCancel={() => setRecrop(null)}
+          onLoadError={() => {
+            setRecrop(null);
+            setError(
+              "Тази снимка не може да се изреже — изтрийте я и я качете отново.",
+            );
+          }}
         />
       )}
     </section>
