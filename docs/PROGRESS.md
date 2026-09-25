@@ -168,6 +168,7 @@ are still open.
 - [x] `/admin/products` — add/edit/hide products, `/admin/categories` for categories
 - [x] Edit prices and quantities without touching Supabase
 - [x] Upload product photos from the admin (resized in the browser, straight to Storage)
+- [x] Crop photos to 4:3 on upload, and re-crop existing ones („Изрежи“)
 - [x] Manage colours/swatches per product
 - [ ] `/gallery` — real past work, grouped by theme
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
@@ -204,7 +205,8 @@ Payments / Stripe · online booking commitments · customer accounts · blog · 
 ## Adding product photos
 
 **Use the admin panel** — `/admin/products` → pick a product → Снимки → choose the colour
-(or „Всички цветове") → pick the file. It resizes in the browser, names the file to the
+(or „Всички цветове") → pick the file → drag the 4:3 frame to choose what the tiles show
+(the dashed middle is what the square views keep). It crops and resizes in the browser, names the file to the
 `catalog-and-images.md` convention, uploads it and records the row. She never sees a path.
 
 The naming convention it generates, for reference when looking at the bucket:
@@ -215,6 +217,10 @@ products/{product-slug}/{color-slug}--01.webp    # colour-specific
 ```
 
 A photo attached to a colour wins for that swatch; otherwise the colour-agnostic one shows.
+
+„Изрежи" on an existing photo re-crops it. Only the cropped file is kept, so it can only
+tighten the frame; the new crop gets a new file name (the old URL is cached) and the old file
+is deleted.
 
 **iPhone note:** `.heic` files only convert to webp in Safari. Uploading from Chrome on
 Windows stores the original, which browsers can't display — upload from the phone, or

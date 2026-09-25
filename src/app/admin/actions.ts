@@ -242,6 +242,35 @@ export async function attachImage(input: {
   return { ok: true };
 }
 
+// A re-cropped photo is uploaded under a new name (the old public URL is
+// cached), so point the row at it and drop the old file.
+export async function replaceImage(
+  id: string,
+  path: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  const { data: image } = await supabase
+    .from("product_images")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("product_images")
+    .update({ path })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  // Best effort, as in deleteImage.
+  if (image && image.path !== path) {
+    await supabase.storage.from(BUCKET).remove([image.path]);
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
 export async function deleteImage(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
