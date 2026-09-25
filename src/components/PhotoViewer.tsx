@@ -23,10 +23,9 @@ export default function PhotoViewer({ src, alt }: Props) {
   }, [open]);
 
   function handleOpen(event: MouseEvent<HTMLButtonElement>) {
-    // The button lives inside cards that have their own click targets
-    // (a picker button today, maybe a link later). Keep the click to ourselves.
+    // The button sits inside cards and tiles that react to clicks themselves
+    // (the catalog card, the admin photo tile). Keep the click to ourselves.
     event.stopPropagation();
-    event.preventDefault();
     setOpen(true);
   }
 
@@ -34,7 +33,8 @@ export default function PhotoViewer({ src, alt }: Props) {
     // React bubbles events through the component tree, so without this a click
     // in the popup would also reach the card around the button.
     event.stopPropagation();
-    // The dialog itself is only "hit" on the dark area around the photo box.
+    // The photo ignores clicks (pointer-events-none), so any click that is not
+    // on the ✕ lands on the dialog itself and closes the viewer.
     if (event.target === event.currentTarget) dialogRef.current?.close();
   }
 
@@ -61,19 +61,24 @@ export default function PhotoViewer({ src, alt }: Props) {
         </svg>
       </button>
 
-      {/* Full screen and transparent; the dark part is the ::backdrop.
-          onClose fires for the ✕ button, Escape and the backdrop click alike. */}
+      {/* Full screen and transparent over the dark ::backdrop, so clicks land on
+          the dialog, not the backdrop. onClose fires for ✕, Escape and clicks alike. */}
       <dialog
         ref={dialogRef}
         aria-label={alt}
         onClose={() => setOpen(false)}
         onClick={handleDialogClick}
+        // Keep Escape from reaching the configurator's modal, which also closes
+        // on Escape. The browser still closes this dialog by itself.
+        onKeyDown={(e) => {
+          if (e.key === "Escape") e.stopPropagation();
+        }}
         className="m-0 h-full max-h-none w-full max-w-none bg-transparent p-0 backdrop:bg-ink/85"
       >
         {/* The <Image> exists only while open, so the 2000px file is not
             downloaded for every card on the page. */}
         {open && (
-          <div className="absolute inset-x-4 top-16 bottom-4 sm:inset-x-12 sm:bottom-12">
+          <div className="pointer-events-none absolute inset-x-4 top-16 bottom-4 sm:inset-x-12 sm:bottom-12">
             <Image src={src} alt={alt} fill sizes="100vw" className="object-contain" />
           </div>
         )}
