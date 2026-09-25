@@ -662,7 +662,9 @@ function ConfiguratorModal({
       confirmLabel={editing ? "Запази промените" : "Потвърди избора"}
       picker={category.picker}
       optionGroupLabel="Вид"
-      optionGroupOptions={optionGroupOptions}
+      // A 'text' modal has no product picker, so it must not offer the "Вид"
+      // dropdown either — changing it clears productId with no way to set it back.
+      optionGroupOptions={category.picker === "text" ? [] : optionGroupOptions}
       optionGroup={draft.optionGroup}
       onOptionGroup={(value) =>
         setDraft({ ...draft, optionGroup: value, productId: "" })
@@ -682,7 +684,10 @@ function ConfiguratorModal({
       previewPhoto={previewPhoto}
       previewAlt={selectedProduct?.name ?? category.name}
       priceLabel={priceLabel}
-      canConfirm={Boolean(selectedProduct)}
+      canConfirm={
+        Boolean(selectedProduct) &&
+        (category.picker !== "text" || draft.customText.trim().length > 0)
+      }
       onConfirm={onConfirm}
       onClose={() => setDraft(null)}
     />

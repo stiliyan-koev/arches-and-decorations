@@ -87,7 +87,11 @@ create table booking_items (
   color_id    uuid references product_colors(id) on delete set null,
   custom_text text,                    -- e.g. the figure the customer described
   qty         int not null default 1,
-  line_price  numeric(10,2)            -- EUR
+  line_price  numeric(10,2),           -- EUR
+  -- custom_text comes from a public form and the public insert policy checks
+  -- nothing, so cap it here too. 1000 matches MAX_CUSTOM_TEXT in src/app/actions.ts.
+  constraint booking_items_custom_text_len
+    check (custom_text is null or length(custom_text) <= 1000)
 );
 
 -- Every money column is in euro. The comments show up in the Supabase table
