@@ -1,117 +1,82 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent } from "react";
+import Cropper from "react-easy-crop";
+import type { Area, Point } from "react-easy-crop";
 import type { CropRect } from "@/lib/resize-image";
 import { TILE_ASPECT } from "@/lib/images";
 
-// Tiles show photos at 4:5, so that's the only shape she can cut. The square
-// views (configurator preview) keep the middle of it — between the dashed lines.
-const ASPECT = TILE_ASPECT;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.05;
 
-// The smallest frame, as a share of the photo's width. Any tighter and the
-// tile would be blowing up a handful of pixels.
-const MIN_SHARE = 0.15;
+// Below this many pixels wide, a tile starts to look soft on a phone screen.
+const SMALL_WIDTH = 500;
 
-type Corner = "nw" | "ne" | "sw" | "se";
-const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
-const CORNER_CLASS: Record<Corner, string> = {
-  nw: "left-0 top-0 cursor-nwse-resize items-start justify-start",
-  ne: "right-0 top-0 cursor-nesw-resize items-start justify-end",
-  sw: "left-0 bottom-0 cursor-nesw-resize items-end justify-start",
-  se: "right-0 bottom-0 cursor-nwse-resize items-end justify-end",
-};
-
-// Everything is in the photo's own pixels, so the frame means the same thing
-// however big the photo happens to be drawn on screen. Height is always
-// width / ASPECT, so it isn't stored.
-type Size = { width: number; height: number };
-type Frame = { x: number; y: number; width: number };
-type Drag = {
-  mode: "move" | Corner;
-  startX: number;
-  startY: number;
-  start: Frame;
-};
+// What she chose. "Цялата снимка" is a crop too (one that reaches past the
+// photo's edges); "original" is "Без изрязване", or a photo the browser can't
+// open (HEIC outside Safari), which is uploaded as it is.
+export type CropResult =
+  | { mode: "crop"; crop: CropRect }
+  | { mode: "original" };
 
 type Props = {
   source: Blob;
   title: string;
   cancelLabel: string;
-  // null means the browser couldn't open the photo (HEIC outside Safari):
-  // upload it as it is, like before there was a cropper.
-  onConfirm: (crop: CropRect | null) => void;
+  // Where she left the frame last time, in the source's own pixels.
+  initialCrop?: CropRect;
+  onConfirm: (result: CropResult) => void;
   onCancel: () => void;
 };
 
+// The photo, measured before the cropper mounts (see the effect below).
+type Photo = { url: string; width: number; height: number };
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
-}
-
-// The biggest 4:3 frame that fits, centred — what she gets if she just saves.
-function largestFrame(size: Size): Frame {
-  const width = Math.min(size.width, size.height * ASPECT);
-  return {
-    x: (size.width - width) / 2,
-    y: (size.height - width / ASPECT) / 2,
-    width,
-  };
-}
-
-function moveFrame(size: Size, start: Frame, dx: number, dy: number): Frame {
-  return {
-    x: clamp(start.x + dx, 0, size.width - start.width),
-    y: clamp(start.y + dy, 0, size.height - start.width / ASPECT),
-    width: start.width,
-  };
-}
-
-// Dragging a corner keeps the opposite corner where it is and grows or shrinks
-// the frame towards the pointer, never past the photo's edges.
-function resizeFrame(
-  size: Size,
-  start: Frame,
-  corner: Corner,
-  dx: number,
-  dy: number,
-): Frame {
-  const east = corner.includes("e");
-  const south = corner.includes("s");
-  const anchorX = east ? start.x : start.x + start.width;
-  const anchorY = south ? start.y : start.y + start.width / ASPECT;
-
-  // Follow whichever direction the pointer moved more, so a mostly vertical
-  // drag works as well as a horizontal one.
-  const fromX = start.width + (east ? dx : -dx);
-  const fromY = start.width + (south ? dy : -dy) * ASPECT;
-  const wanted =
-    Math.abs(fromX - start.width) > Math.abs(fromY - start.width) ? fromX : fromY;
-
-  const roomX = east ? size.width - anchorX : anchorX;
-  const roomY = south ? size.height - anchorY : anchorY;
-  const max = Math.min(roomX, roomY * ASPECT);
-  const width = clamp(wanted, Math.min(size.width * MIN_SHARE, max), max);
-
-  return {
-    x: east ? anchorX : anchorX - width,
-    y: south ? anchorY : anchorY - width / ASPECT,
-    width,
-  };
 }
 
 export default function ImageCropper({
   source,
   title,
   cancelLabel,
+  initialCrop,
   onConfirm,
   onCancel,
 }: Props) {
-  // Revoked once the photo has loaded; the drawn image stays on screen.
-  const [url] = useState(() => URL.createObjectURL(source));
-  const imageRef = useRef<HTMLImageElement>(null);
-  const drag = useRef<Drag | null>(null);
-  const [size, setSize] = useState<Size | null>(null);
-  const [frame, setFrame] = useState<Frame | null>(null);
+  const [photo, setPhoto] = useState<Photo | null>(null);
+  // The frame's position and zoom, as react-easy-crop wants them.
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  // The part of the photo inside the frame, in the photo's own pixels. This
+  // is what gets saved.
+  const [area, setArea] = useState<CropRect | null>(initialCrop ?? null);
+
+  // The parent passes a new arrow function every render; keep the latest one
+  // without re-running the measuring effect.
+  const onConfirmRef = useRef(onConfirm);
+  useEffect(() => {
+    onConfirmRef.current = onConfirm;
+  });
+
+  // Measure the photo BEFORE mounting <Cropper>. It applies initialCrop
+  // (clamped to minZoom) before it tells us the photo's size, so a minZoom
+  // worked out after load would come too late: a saved "Цялата снимка" frame
+  // would reopen clamped to zoom 1. The object URL lives as long as the
+  // cropper does.
+  useEffect(() => {
+    const url = URL.createObjectURL(source);
+    const probe = new Image();
+    probe.onload = () =>
+      setPhoto({ url, width: probe.naturalWidth, height: probe.naturalHeight });
+    probe.onerror = () => onConfirmRef.current({ mode: "original" });
+    probe.src = url;
+    return () => {
+      probe.onload = null;
+      probe.onerror = null;
+      URL.revokeObjectURL(url);
+    };
+  }, [source]);
 
   // Same as the configurator modal: lock the page behind it, Escape cancels.
   useEffect(() => {
@@ -127,67 +92,39 @@ export default function ImageCropper({
     };
   }, [onCancel]);
 
-  function handleLoad() {
-    const image = imageRef.current;
-    if (!image) return;
-    const natural = { width: image.naturalWidth, height: image.naturalHeight };
-    setSize(natural);
-    setFrame(largestFrame(natural));
-    URL.revokeObjectURL(url);
+  // The zoom at which the whole photo fits inside the 4:5 frame. At zoom 1
+  // the frame is as big as fits inside the photo, so this is always <= 1.
+  const photoAspect = photo ? photo.width / photo.height : TILE_ASPECT;
+  const fitZoom = Math.min(
+    TILE_ASPECT / photoAspect,
+    photoAspect / TILE_ASPECT,
+  );
+
+  function changeZoom(value: number) {
+    setZoom(clamp(value, fitZoom, MAX_ZOOM));
   }
 
-  function handleError() {
-    // Only a photo that never opened counts as undecodable.
-    if (size) return;
-    URL.revokeObjectURL(url);
-    onConfirm(null);
+  // Zoom out until the whole photo is in the frame. The gaps are filled with
+  // the page background when the tile is made.
+  function showWholePhoto() {
+    setZoom(fitZoom);
+    setCrop({ x: 0, y: 0 });
   }
 
-  function startDrag(event: PointerEvent<HTMLElement>, mode: Drag["mode"]) {
-    if (!frame) return;
-    // A corner sits inside the frame; don't let the frame start a move too.
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = {
-      mode,
-      startX: event.clientX,
-      startY: event.clientY,
-      start: frame,
-    };
-  }
-
-  function handleMove(event: PointerEvent<HTMLElement>) {
-    const current = drag.current;
-    const image = imageRef.current;
-    if (!current || !image || !size) return;
-
-    // Screen pixels → photo pixels.
-    const scale = size.width / image.getBoundingClientRect().width;
-    const dx = (event.clientX - current.startX) * scale;
-    const dy = (event.clientY - current.startY) * scale;
-
-    setFrame(
-      current.mode === "move"
-        ? moveFrame(size, current.start, dx, dy)
-        : resizeFrame(size, current.start, current.mode, dx, dy),
-    );
-  }
-
-  function endDrag() {
-    drag.current = null;
-  }
-
-  function handleSave() {
-    if (!frame) return;
-    onConfirm({
-      x: Math.round(frame.x),
-      y: Math.round(frame.y),
-      width: Math.round(frame.width),
-      height: Math.round(frame.width / ASPECT),
+  // Fires on every move and zoom (onCropComplete skips some position-only
+  // changes), so what she sees is what gets saved.
+  function handleAreaChange(_percentages: Area, pixels: Area) {
+    setArea({
+      x: Math.round(pixels.x),
+      y: Math.round(pixels.y),
+      width: Math.round(pixels.width),
+      height: Math.round(pixels.height),
     });
   }
 
-  const percent = (value: number, total: number) => `${(value / total) * 100}%`;
+  function handleSave() {
+    if (area) onConfirm({ mode: "crop", crop: area });
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/45 p-4">
@@ -199,61 +136,94 @@ export default function ImageCropper({
       >
         <h3 className="text-lg">{title}</h3>
         <p className="mt-1 text-[0.85rem] text-muted">
-          Плъзнете рамката, за да изберете какво да се вижда; ъглите я
-          уголемяват. Частта между пунктирите (горе и долу) се вижда в
+          Плъзнете снимката, за да я наместите. Приближавайте с плъзгача,
+          колелцето или с два пръста. Частта между пунктирите се вижда в
           квадратните изгледи.
         </p>
 
-        {!size && (
-          <p className="mt-4 text-center text-[0.85rem] font-bold text-muted">
-            Зареждане на снимката…
+        {/* react-easy-crop fills its parent, so the parent needs a size. */}
+        <div className="relative mt-4 h-[60vh] overflow-hidden rounded-item bg-ink">
+          {photo ? (
+            <Cropper
+              image={photo.url}
+              aspect={TILE_ASPECT}
+              objectFit="contain"
+              showGrid={false}
+              crop={crop}
+              zoom={zoom}
+              minZoom={fitZoom}
+              maxZoom={MAX_ZOOM}
+              // Zoomed in, she can't drag empty space into the frame by
+              // accident. Zoomed out (whole photo), it moves freely.
+              restrictPosition={zoom >= 1}
+              initialCroppedAreaPixels={initialCrop}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropAreaChange={handleAreaChange}
+              classes={{ cropAreaClassName: "crop-square-guide" }}
+            />
+          ) : (
+            <p className="absolute inset-0 flex items-center justify-center text-[0.85rem] font-bold text-white/80">
+              Зареждане на снимката…
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => changeZoom(zoom - ZOOM_STEP)}
+            disabled={!photo}
+            aria-label="Отдалечи"
+            className="h-9 w-9 shrink-0 cursor-pointer rounded-full border border-border-strong text-lg font-extrabold text-ink hover:border-rose disabled:opacity-50"
+          >
+            −
+          </button>
+          <input
+            type="range"
+            min={fitZoom}
+            max={MAX_ZOOM}
+            step={ZOOM_STEP}
+            value={zoom}
+            disabled={!photo}
+            onChange={(event) => changeZoom(Number(event.target.value))}
+            aria-label="Мащаб"
+            className="w-full cursor-pointer accent-cta"
+          />
+          <button
+            type="button"
+            onClick={() => changeZoom(zoom + ZOOM_STEP)}
+            disabled={!photo}
+            aria-label="Приближи"
+            className="h-9 w-9 shrink-0 cursor-pointer rounded-full border border-border-strong text-lg font-extrabold text-ink hover:border-rose disabled:opacity-50"
+          >
+            +
+          </button>
+        </div>
+
+        {area && area.width < SMALL_WIDTH && (
+          <p className="mt-3 rounded-item bg-booked/10 px-3 py-2 text-[0.85rem] font-bold text-booked">
+            Снимката е малка за тази рамка — може да изглежда размазана.
           </p>
         )}
 
-        <div className="mt-4 flex justify-center">
-          <div className="relative inline-block overflow-hidden rounded-item bg-surface-2 select-none">
-            {/* A local object URL — next/image has nothing to optimise here. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              ref={imageRef}
-              src={url}
-              alt=""
-              draggable={false}
-              onLoad={handleLoad}
-              onError={handleError}
-              className="block max-h-[60vh] max-w-full"
-            />
-
-            {size && frame && (
-              <div
-                onPointerDown={(event) => startDrag(event, "move")}
-                onPointerMove={handleMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-                style={{
-                  left: percent(frame.x, size.width),
-                  top: percent(frame.y, size.height),
-                  width: percent(frame.width, size.width),
-                  height: percent(frame.width / ASPECT, size.height),
-                }}
-                className="absolute cursor-move touch-none border-2 border-white shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]"
-              >
-                <span className="pointer-events-none absolute inset-x-0 top-[10%] bottom-[10%] border-y border-dashed border-white/80" />
-                {CORNERS.map((corner) => (
-                  <span
-                    key={corner}
-                    onPointerDown={(event) => startDrag(event, corner)}
-                    className={`absolute flex h-9 w-9 touch-none ${CORNER_CLASS[corner]}`}
-                  >
-                    <span className="h-3.5 w-3.5 rounded-[3px] bg-white shadow-[0_1px_4px_rgb(0_0_0/0.5)]" />
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
         <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={showWholePhoto}
+            disabled={!photo}
+            className="cursor-pointer rounded-full border border-border-strong px-5 py-2.5 font-extrabold text-ink hover:border-rose hover:text-rose-ink disabled:opacity-60"
+          >
+            Цялата снимка
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm({ mode: "original" })}
+            disabled={!photo}
+            className="cursor-pointer rounded-full border border-border-strong px-5 py-2.5 font-extrabold text-ink hover:border-rose hover:text-rose-ink disabled:opacity-60"
+          >
+            Без изрязване
+          </button>
           <button
             type="button"
             onClick={onCancel}
@@ -264,7 +234,7 @@ export default function ImageCropper({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!frame}
+            disabled={!photo || !area}
             className="cursor-pointer rounded-full bg-cta px-6 py-2.5 font-extrabold text-white hover:bg-cta-strong disabled:opacity-60"
           >
             Запази
