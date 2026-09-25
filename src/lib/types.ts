@@ -1,3 +1,5 @@
+import type { CropRect } from "@/lib/resize-image";
+
 // Database row types, mirroring schema.sql. Add the rest as we start using them.
 
 // How a category is chosen in the configurator modal: a dropdown of products,
@@ -41,7 +43,9 @@ export type ProductColor = {
 export type ProductImage = {
   id: string;
   color_id: string | null; // null = colour-agnostic photo of the product
-  path: string; // storage path inside the `catalog` bucket
+  path: string; // storage path of the tile (4:5 crop) inside the `catalog` bucket
+  full_path: string | null; // whole photo, only shrunk. null = old row, use path
+  crop?: CropRect | null; // last crop, in full-photo pixels. Admin reads only
   sort: number;
 };
 

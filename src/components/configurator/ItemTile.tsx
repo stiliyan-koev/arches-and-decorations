@@ -25,7 +25,7 @@ export default function ItemTile({
 }: Props) {
   return (
     <article className="flex flex-col overflow-hidden rounded-item border border-rose bg-surface shadow-[0_0_0_3px_rgb(196_140_162/0.12)]">
-      <div className="relative grid aspect-[4/3] place-items-center border-b border-border bg-bg">
+      <div className="relative grid aspect-[4/5] place-items-center border-b border-border bg-bg">
         {photo ? (
           <Image
             src={imageUrl(photo.path)}

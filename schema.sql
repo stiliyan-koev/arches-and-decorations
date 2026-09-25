@@ -57,7 +57,9 @@ create table product_images (
   id         uuid primary key default gen_random_uuid(),
   product_id uuid not null references products(id) on delete cascade,
   color_id   uuid references product_colors(id) on delete cascade,
-  path       text not null,            -- storage path, see catalog-and-images.md
+  path       text not null,            -- storage path of the 4:5 tile, see catalog-and-images.md
+  full_path  text,                     -- whole photo, shrunk. null = old row, use path
+  crop       jsonb,                    -- last crop {x,y,width,height} in full-photo pixels. null = not cropped
   sort       int  not null default 0
 );
 

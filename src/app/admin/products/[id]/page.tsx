@@ -24,7 +24,7 @@ export default async function EditProductPage({
         `id, category_id, slug, name, description, base_price, pricing_type,
          quantity, track_availability, rentable, service_only, active, sort,
          product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, sort )`,
+         product_images ( id, color_id, path, full_path, crop, sort )`,
       )
       .eq("id", id)
       .maybeSingle(),

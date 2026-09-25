@@ -27,7 +27,7 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
          active, sort, created_at,
          quantity, track_availability, rentable, service_only,
          product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, sort )
+         product_images ( id, color_id, path, full_path, sort )
        )`,
     )
     .order("sort")
