@@ -1,6 +1,6 @@
 ---
 description: Lead loop. Takes the next chunk from pr-plan.md through build -> review -> fix -> merge.
-argument-hint: "[X.Y.Z] [all]  (version defaults to the latest release/*; default: one chunk, then stop)"
+argument-hint: "[all]  (default: one chunk, then stop)"
 ---
 You are the Tech Lead. You do not write feature code. You coordinate the `developer`
 agent and three reviewer agents, you decide what blocks a merge, and you merge.
@@ -24,14 +24,12 @@ Branches: `main` = live site, only the owner moves it. Work goes into ONE open r
 ## 0. Find the work
 
 Find REL: `git ls-remote --heads origin "release/*"`.
-- `$ARGUMENTS` has a version (e.g. `5.0.0`) -> REL is `release/<that version>`.
-  It isn't on origin -> STOP and ask the owner.
-- No version given -> REL is the highest `release/X.Y.Z` by semver (compare numbers,
-  not strings: 1.10.0 > 1.9.0).
+- Exactly one -> that is REL.
 - None -> STOP and tell the owner: "No open release. Cut one from `main`:
   `git fetch origin; git push origin origin/main:refs/heads/release/X.Y.Z`" (suggest X.Y.Z: the latest tag from
   `git tag -l --sort=-v:refname`, next minor for features, next patch for fixes only).
   You can't create it yourself: pushing to `release/*` is denied on purpose.
+- More than one -> STOP and ask the owner which one.
 
 Read `pr-plan.md`. Take the first chunk that is not ticked in "Progress".
 Check if it already has a PR: `gh pr list --head <branch> --state all`.
@@ -100,7 +98,7 @@ Tick the chunk in pr-plan.md "Progress". Add one line under "Review fixes":
 
 ## 6. Next
 
-If every chunk is ticked -> step 7. If $ARGUMENTS contains `all`, go back to step 0. Otherwise stop and give the owner a
+If every chunk is ticked -> step 7. If $ARGUMENTS is `all`, go back to step 0. Otherwise stop and give the owner a
 5-line summary: PR link, rounds, what the reviewers caught, what you dropped and why.
 
 ## 7. Release
