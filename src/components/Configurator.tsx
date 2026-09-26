@@ -102,7 +102,12 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const families = groups.filter((group) => group.in_configurator);
+  // A category with no products has nothing to configure (same rule as
+  // getCatalog). This matters most for a 'text' family: without a product the
+  // customer could type a theme but never confirm it.
+  const families = groups.filter(
+    (group) => group.in_configurator && group.products.length > 0,
+  );
 
   function groupById(id: string | null) {
     return id ? groups.find((group) => group.id === id) : undefined;
