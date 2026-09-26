@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import ProductForm from "@/components/admin/ProductForm";
 import ColorManager from "@/components/admin/ColorManager";
 import PhotoManager from "@/components/admin/PhotoManager";
+import CarouselManager from "@/components/admin/CarouselManager";
 import type { ProductColor, ProductImage, ProductRow } from "@/lib/types";
 
 type ProductDetail = ProductRow & {
@@ -23,8 +24,9 @@ export default async function EditProductPage({
       .select(
         `id, category_id, slug, name, description, base_price, pricing_type,
          quantity, track_availability, rentable, service_only, active, sort,
+         carousel, carousel_in_configurator, carousel_in_catalog,
          product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, full_path, crop, sort )`,
+         product_images ( id, color_id, path, full_path, crop, in_carousel, sort )`,
       )
       .eq("id", id)
       .maybeSingle(),
@@ -37,6 +39,8 @@ export default async function EditProductPage({
 
   const colors = [...product.product_colors].sort((a, b) => a.sort - b.sort);
   const images = [...product.product_images].sort((a, b) => a.sort - b.sort);
+  const mainImages = images.filter((image) => !image.in_carousel);
+  const carouselImages = images.filter((image) => image.in_carousel);
 
   return (
     <>
@@ -56,7 +60,17 @@ export default async function EditProductPage({
           productId={product.id}
           productSlug={product.slug}
           colors={colors}
-          images={images}
+          images={mainImages}
+        />
+        <CarouselManager
+          productId={product.id}
+          productSlug={product.slug}
+          settings={{
+            carousel: product.carousel,
+            carousel_in_configurator: product.carousel_in_configurator,
+            carousel_in_catalog: product.carousel_in_catalog,
+          }}
+          images={carouselImages}
         />
       </div>
     </>

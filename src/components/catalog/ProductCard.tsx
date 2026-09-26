@@ -4,8 +4,11 @@ import Image from "next/image";
 import { formatPrice } from "@/lib/format";
 import { imageUrl } from "@/lib/images";
 import PhotoViewer from "@/components/PhotoViewer";
+import PhotoCarousel from "@/components/PhotoCarousel";
 import { selection, useIsSelected } from "@/lib/selection";
 import type { PlpProduct } from "@/lib/catalog-plp";
+
+const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 
 // One catalog card. Five states (brief): standard, hover, added, "заето на тази
 // дата", and "по запитване". Hover is pure CSS; the rest come from the data and
@@ -59,13 +62,20 @@ export default function ProductCard({
         className="relative flex aspect-[4/5] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
         style={{ background: product.tint }}
       >
-        {product.imagePath ? (
+        {product.carousel.length > 0 ? (
+          <PhotoCarousel
+            images={product.carousel}
+            alt={product.name}
+            priority={priority}
+            sizes={CARD_SIZES}
+          />
+        ) : product.imagePath ? (
           <Image
             src={imageUrl(product.imagePath)}
             alt={product.name}
             fill
             priority={priority}
-            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px"
+            sizes={CARD_SIZES}
             className="object-cover"
           />
         ) : (
@@ -73,7 +83,7 @@ export default function ProductCard({
             Снимка предстои
           </span>
         )}
-        {product.fullImagePath && (
+        {product.carousel.length === 0 && product.fullImagePath && (
           <PhotoViewer src={imageUrl(product.fullImagePath)} alt={product.name} />
         )}
         {booked && (

@@ -127,3 +127,12 @@
 html:has(dialog[open]) {
   overflow: hidden;
 }
+
+/* The photo carousel swipes by scrolling; the dots show where you are, so the
+   scrollbar is just noise. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

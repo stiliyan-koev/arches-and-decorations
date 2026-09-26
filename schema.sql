@@ -38,6 +38,11 @@ create table products (
   service_only       boolean not null default false,
   active             boolean not null default true,
   sort               int  not null default 0,
+  -- Carousel of variation photos (product_images.in_carousel), instead of the
+  -- single photo. The master switch hides it everywhere; the other two pick where.
+  carousel                 boolean not null default false,
+  carousel_in_configurator boolean not null default true,
+  carousel_in_catalog      boolean not null default true,
   created_at         timestamptz default now()
 );
 
@@ -60,6 +65,7 @@ create table product_images (
   path       text not null,            -- storage path of the 4:5 tile, see catalog-and-images.md
   full_path  text,                     -- whole photo, shrunk. null = old row, use path
   crop       jsonb,                    -- last crop {x,y,width,height} in full-photo pixels. null = not cropped
+  in_carousel boolean not null default false, -- a carousel photo (colour-agnostic), not a main/colour photo
   sort       int  not null default 0
 );
 

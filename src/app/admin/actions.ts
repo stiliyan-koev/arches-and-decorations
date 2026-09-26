@@ -203,6 +203,35 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+// The carousel switches save the moment she ticks them, like the photos do,
+// so they live apart from the main product form and its Save button.
+export async function saveCarouselSettings(
+  productId: string,
+  input: {
+    carousel: boolean;
+    carousel_in_configurator: boolean;
+    carousel_in_catalog: boolean;
+  },
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .update({
+      carousel: input.carousel,
+      carousel_in_configurator: input.carousel_in_configurator,
+      carousel_in_catalog: input.carousel_in_catalog,
+    })
+    .eq("id", productId)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Продуктът не е намерен." };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
 // ---------- Colours ----------
 
 export type ColorInput = {
@@ -264,6 +293,7 @@ export async function deleteColor(id: string): Promise<ActionResult> {
 export async function attachImage(input: {
   product_id: string;
   color_id: string | null;
+  in_carousel: boolean;
   path: string;
   full_path: string;
   crop: CropRect | null;
@@ -278,7 +308,9 @@ export async function attachImage(input: {
   const supabase = await createClient();
   const { error } = await supabase.from("product_images").insert({
     product_id: input.product_id,
-    color_id: input.color_id,
+    // Carousel photos belong to the product, never to one colour.
+    color_id: input.in_carousel ? null : input.color_id,
+    in_carousel: input.in_carousel,
     path: input.path,
     full_path: input.full_path,
     crop,
@@ -329,6 +361,29 @@ export async function replaceImage(
   if (image && image.path !== input.path && image.path !== image.full_path) {
     await supabase.storage.from(BUCKET).remove([image.path]);
   }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Saves the new order of a product's photos: `ids` in the order she wants
+// them. Only rows of this product are touched, whatever ids the browser sends.
+export async function reorderImages(
+  productId: string,
+  ids: string[],
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const results = await Promise.all(
+    ids.map((id, index) =>
+      supabase
+        .from("product_images")
+        .update({ sort: index + 1 })
+        .eq("id", id)
+        .eq("product_id", productId),
+    ),
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) return { ok: false, error: failed.error.message };
 
   revalidateCatalog();
   return { ok: true };
