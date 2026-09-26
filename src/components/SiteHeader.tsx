@@ -39,6 +39,19 @@ export default function SiteHeader() {
           📞 {CONTACTS.phone}
         </a>
       </div>
+
+      {/* Mobile: the desktop nav is hidden, so show the links as a second row. */}
+      <nav className="mx-auto flex max-w-[1140px] justify-between gap-3 border-t border-border px-5 py-2.5 text-[0.95rem] font-bold md:hidden">
+        {NAV.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="opacity-85 transition-colors hover:text-cta hover:opacity-100"
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
