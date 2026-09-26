@@ -23,16 +23,23 @@ Agent task labels start with the role: `developer: fix round 1`, `security: revi
 
 ## 1. Package the changes
 
-1. Find the base: `git ls-remote --heads origin "release/*"`.
-   - `$ARGUMENTS` starts with a version (e.g. `5.0.0`) -> BASE is `release/<that version>`.
-     It isn't on origin -> STOP and ask the owner. The rest of `$ARGUMENTS` is the title.
-   - No version given -> BASE is the highest `release/X.Y.Z` by semver (compare numbers,
+1. Find the version: `git fetch origin`, then `git ls-remote --heads origin "release/*"`.
+   - `$ARGUMENTS` starts with a version (e.g. `5.0.0`) -> VERSION is it.
+     No `release/<VERSION>` on origin -> STOP and ask the owner. The rest of `$ARGUMENTS` is the title.
+   - No version given -> VERSION is the highest `release/X.Y.Z` by semver (compare numbers,
      not strings: 1.10.0 > 1.9.0). All of `$ARGUMENTS` is the title.
    - No `release/*` at all -> STOP and ask the owner.
+
+   BASE is `agentic/release-<VERSION>`. Check it: `git ls-remote --heads origin "agentic/release-<VERSION>"`.
+   - Exists -> use it.
+   - Missing -> create it from the release branch:
+     `git branch agentic/release-<VERSION> origin/release/<VERSION>`,
+     `git push origin agentic/release-<VERSION>`, then `git branch -D agentic/release-<VERSION>`.
+     Tell the owner in one line that you created it.
 2. `git status --short`. Nothing changed -> STOP, nothing to ship.
    Never commit `.env*`, `.claude/settings.local.json`, or anything that looks like a secret.
    Show the owner the file list in one block before committing.
-3. If the current branch is `main` or `release/*`, create one: `git switch -c feat/<short-slug>`.
+3. If the current branch is `main`, `release/*` or `agentic/*`, create one: `git switch -c feat/<short-slug>`.
 4. Size check: `git diff --stat` (plus untracked). Over ~1500 lines -> tell the owner the review
    will be shallow and suggest splitting; continue only if he says so.
 5. `npm run build` and `npm run lint`. Failing -> STOP, show the error. Do not fix it yourself.
