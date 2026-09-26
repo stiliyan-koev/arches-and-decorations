@@ -25,7 +25,7 @@ import {
   type RequestItem,
 } from "@/app/actions";
 import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
-import { resolvePreviewImage } from "@/lib/images";
+import { carouselImages, resolvePreviewImage } from "@/lib/images";
 import type { CatalogGroup, Product } from "@/lib/types";
 
 // One confirmed selection. A category can hold several, so items carry their own
@@ -642,6 +642,12 @@ function ConfiguratorModal({
     addonProduct,
     addonColorId,
   );
+  // A chosen add-on colour recolours the whole item, so its single photo wins
+  // over the product's carousel.
+  const previewCarousel =
+    selectedProduct && !addonColorId
+      ? carouselImages(selectedProduct, "configurator")
+      : [];
 
   const draftPrice = (() => {
     if (!selectedProduct) return null;
@@ -687,6 +693,7 @@ function ConfiguratorModal({
       addonValue={draft.addonValue}
       onAddon={(value) => setDraft({ ...draft, addonValue: value })}
       previewPhoto={previewPhoto}
+      previewCarousel={previewCarousel}
       previewAlt={selectedProduct?.name ?? category.name}
       priceLabel={priceLabel}
       canConfirm={

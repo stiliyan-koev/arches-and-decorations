@@ -46,6 +46,7 @@ export type ProductImage = {
   path: string; // storage path of the tile (4:5 crop) inside the `catalog` bucket
   full_path: string | null; // whole photo, only shrunk. null = old row, use path
   crop?: CropRect | null; // last crop, in full-photo pixels. Admin reads only
+  in_carousel?: boolean; // a carousel photo rather than a main/colour one
   sort: number;
 };
 
@@ -64,6 +65,12 @@ export type Product = {
   // Optional only because catalog-fallback.ts has no photos. Once that file is
   // deleted this can become required.
   images?: ProductImage[];
+  // Variation photos for the carousel, in her order. Already empty when the
+  // carousel is switched off; the two flags say where it is shown. Optional
+  // for the same reason as `images`.
+  carousel_images?: ProductImage[];
+  carousel_in_configurator?: boolean;
+  carousel_in_catalog?: boolean;
   // Used by the catalog page (PLP): the spec line under a card and the "Най-нови"
   // sort. Optional because the temporary fallback has neither; the configurator
   // ignores both. Once catalog-fallback.ts is deleted these can become required.
@@ -87,6 +94,9 @@ export type ProductRow = {
   service_only: boolean;
   active: boolean;
   sort: number;
+  carousel: boolean; // master switch for the carousel photos
+  carousel_in_configurator: boolean;
+  carousel_in_catalog: boolean;
 };
 
 // A category plus its products — this is what the configurator renders, one

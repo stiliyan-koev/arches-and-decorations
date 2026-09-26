@@ -51,6 +51,7 @@ type Props = {
 
   // Preview + footer.
   previewPhoto: ProductImage | null;
+  previewCarousel: ProductImage[];
   previewAlt: string;
   priceLabel: string;
   canConfirm: boolean;
@@ -82,6 +83,7 @@ export default function OptionModal({
   addonValue,
   onAddon,
   previewPhoto,
+  previewCarousel,
   previewAlt,
   priceLabel,
   canConfirm,
@@ -126,7 +128,11 @@ export default function OptionModal({
         </div>
 
         <div className="grid gap-[22px] px-[22px] pt-[18px] pb-[22px] sm:grid-cols-2">
-          <PreviewPane photo={previewPhoto} alt={previewAlt} />
+          <PreviewPane
+            photo={previewPhoto}
+            carousel={previewCarousel}
+            alt={previewAlt}
+          />
 
           <div className="flex flex-col gap-3.5">
             {hasOptionGroup && (

@@ -7,7 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import { resizeToWebp } from "@/lib/resize-image";
 import type { CropRect } from "@/lib/resize-image";
 import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
-import { attachImage, deleteImage, replaceImage } from "@/app/admin/actions";
+import {
+  attachImage,
+  deleteImage,
+  swapImageOrder,
+  replaceImage,
+} from "@/app/admin/actions";
 import PhotoViewer from "@/components/PhotoViewer";
 import ImageCropper from "@/components/admin/ImageCropper";
 import type { CropResult } from "@/components/admin/ImageCropper";
@@ -32,6 +37,9 @@ type Props = {
   productSlug: string;
   colors: ProductColor[];
   images: ProductImage[];
+  // Carousel photos instead of the main/colour ones: no colour picker, their
+  // own file names, and ← → buttons to set the order they're shown in.
+  carousel?: boolean;
 };
 
 // Files she picked that are still waiting to be cropped, one at a time. The
@@ -81,6 +89,9 @@ function scaleCrop(crop: CropRect, scale: number): CropRect {
   };
 }
 
+const MOVE_BUTTON =
+  "grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-white/90 text-[0.95rem] font-extrabold text-ink shadow-[0_2px_6px_rgb(59_47_66/0.25)] hover:bg-white disabled:cursor-default disabled:opacity-0";
+
 // Small label on a photo in the grid, so she can tell how it was saved.
 function photoLabel(image: ProductImage) {
   // Uploaded before we kept whole photos: re-uploading gives a better result.
@@ -94,6 +105,7 @@ export default function PhotoManager({
   productSlug,
   colors,
   images,
+  carousel = false,
 }: Props) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -103,11 +115,16 @@ export default function PhotoManager({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
-  // products/{slug}/ plus the colour prefix, if the photo belongs to a colour.
-  // Whole photos go in a full/ subfolder under the same file name.
+  // products/{slug}/ plus the colour prefix, if the photo belongs to a colour,
+  // or "carousel--" for carousel photos. Whole photos go in a full/ subfolder
+  // under the same file name.
   function pathBase(id: string | null, full = false) {
     const color = colors.find((item) => item.id === id);
-    const prefix = color ? `${color.color_slug}--` : "";
+    const prefix = carousel
+      ? "carousel--"
+      : color
+        ? `${color.color_slug}--`
+        : "";
     return `products/${productSlug}/${full ? "full/" : ""}${prefix}`;
   }
 
@@ -131,7 +148,7 @@ export default function PhotoManager({
 
   function handleFiles(files: FileList) {
     setError("");
-    const id = colorId || null;
+    const id = carousel ? null : colorId || null;
     setQueue({
       files: Array.from(files),
       colorId: id,
@@ -198,6 +215,7 @@ export default function PhotoManager({
         result = await attachImage({
           product_id: productId,
           color_id: current.colorId,
+          in_carousel: carousel,
           path,
           full_path: fullPath,
           crop: savedCrop,
@@ -308,6 +326,29 @@ export default function PhotoManager({
     router.refresh();
   }
 
+  // Swaps a photo with its neighbour; only those two photos are saved.
+  async function handleMove(from: number, to: number) {
+    const first = images[Math.min(from, to)];
+    const second = images[Math.max(from, to)];
+
+    setError("");
+    setBusy("Подреждане…");
+    let result: SaveResult;
+    try {
+      result = await swapImageOrder(
+        productId,
+        { id: first.id, sort: first.sort },
+        { id: second.id, sort: second.sort },
+      );
+    } catch {
+      result = { ok: false, error: SAVE_FAILED };
+    }
+    setBusy("");
+
+    if (!result.ok) setError(result.error ?? SAVE_FAILED);
+    router.refresh();
+  }
+
   function colorLabel(id: string | null) {
     if (!id) return "Всички цветове";
     return colors.find((color) => color.id === id)?.color_name ?? "—";
@@ -317,33 +358,45 @@ export default function PhotoManager({
   const queueTotal = queue ? queue.done + queue.files.length : 0;
 
   return (
-    <section className="rounded-card border border-border bg-surface p-5">
-      <h2 className="text-lg">Снимки</h2>
-      <p className="mt-1 text-[0.85rem] text-muted">
-        Изберете снимка и я наместете в рамката — така ще изглежда в
-        плочките на сайта. Цялата снимка също се пази, така че по-късно можете
-        да я изрежете отново. Файловете се преоразмеряват и преименуват
-        автоматично.
-      </p>
+    // In carousel mode this sits inside the carousel panel, which has its own
+    // card and heading.
+    <section
+      className={
+        carousel ? "mt-5" : "rounded-card border border-border bg-surface p-5"
+      }
+    >
+      {!carousel && (
+        <>
+          <h2 className="text-lg">Снимки</h2>
+          <p className="mt-1 text-[0.85rem] text-muted">
+            Изберете снимка и я наместете в рамката — така ще изглежда в
+            плочките на сайта. Цялата снимка също се пази, така че по-късно
+            можете да я изрежете отново. Файловете се преоразмеряват и
+            преименуват автоматично.
+          </p>
+        </>
+      )}
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[0.78rem] font-extrabold tracking-[0.08em] text-muted uppercase">
-            За кой цвят е снимката
-          </span>
-          <select
-            value={colorId}
-            onChange={(event) => setColorId(event.target.value)}
-            className="rounded-item border border-border-strong bg-bg px-3 py-2.5"
-          >
-            <option value="">Всички цветове</option>
-            {colors.map((color) => (
-              <option key={color.id} value={color.id}>
-                {color.color_name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className={`${carousel ? "" : "mt-4 "}flex flex-wrap items-end gap-3`}>
+        {!carousel && (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[0.78rem] font-extrabold tracking-[0.08em] text-muted uppercase">
+              За кой цвят е снимката
+            </span>
+            <select
+              value={colorId}
+              onChange={(event) => setColorId(event.target.value)}
+              className="rounded-item border border-border-strong bg-bg px-3 py-2.5"
+            >
+              <option value="">Всички цветове</option>
+              {colors.map((color) => (
+                <option key={color.id} value={color.id}>
+                  {color.color_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <input
           ref={fileInput}
@@ -367,11 +420,13 @@ export default function PhotoManager({
 
       {images.length === 0 ? (
         <p className="mt-5 rounded-item border border-dashed border-border-strong px-4 py-6 text-center text-[0.9rem] text-muted">
-          Още няма снимки за този продукт.
+          {carousel
+            ? "Още няма снимки в карусела."
+            : "Още няма снимки за този продукт."}
         </p>
       ) : (
         <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {images.map((image) => {
+          {images.map((image, index) => {
             const label = photoLabel(image);
             return (
               <li
@@ -388,23 +443,54 @@ export default function PhotoManager({
                   />
                   <PhotoViewer
                     src={imageUrl(fullImagePath(image))}
-                    alt={`Снимка – ${colorLabel(image.color_id)}`}
+                    alt={
+                      carousel
+                        ? `Снимка ${index + 1} в карусела`
+                        : `Снимка – ${colorLabel(image.color_id)}`
+                    }
                   />
                   {label && (
                     <span className="absolute top-1.5 left-1.5 rounded-full bg-ink/80 px-2 py-0.5 text-[0.68rem] font-bold text-white">
                       {label}
                     </span>
                   )}
+                  {carousel && (
+                    <div className="absolute inset-x-1.5 bottom-1.5 flex items-center justify-between">
+                      <button
+                        type="button"
+                        aria-label="Премести по-напред"
+                        onClick={() => handleMove(index, index - 1)}
+                        disabled={locked || index === 0}
+                        className={MOVE_BUTTON}
+                      >
+                        ←
+                      </button>
+                      <span className="rounded-full bg-ink/80 px-2 py-0.5 text-[0.72rem] font-extrabold text-white tabular-nums">
+                        {index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Премести по-назад"
+                        onClick={() => handleMove(index, index + 1)}
+                        disabled={locked || index === images.length - 1}
+                        className={MOVE_BUTTON}
+                      >
+                        →
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 p-2">
-                  <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
-                    {colorLabel(image.color_id)}
-                  </span>
+                  {!carousel && (
+                    <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
+                      {colorLabel(image.color_id)}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => startRecrop(image)}
                     disabled={locked}
-                    className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-ink hover:underline disabled:opacity-50"
+                    className="ml-auto shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-ink hover:underline disabled:opacity-50"
                   >
                     Изрежи
                   </button>

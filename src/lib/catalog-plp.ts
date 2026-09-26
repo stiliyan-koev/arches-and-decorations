@@ -2,8 +2,8 @@
 // page and the client view can share it. The reference implementation lived in
 // docs/design/plp/reference/plp-desktop.html; this ports the logic, not the DOM.
 
-import type { CatalogGroup } from "@/lib/types";
-import { fullImagePath } from "@/lib/images";
+import type { CatalogGroup, ProductImage } from "@/lib/types";
+import { carouselImages, fullImagePath } from "@/lib/images";
 
 // ---------------------------------------------------------------- flat product
 
@@ -21,6 +21,7 @@ export type PlpProduct = {
   colors: string[]; // color slugs, for the swatch filter
   imagePath: string | null; // first image, or null -> tinted placeholder
   fullImagePath: string | null; // the same photo uncropped, for the full-size view
+  carousel: ProductImage[]; // variation photos; when any, the card shows these instead
   tint: string; // placeholder colour, per category
   createdAt: string | null; // for the "Най-нови" sort
 };
@@ -100,6 +101,7 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         colors: product.colors.map((color) => color.color_slug),
         imagePath: product.images?.[0]?.path ?? null,
         fullImagePath: product.images?.[0] ? fullImagePath(product.images[0]) : null,
+        carousel: carouselImages(product, "catalog"),
         tint: tintFor(group.slug),
         createdAt: product.created_at ?? null,
       });

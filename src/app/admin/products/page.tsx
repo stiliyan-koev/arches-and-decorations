@@ -14,7 +14,7 @@ type ProductListRow = {
   quantity: number;
   active: boolean;
   sort: number;
-  product_images: { path: string; sort: number }[];
+  product_images: { path: string; sort: number; in_carousel: boolean }[];
 };
 
 export default async function AdminProductsPage() {
@@ -26,7 +26,7 @@ export default async function AdminProductsPage() {
       .from("products")
       .select(
         `id, name, slug, category_id, base_price, pricing_type, quantity,
-         active, sort, product_images ( path, sort )`,
+         active, sort, product_images ( path, sort, in_carousel )`,
       )
       .order("sort"),
   ]);
@@ -76,9 +76,12 @@ export default async function AdminProductsPage() {
 
           <ul className="mt-3 space-y-2">
             {group.products.map((product) => {
-              const cover = [...product.product_images].sort(
+              // The main photo, or the first carousel photo if that's all it has.
+              const sorted = [...product.product_images].sort(
                 (a, b) => a.sort - b.sort,
-              )[0];
+              );
+              const cover =
+                sorted.find((image) => !image.in_carousel) ?? sorted[0];
 
               return (
                 <li key={product.id}>

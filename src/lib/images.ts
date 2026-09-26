@@ -18,6 +18,19 @@ export function fullImagePath(image: ProductImage) {
   return image.full_path ?? image.path;
 }
 
+// The carousel photos to show in one place, or none (then the single photo is
+// shown as before). getCatalog already leaves them out when the carousel is off.
+export function carouselImages(
+  product: Product,
+  place: "configurator" | "catalog",
+): ProductImage[] {
+  const shown =
+    place === "configurator"
+      ? product.carousel_in_configurator
+      : product.carousel_in_catalog;
+  return shown ? (product.carousel_images ?? []) : [];
+}
+
 // Public bucket, so the URL is predictable and needs no SDK call or signing.
 export function imageUrl(path: string) {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;

@@ -53,6 +53,7 @@ Supabase Storage bucket `catalog` (public read). Folder-per-product keeps names 
 products/{product-slug}/{NN}.webp                    # color-agnostic / base image
 products/{product-slug}/{color-slug}--{NN}.webp      # color-specific image
 products/{product-slug}/full/{color-slug--}{NN}.webp # the whole photo behind a tile, same name
+products/{product-slug}/carousel--{NN}.webp          # carousel photo (tile); its full photo is under full/ too
 gallery/{theme-slug}/{NN}.webp                        # past-work gallery, grouped by theme
 ```
 
@@ -70,6 +71,14 @@ Each product photo is two files:
 - Old rows have `full_path = null` (the original was never kept); `fullImagePath()` falls back to the tile.
 
 Rule of thumb: **grids and cards → tile, anything "look closer" → full.**
+
+### Product carousel
+Photos of a product's variations, separate from its main/colour photos (`product_images.in_carousel = true`,
+always `color_id = null`). Same 4:5 cropper and tile/full pair as every other photo, so all slides share one frame.
+- `products.carousel` is the master switch; `carousel_in_configurator` / `carousel_in_catalog` pick where it shows.
+  Off = hidden, the photos stay.
+- Order = `sort`, set with the ← → buttons in admin. When shown, the carousel **replaces** the single main photo in
+  that place (catalog card, configurator popup preview). A chosen add-on colour's photo still wins in the popup.
 
 ## Swatch → image logic (PDP)
 1. Load `product_images` for the product.
