@@ -91,15 +91,18 @@ export default function PhotoCarousel({
             ›
           </button>
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
-            {images.map((image, i) => (
-              <span
-                key={image.id}
-                className={`h-1.5 rounded-full shadow-[0_1px_3px_rgb(59_47_66/0.35)] transition-all ${
-                  i === index ? "w-4 bg-white" : "w-1.5 bg-white/60"
-                }`}
-              />
-            ))}
+          {/* On a dark pill, so white dots still show on a light photo. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
+            <div className="flex gap-1.5 rounded-full bg-ink/40 px-2 py-1.5">
+              {images.map((image, i) => (
+                <span
+                  key={image.id}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === index ? "w-4 bg-white" : "w-1.5 bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}
