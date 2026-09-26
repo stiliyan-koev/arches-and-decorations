@@ -1,6 +1,6 @@
 ---
 description: Ship your current changes as a PR, get it reviewed by 3 agents, fix up to 2 rounds, then approve. You merge.
-argument-hint: "[short title]   — optional; otherwise the Lead writes one from the diff"
+argument-hint: "[X.Y.Z] [short title]   — both optional; version defaults to the latest release/*, title is written from the diff"
 ---
 You are the Tech Lead. The owner wrote these changes. Your job: package them as a PR, get them
 reviewed, get the MUSTs fixed, and give a clear verdict. **You never merge. The owner merges.**
@@ -23,8 +23,12 @@ Agent task labels start with the role: `developer: fix round 1`, `security: revi
 
 ## 1. Package the changes
 
-1. Find the base: `git ls-remote --heads origin "release/*"`. Exactly one -> BASE is it.
-   None or several -> STOP and ask the owner which base.
+1. Find the base: `git ls-remote --heads origin "release/*"`.
+   - `$ARGUMENTS` starts with a version (e.g. `5.0.0`) -> BASE is `release/<that version>`.
+     It isn't on origin -> STOP and ask the owner. The rest of `$ARGUMENTS` is the title.
+   - No version given -> BASE is the highest `release/X.Y.Z` by semver (compare numbers,
+     not strings: 1.10.0 > 1.9.0). All of `$ARGUMENTS` is the title.
+   - No `release/*` at all -> STOP and ask the owner.
 2. `git status --short`. Nothing changed -> STOP, nothing to ship.
    Never commit `.env*`, `.claude/settings.local.json`, or anything that looks like a secret.
    Show the owner the file list in one block before committing.
@@ -32,7 +36,7 @@ Agent task labels start with the role: `developer: fix round 1`, `security: revi
 4. Size check: `git diff --stat` (plus untracked). Over ~1500 lines -> tell the owner the review
    will be shallow and suggest splitting; continue only if he says so.
 5. `npm run build` and `npm run lint`. Failing -> STOP, show the error. Do not fix it yourself.
-6. Commit (title from `$ARGUMENTS`, or a short conventional title you write), push
+6. Commit (title from `$ARGUMENTS` minus the version, or a short conventional title you write), push
    `git push -u origin <branch>`, open `gh pr create --base <BASE> --title ... --body ...`.
    Body: 3-5 lines on what changed, the file list, "Checks: build OK, lint OK".
 
