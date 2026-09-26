@@ -87,7 +87,7 @@ export default function ProductCard({
           <PhotoViewer src={imageUrl(product.fullImagePath)} alt={product.name} />
         )}
         {booked && (
-          <span className="absolute bottom-2.5 left-2.5 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-bold text-white">
+          <span className="absolute top-2.5 left-2.5 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-bold text-white">
             Заето на тази дата
           </span>
         )}

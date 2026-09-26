@@ -77,10 +77,11 @@ export default async function AdminProductsPage() {
           <ul className="mt-3 space-y-2">
             {group.products.map((product) => {
               // The main photo, or the first carousel photo if that's all it has.
-              const cover = [...product.product_images].sort(
-                (a, b) =>
-                  Number(a.in_carousel) - Number(b.in_carousel) || a.sort - b.sort,
-              )[0];
+              const sorted = [...product.product_images].sort(
+                (a, b) => a.sort - b.sort,
+              );
+              const cover =
+                sorted.find((image) => !image.in_carousel) ?? sorted[0];
 
               return (
                 <li key={product.id}>

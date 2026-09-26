@@ -366,24 +366,40 @@ export async function replaceImage(
   return { ok: true };
 }
 
-// Saves the new order of a product's photos: `ids` in the order she wants
-// them. Only rows of this product are touched, whatever ids the browser sends.
-export async function reorderImages(
+// Swaps two neighbouring photos: `first` is the one shown earlier, `second`
+// the one right after it. Only these two rows of this product are touched,
+// whatever ids the browser sends.
+export async function swapImageOrder(
   productId: string,
-  ids: string[],
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  // Photos can share a sort value (new uploads use the file number), so a
+  // plain swap could change nothing. Give the two distinct values instead.
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
   const supabase = await createClient();
-  const results = await Promise.all(
-    ids.map((id, index) =>
-      supabase
-        .from("product_images")
-        .update({ sort: index + 1 })
-        .eq("id", id)
-        .eq("product_id", productId),
-    ),
-  );
-  const failed = results.find((result) => result.error);
-  if (failed?.error) return { ok: false, error: failed.error.message };
+  const results = await Promise.all([
+    supabase
+      .from("product_images")
+      .update({ sort: low })
+      .eq("id", second.id)
+      .eq("product_id", productId)
+      .select("id"),
+    supabase
+      .from("product_images")
+      .update({ sort: high })
+      .eq("id", first.id)
+      .eq("product_id", productId)
+      .select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) {
+      return { ok: false, error: "Снимката не е намерена." };
+    }
+  }
 
   revalidateCatalog();
   return { ok: true };

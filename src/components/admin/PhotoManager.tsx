@@ -10,7 +10,7 @@ import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
 import {
   attachImage,
   deleteImage,
-  reorderImages,
+  swapImageOrder,
   replaceImage,
 } from "@/app/admin/actions";
 import PhotoViewer from "@/components/PhotoViewer";
@@ -326,16 +326,20 @@ export default function PhotoManager({
     router.refresh();
   }
 
-  // Swaps a photo with its neighbour and saves the whole order.
+  // Swaps a photo with its neighbour; only those two photos are saved.
   async function handleMove(from: number, to: number) {
-    const ids = images.map((image) => image.id);
-    [ids[from], ids[to]] = [ids[to], ids[from]];
+    const first = images[Math.min(from, to)];
+    const second = images[Math.max(from, to)];
 
     setError("");
     setBusy("Подреждане…");
     let result: SaveResult;
     try {
-      result = await reorderImages(productId, ids);
+      result = await swapImageOrder(
+        productId,
+        { id: first.id, sort: first.sort },
+        { id: second.id, sort: second.sort },
+      );
     } catch {
       result = { ok: false, error: SAVE_FAILED };
     }
@@ -477,14 +481,16 @@ export default function PhotoManager({
                   )}
                 </div>
                 <div className="flex items-center gap-2 p-2">
-                  <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
-                    {carousel ? "" : colorLabel(image.color_id)}
-                  </span>
+                  {!carousel && (
+                    <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
+                      {colorLabel(image.color_id)}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => startRecrop(image)}
                     disabled={locked}
-                    className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-ink hover:underline disabled:opacity-50"
+                    className="ml-auto shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-ink hover:underline disabled:opacity-50"
                   >
                     Изрежи
                   </button>
