@@ -22,7 +22,7 @@ Steps 0–2 are done and verified against real Postgres. **The catalog PLP (`/ca
 |------|------|-------|
 | 0 | Supabase project, schema, seed, storage, users | ✅ done + verified |
 | 1 | Scaffold, tokens, Supabase clients, public shell | ✅ done |
-| 2 | Homepage configurator → booking request | ✅ done + verified |
+| 2 | Configurator → booking request (homepage until v2, now hidden at `/configurator`) | ✅ done + verified |
 | 3 | Catalog PLP + PDP, real photos | 🟡 PLP (list + filters) built + verified; PDP not built |
 | 4 | Admin auth + requests inbox | 🟡 auth done, inbox not started |
 | 5 | Admin calendar + availability | ⬜ not started |
@@ -77,7 +77,25 @@ reading the rendered DOM: 47 real UUIDs, not the fallback's slug ids.
 - [x] `/about` page
 - [x] Placeholder pages so no nav link 404s
 
-## Step 2 — Homepage configurator ✅
+## Homepage v2 🟡 built, photos pending
+
+The configurator is no longer the homepage — the catalog is the main flow. Design:
+`reference/homepage-v2/`.
+
+- [x] `/` — photo carousel (`HeroCarousel`), „Изчисли своята украса" + „Към каталога",
+      „Вдъхнови се по повод" cards → `/gallery?occasion=…`. Content in `src/lib/home.ts`.
+- [x] Old homepage moved as-is to `/configurator` (`noindex`, not linked anywhere)
+- [x] Footer „Конфигуратор" link removed; `--color-muted` darkened to pass WCAG AA
+- [x] Hero carousel managed from `/admin/home`: upload (4:5 cropper), caption, ← → order,
+      delete. Table `hero_photos`; files in `catalog` → `home/hero/`.
+- [ ] **Run `migration-hero-photos.sql`** in the SQL editor **(you)** — until then the
+      homepage shows the pastel placeholders and `/admin/home` says the table is missing
+- [ ] Hero photos uploaded **(her)**
+- [ ] Occasion card photos in `public/home/` + paths in `src/lib/home.ts` **(you)**
+- [ ] Catalog add-to-total logic (the new main flow) — separate task
+- [ ] `/gallery` reading `?occasion=` — the gallery is still a placeholder
+
+## Step 2 — Configurator ✅ (was the homepage; now `/configurator`)
 
 - [x] Configurator as the hero: tile grid, category pills, qty steppers, summary rail
 - [x] Live „Примерна сума" rail with line items
@@ -136,7 +154,7 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
 - [ ] `/product/[slug]` — PDP (the card image + name already link here)
 - [ ] Colour swatches that swap the photo (per `catalog-and-images.md`)
 - [ ] Image carousel when a product has more than one photo
-- [ ] `/configurator` as its own page (today it lives only on the homepage)
+- [x] `/configurator` as its own page (moved there by homepage v2; hidden backup)
 
 ## Step 4 — Admin: login + requests inbox 🟡
 

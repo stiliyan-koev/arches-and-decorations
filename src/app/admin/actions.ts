@@ -426,3 +426,107 @@ export async function deleteImage(id: string): Promise<ActionResult> {
   revalidateCatalog();
   return { ok: true };
 }
+
+// ---------- Homepage photos ----------
+
+// Like product photos, the file is uploaded straight from the browser; these
+// only record and edit the rows. Paths from the browser must sit in the
+// homepage photo folder.
+function isHeroPhotoPath(path: string) {
+  return path.startsWith("home/hero/") && !path.includes("..");
+}
+
+// Long enough for "Кръщене · небесно синьо", short enough to stay one pill.
+const CAPTION_MAX = 60;
+
+export async function addHeroPhoto(input: {
+  path: string;
+  caption: string;
+}): Promise<ActionResult> {
+  if (!isHeroPhotoPath(input.path)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const supabase = await createClient();
+
+  // New photos go to the end of the carousel.
+  const { data: lastRow } = await supabase
+    .from("hero_photos")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("hero_photos").insert({
+    path: input.path,
+    caption: input.caption.trim().slice(0, CAPTION_MAX),
+    sort: (lastRow?.sort ?? 0) + 1,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+export async function saveHeroCaption(
+  id: string,
+  caption: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("hero_photos")
+    .update({ caption: caption.trim().slice(0, CAPTION_MAX) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring photos, the same way as swapImageOrder.
+export async function swapHeroOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("hero_photos").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("hero_photos").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) {
+      return { ok: false, error: "Снимката не е намерена." };
+    }
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+export async function deleteHeroPhoto(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  // The file path comes from the row, never from the browser.
+  const { data: photo } = await supabase
+    .from("hero_photos")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("hero_photos").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  // Best effort, as with product photos.
+  if (photo) await supabase.storage.from(BUCKET).remove([photo.path]);
+
+  revalidateCatalog();
+  return { ok: true };
+}

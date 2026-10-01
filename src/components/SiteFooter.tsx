@@ -52,11 +52,6 @@ export default function SiteFooter() {
           <h3 className="mb-3 text-[1.05rem] text-white">Меню</h3>
           <ul className="flex flex-col gap-2.5 font-semibold">
             <li>
-              <Link href="/#calc" className="opacity-85 hover:opacity-100">
-                Конфигуратор
-              </Link>
-            </li>
-            <li>
               <Link href="/catalog" className="opacity-85 hover:opacity-100">
                 Каталог
               </Link>
