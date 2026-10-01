@@ -31,13 +31,6 @@ export default function SiteHeader() {
             </Link>
           ))}
         </nav>
-
-        <a
-          href={CONTACTS.phoneHref}
-          className="ml-auto inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface px-3 py-2 text-sm font-extrabold whitespace-nowrap shadow-sm transition-colors hover:border-cta sm:px-4 sm:py-2.5 sm:text-base md:ml-0"
-        >
-          📞 {CONTACTS.phone}
-        </a>
       </div>
 
       {/* Mobile: the desktop nav is hidden, so show the links as a second row. */}
