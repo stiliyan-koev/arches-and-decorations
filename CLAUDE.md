@@ -13,9 +13,10 @@ npm run dev     # next dev — http://localhost:3000
 npm run build   # next build (production compile + type-check)
 npm run lint    # eslint (flat config, eslint-config-next)
 npm start       # serve a production build
+npm run smoke   # Playwright smoke specs against the production build (run npm run build first)
 ```
 
-There is **no test suite** — don't invent test commands or reference a runner. Verify changes with `npm run build` (catches type errors) and by looking at the running dev server.
+**Tests: smoke specs only.** [`tests/smoke/`](tests/smoke/) holds 6 read-only Playwright specs: `npm run build`, then `npm run smoke` (it serves the build on port 3100, so it doesn't clash with `npm run dev`). They browse like a visitor and never press „Изпрати запитване“, because the database is shared with the live site. No unit tests, no coverage targets; add a spec only for something a code review can't catch, and tag it `@blocker`, `@critical` or `@minor`. Beyond that, verify changes with `npm run build` (catches type errors) and by looking at the running dev server.
 
 ## Architecture — what the code actually does
 
@@ -118,5 +119,6 @@ Payments / Stripe, online booking commitments, blog, multi-language toggle (BG o
 
 Branches: `main` is live and only the owner merges into it. Work goes into one open `release/X.Y.Z` branch (cut from `main`) as small PRs by agents. The owner merges `release/X.Y.Z` → `main` (normal merge), then tags `vX.Y.Z`. Tags are the rollback points. No `develop` branch. Plan + progress: `pr-plan.md` (local only, git-excluded).
 Run `/ship-next-pr` (one chunk) or `/ship-next-pr all`. How it works and why: [`.claude/README.md`](.claude/README.md).
+Smoke tests sit outside that pipeline: `/smoke-test` reports (changes nothing) → `/smoke-fix` fixes ONE red spec in `src/`, uncommitted, without touching the spec → `/ship-pr` ships it.
 No AI attribution: commit messages get no `Co-Authored-By:` trailer and PR bodies no "Generated with Claude Code" line (also switched off via `attribution` in `.claude/settings.json`).
 `gh` lives at `C:\Program Files\GitHub CLI\gh.exe` and is not always on PATH: `$env:Path += ";C:\Program Files\GitHub CLI"`.

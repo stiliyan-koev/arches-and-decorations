@@ -179,6 +179,27 @@ are still open.
 
 ---
 
+## Smoke tests 🟡 built, one run so far
+
+Six read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
+a request, because the database is the live one. `/smoke-test` reports, `/smoke-fix` fixes one red
+spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
+
+- [x] `@blocker` the homepage shows products from the database, not `FALLBACK_GROUPS`
+- [x] `@critical` Bulgarian text uses the brand fonts (each one has a Cyrillic file)
+- [x] `@critical` the configurator total adds up, and „по запитване" items add nothing
+- [x] `@minor` /about shows the contacts from `contacts.ts`
+- [x] `@minor` the mobile summary bar stays pinned on a phone viewport (390×844)
+- [x] `@blocker` step 1 → step 2: the contact form opens with the date, city and estimate,
+      and the send button is shut until a phone number is filled (never clicked)
+- [x] **(you)** `@playwright/test` installed, `npx playwright install chromium` done
+- [ ] **A green run of all six.** The first run (1 Oct) had the live-DB spec unable to start:
+      `supabase-js` needs a global `WebSocket` (Node 22+) and this machine is on Node 20. It now
+      reads the DB over plain REST instead, so **whether the homepage really reads live Postgres
+      is still unconfirmed** — that is what the next `/smoke-test` answers.
+- [ ] Spec for submitting a request (a `bookings` row + its `booking_items` land in the DB) —
+      **parked**: it can only be proven by writing, so it needs a database that isn't the live one
+
 ## Housekeeping
 
 - [ ] **Run `storage-policies.sql`** in the SQL editor **(you)** — BLOCKING for uploads.
