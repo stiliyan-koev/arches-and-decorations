@@ -180,7 +180,7 @@ export default function ProductForm({ product, categories }: Props) {
         </label>
 
         <label>
-          <span className={LABEL}>Сума (лв)</span>
+          <span className={LABEL}>Сума (€)</span>
           <input
             type="number"
             min="0"

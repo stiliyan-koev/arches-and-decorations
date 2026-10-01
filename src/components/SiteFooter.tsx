@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CONTACTS } from "@/lib/contacts";
+import { FacebookIcon, TikTokIcon } from "@/components/SocialIcons";
 
 export default function SiteFooter() {
   return (
@@ -20,11 +21,6 @@ export default function SiteFooter() {
           <h3 className="mb-3 text-[1.05rem] text-white">Контакти</h3>
           <ul className="flex flex-col gap-2.5 font-semibold">
             <li>
-              <a href={CONTACTS.phoneHref} className="opacity-85 hover:opacity-100">
-                📞 {CONTACTS.phone}
-              </a>
-            </li>
-            <li>
               <a
                 href={`mailto:${CONTACTS.email}`}
                 className="opacity-85 hover:opacity-100"
@@ -33,13 +29,19 @@ export default function SiteFooter() {
               </a>
             </li>
             <li>
-              <a href={CONTACTS.instagram} className="opacity-85 hover:opacity-100">
-                📷 Instagram
+              <a
+                href={CONTACTS.tiktok}
+                className="inline-flex items-center gap-2 opacity-85 hover:opacity-100"
+              >
+                <TikTokIcon /> TikTok
               </a>
             </li>
             <li>
-              <a href={CONTACTS.facebook} className="opacity-85 hover:opacity-100">
-                👍 Facebook
+              <a
+                href={CONTACTS.facebook}
+                className="inline-flex items-center gap-2 opacity-85 hover:opacity-100"
+              >
+                <FacebookIcon /> Facebook
               </a>
             </li>
             <li className="opacity-85">📍 {CONTACTS.city}</li>

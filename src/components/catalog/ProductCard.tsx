@@ -3,8 +3,12 @@
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
 import { imageUrl } from "@/lib/images";
+import PhotoViewer from "@/components/PhotoViewer";
+import PhotoCarousel from "@/components/PhotoCarousel";
 import { selection, useIsSelected } from "@/lib/selection";
 import type { PlpProduct } from "@/lib/catalog-plp";
+
+const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 
 // One catalog card. Five states (brief): standard, hover, added, "заето на тази
 // дата", and "по запитване". Hover is pure CSS; the rest come from the data and
@@ -55,16 +59,23 @@ export default function ProductCard({
       }`}
     >
       <div
-        className="relative flex aspect-[4/3] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
+        className="relative flex aspect-[4/5] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
         style={{ background: product.tint }}
       >
-        {product.imagePath ? (
+        {product.carousel.length > 0 ? (
+          <PhotoCarousel
+            images={product.carousel}
+            alt={product.name}
+            priority={priority}
+            sizes={CARD_SIZES}
+          />
+        ) : product.imagePath ? (
           <Image
             src={imageUrl(product.imagePath)}
             alt={product.name}
             fill
             priority={priority}
-            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px"
+            sizes={CARD_SIZES}
             className="object-cover"
           />
         ) : (
@@ -72,22 +83,25 @@ export default function ProductCard({
             Снимка предстои
           </span>
         )}
+        {product.carousel.length === 0 && product.fullImagePath && (
+          <PhotoViewer src={imageUrl(product.fullImagePath)} alt={product.name} />
+        )}
         {booked && (
-          <span className="absolute bottom-2.5 left-2.5 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-bold text-white">
+          <span className="absolute top-2.5 left-2.5 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-bold text-white">
             Заето на тази дата
           </span>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <p className="text-[0.95rem] leading-snug font-bold text-ink hover:underline focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta">
+      <div className="flex flex-1 flex-col gap-0.5 p-3 sm:p-4">
+        <p className="line-clamp-2 text-[0.9rem] leading-tight font-bold text-ink hover:underline sm:text-[0.95rem] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta">
           {product.name}
         </p>
         {product.spec && (
-          <p className="text-[0.78rem] leading-snug text-muted">{product.spec}</p>
+          <p className="line-clamp-1 text-[0.78rem] leading-snug text-muted">{product.spec}</p>
         )}
 
-        <div className="mt-auto flex items-center gap-2.5 pt-3">
+        <div className="mt-auto flex items-center gap-2.5 pt-2">
           <span
             className={
               quote
@@ -104,7 +118,7 @@ export default function ProductCard({
             aria-label={buttonAria}
             aria-pressed={added}
             onClick={() => selection.toggle(product.slug)}
-            className={`ml-auto inline-flex h-11 w-11 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
+            className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
           >
             {/* Icon on narrow phones, full label from sm up. */}
             <span aria-hidden className="sm:hidden">

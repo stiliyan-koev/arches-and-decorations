@@ -104,3 +104,35 @@
     animation: none;
   }
 }
+
+/* Admin cropper: dashed lines at 10% and 90% of the 4:5 frame. The part
+   between them is the middle square that the square views show. */
+.crop-square-guide::before,
+.crop-square-guide::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgb(255 255 255 / 0.8);
+  pointer-events: none;
+}
+.crop-square-guide::before {
+  top: 10%;
+}
+.crop-square-guide::after {
+  top: 90%;
+}
+
+/* Lock page scroll while a modal <dialog> (the photo viewer) is open. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
+/* The photo carousel swipes by scrolling; the dots show where you are, so the
+   scrollbar is just noise. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

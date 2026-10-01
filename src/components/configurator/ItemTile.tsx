@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { imageUrl } from "@/lib/images";
+import { fullImagePath, imageUrl } from "@/lib/images";
+import PhotoViewer from "@/components/PhotoViewer";
 import type { ProductImage } from "@/lib/types";
 
 type Props = {
@@ -25,15 +26,18 @@ export default function ItemTile({
 }: Props) {
   return (
     <article className="flex flex-col overflow-hidden rounded-item border border-rose bg-surface shadow-[0_0_0_3px_rgb(196_140_162/0.12)]">
-      <div className="relative grid aspect-[4/3] place-items-center border-b border-border bg-bg">
+      <div className="relative grid aspect-[4/5] place-items-center border-b border-border bg-bg">
         {photo ? (
-          <Image
-            src={imageUrl(photo.path)}
-            alt={title}
-            fill
-            sizes="(max-width: 780px) 45vw, 240px"
-            className="object-cover"
-          />
+          <>
+            <Image
+              src={imageUrl(photo.path)}
+              alt={title}
+              fill
+              sizes="(max-width: 780px) 45vw, 240px"
+              className="object-cover"
+            />
+            <PhotoViewer src={imageUrl(fullImagePath(photo))} alt={title} />
+          </>
         ) : (
           <span className="text-[0.72rem] text-muted">Снимка предстои</span>
         )}

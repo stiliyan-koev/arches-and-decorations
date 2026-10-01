@@ -52,6 +52,8 @@ Supabase Storage bucket `catalog` (public read). Folder-per-product keeps names 
 ```
 products/{product-slug}/{NN}.webp                    # color-agnostic / base image
 products/{product-slug}/{color-slug}--{NN}.webp      # color-specific image
+products/{product-slug}/full/{color-slug--}{NN}.webp # the whole photo behind a tile, same name
+products/{product-slug}/carousel--{NN}.webp          # carousel photo (tile); its full photo is under full/ too
 gallery/{theme-slug}/{NN}.webp                        # past-work gallery, grouped by theme
 ```
 
@@ -59,6 +61,24 @@ Rules:
 - lowercase, ASCII, `webp`, two-digit index `01`, `02`, …
 - `--` separates the color segment from the index (slugs may contain single `-`)
 - Examples: `products/arch-cover/red--01.webp`, `products/arch-cover/elsa-castle--01.webp`, `products/figure-elsa/01.webp`, `gallery/frozen-theme/03.webp`
+
+### Tile vs full
+Each product photo is two files:
+- **tile** (`product_images.path`): the 4:5 portrait crop, max 1200px tall.
+- **full** (`product_images.full_path`): the whole photo, only shrunk (max 2000px long side), under `full/`.
+- Saved "Без изрязване" = one file: `path` and `full_path` both point at the `full/` file.
+- Re-crop cuts a new tile from the full file and saves it under a new `NN`; the full file never changes.
+- Old rows have `full_path = null` (the original was never kept); `fullImagePath()` falls back to the tile.
+
+Rule of thumb: **grids and cards → tile, anything "look closer" → full.**
+
+### Product carousel
+Photos of a product's variations, separate from its main/colour photos (`product_images.in_carousel = true`,
+always `color_id = null`). Same 4:5 cropper and tile/full pair as every other photo, so all slides share one frame.
+- `products.carousel` is the master switch; `carousel_in_configurator` / `carousel_in_catalog` pick where it shows.
+  Off = hidden, the photos stay.
+- Order = `sort`, set with the ← → buttons in admin. When shown, the carousel **replaces** the single main photo in
+  that place (catalog card, configurator popup preview). A chosen add-on colour's photo still wins in the popup.
 
 ## Swatch → image logic (PDP)
 1. Load `product_images` for the product.

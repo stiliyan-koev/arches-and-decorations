@@ -26,8 +26,9 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
          id, slug, name, description, option_group, base_price, pricing_type,
          active, sort, created_at,
          quantity, track_availability, rentable, service_only,
+         carousel, carousel_in_configurator, carousel_in_catalog,
          product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, sort )
+         product_images ( id, color_id, path, full_path, in_carousel, sort )
        )`,
     )
     .order("sort")
@@ -49,22 +50,32 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     recommend_label: category.recommend_label,
     products: category.products
       .filter((product) => product.active)
-      .map((product) => ({
-        id: product.id,
-        slug: product.slug,
-        name: product.name,
-        description: product.description,
-        option_group: product.option_group,
-        base_price: product.base_price,
-        pricing_type: product.pricing_type,
-        created_at: product.created_at,
-        quantity: product.quantity,
-        track_availability: product.track_availability,
-        rentable: product.rentable,
-        service_only: product.service_only,
-        colors: [...product.product_colors].sort((a, b) => a.sort - b.sort),
-        images: [...product.product_images].sort((a, b) => a.sort - b.sort),
-      })),
+      .map((product) => {
+        const images = [...product.product_images].sort((a, b) => a.sort - b.sort);
+        return {
+          id: product.id,
+          slug: product.slug,
+          name: product.name,
+          description: product.description,
+          option_group: product.option_group,
+          base_price: product.base_price,
+          pricing_type: product.pricing_type,
+          created_at: product.created_at,
+          quantity: product.quantity,
+          track_availability: product.track_availability,
+          rentable: product.rentable,
+          service_only: product.service_only,
+          colors: [...product.product_colors].sort((a, b) => a.sort - b.sort),
+          // Carousel photos never stand in for the main photo, and stay hidden
+          // while the carousel is switched off.
+          images: images.filter((image) => !image.in_carousel),
+          carousel_images: product.carousel
+            ? images.filter((image) => image.in_carousel)
+            : [],
+          carousel_in_configurator: product.carousel_in_configurator,
+          carousel_in_catalog: product.carousel_in_catalog,
+        };
+      }),
   }));
 
   // A category with no products has nothing to configure.

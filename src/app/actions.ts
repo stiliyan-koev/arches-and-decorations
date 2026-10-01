@@ -8,6 +8,7 @@ export type RequestItem = {
   colorId: string | null;
   qty: number;
   linePrice: number | null;
+  customText: string | null; // what the customer described, e.g. the balloon theme
 };
 
 export type RequestPayload = {
@@ -34,6 +35,7 @@ const MAX_ITEMS = 30;
 const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed
 const MAX_SHORT_TEXT = 200; // name, phone, city
 const MAX_NOTE = 3000; // same as the note textarea's maxLength
+const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength
 
 const SEND_FAILED = "Нещо се обърка при изпращането. Моля, опитайте отново.";
 
@@ -75,7 +77,7 @@ export async function submitRequest(
     return {
       ok: false,
       error:
-        "Връзката с базата данни още не е настроена. Моля, обадете се по телефона.",
+        "Връзката с базата данни още не е настроена. Моля, пишете ни във Facebook или TikTok.",
     };
   }
 
@@ -101,6 +103,13 @@ export async function submitRequest(
   for (const item of payload.items) {
     const qty = item?.qty;
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
+      return { ok: false, error: SEND_FAILED };
+    }
+    // Missing (undefined) counts as "no text", same as null.
+    if (
+      item.customText != null &&
+      !isTextUpTo(item.customText, MAX_CUSTOM_TEXT)
+    ) {
       return { ok: false, error: SEND_FAILED };
     }
   }
@@ -160,6 +169,7 @@ export async function submitRequest(
       booking_id: bookingId,
       product_id: item.productId,
       color_id: item.colorId,
+      custom_text: item.customText?.trim() || null,
       qty: item.qty,
       line_price: item.linePrice,
     })),
@@ -168,7 +178,7 @@ export async function submitRequest(
   if (itemsError) {
     return {
       ok: false,
-      error: "Заявката е приета частично. Моля, обадете се, за да я потвърдим.",
+      error: "Заявката е приета частично. Моля, пишете ни във Facebook или TikTok, за да я потвърдим.",
     };
   }
 

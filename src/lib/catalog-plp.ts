@@ -2,7 +2,8 @@
 // page and the client view can share it. The reference implementation lived in
 // docs/design/plp/reference/plp-desktop.html; this ports the logic, not the DOM.
 
-import type { CatalogGroup } from "@/lib/types";
+import type { CatalogGroup, ProductImage } from "@/lib/types";
+import { carouselImages, fullImagePath } from "@/lib/images";
 
 // ---------------------------------------------------------------- flat product
 
@@ -19,6 +20,8 @@ export type PlpProduct = {
   isBooked: boolean; // tracked item she owns none of right now — see note below
   colors: string[]; // color slugs, for the swatch filter
   imagePath: string | null; // first image, or null -> tinted placeholder
+  fullImagePath: string | null; // the same photo uncropped, for the full-size view
+  carousel: ProductImage[]; // variation photos; when any, the card shows these instead
   tint: string; // placeholder colour, per category
   createdAt: string | null; // for the "Най-нови" sort
 };
@@ -97,6 +100,8 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         isBooked: product.track_availability && product.quantity <= 0,
         colors: product.colors.map((color) => color.color_slug),
         imagePath: product.images?.[0]?.path ?? null,
+        fullImagePath: product.images?.[0] ? fullImagePath(product.images[0]) : null,
+        carousel: carouselImages(product, "catalog"),
         tint: tintFor(group.slug),
         createdAt: product.created_at ?? null,
       });
@@ -110,14 +115,13 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
 
 export type Band = { id: string; label: string; min: number; max: number };
 
-// Currency note: card prices use formatPrice() ("лв"), so the band labels match
-// it. The reference mockup used "€"; if the site switches to euro that's one
-// change in formatPrice plus these labels.
+// Currency note: card prices use formatPrice() ("€"), so the band labels match
+// it. If the currency ever changes again, that's formatPrice plus these labels.
 export const BANDS: Band[] = [
-  { id: "b0", label: "До 20 лв", min: 0, max: 20 },
-  { id: "b1", label: "20 – 40 лв", min: 20, max: 40 },
-  { id: "b2", label: "40 – 60 лв", min: 40, max: 60 },
-  { id: "b3", label: "Над 60 лв", min: 60, max: Infinity },
+  { id: "b0", label: "До 20 €", min: 0, max: 20 },
+  { id: "b1", label: "20 – 40 €", min: 20, max: 40 },
+  { id: "b2", label: "40 – 60 €", min: 40, max: 60 },
+  { id: "b3", label: "Над 60 €", min: 60, max: Infinity },
 ];
 
 function inBand(price: number, band: Band) {

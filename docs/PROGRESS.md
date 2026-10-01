@@ -168,6 +168,8 @@ are still open.
 - [x] `/admin/products` — add/edit/hide products, `/admin/categories` for categories
 - [x] Edit prices and quantities without touching Supabase
 - [x] Upload product photos from the admin (resized in the browser, straight to Storage)
+- [x] Crop photos to 4:5 on upload, and re-crop existing ones („Изрежи“)
+- [x] Keep the whole photo next to the cropped tile (`full_path`); re-crop starts from it. Tighter 4:5 catalog cards
 - [x] Manage colours/swatches per product
 - [ ] `/gallery` — real past work, grouped by theme
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
@@ -177,12 +179,39 @@ are still open.
 
 ---
 
+## Smoke tests 🟡 built, one run so far
+
+Six read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
+a request, because the database is the live one. `/smoke-test` reports, `/smoke-fix` fixes one red
+spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
+
+- [x] `@blocker` the homepage shows products from the database, not `FALLBACK_GROUPS`
+- [x] `@critical` Bulgarian text uses the brand fonts (each one has a Cyrillic file)
+- [x] `@critical` the configurator total adds up, and „по запитване" items add nothing
+- [x] `@minor` /about shows the contacts from `contacts.ts`
+- [x] `@minor` the mobile summary bar stays pinned on a phone viewport (390×844)
+- [x] `@blocker` step 1 → step 2: the contact form opens with the date, city and estimate,
+      and the send button is shut until a phone number is filled (never clicked)
+- [x] **(you)** `@playwright/test` installed, `npx playwright install chromium` done
+- [ ] **A green run of all six.** The first run (1 Oct) had the live-DB spec unable to start:
+      `supabase-js` needs a global `WebSocket` (Node 22+) and this machine is on Node 20. It now
+      reads the DB over plain REST instead, so **whether the homepage really reads live Postgres
+      is still unconfirmed** — that is what the next `/smoke-test` answers.
+- [ ] Spec for submitting a request (a `bookings` row + its `booking_items` land in the DB) —
+      **parked**: it can only be proven by writing, so it needs a database that isn't the live one
+
 ## Housekeeping
 
 - [ ] **Run `storage-policies.sql`** in the SQL editor **(you)** — BLOCKING for uploads.
       `storage.objects` has its own RLS, separate from the table policies in `schema.sql`.
       Until this runs, every upload fails with "new row violates row-level security policy"
       even though she's logged in.
+- [ ] **Run `migration-euro-and-balloon-theme.sql`** in the SQL editor **(you)**. It marks
+      the money columns as EUR and switches „Балони" to `picker = 'text'`: instead of a
+      dropdown, the customer describes the theme in a text box, which is saved to
+      `booking_items.custom_text`. Until it runs, balloons keep the old dropdown.
+- [ ] **Re-price every product in admin (you).** The site switched from лв to € by
+      relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the
       whole refactor. ~674 insertions / 500 deletions sit uncommitted, plus 6 untracked
       files (`src/components/configurator/*`, `src/lib/format.ts`) and 2 untracked docs.
@@ -204,7 +233,8 @@ Payments / Stripe · online booking commitments · customer accounts · blog · 
 ## Adding product photos
 
 **Use the admin panel** — `/admin/products` → pick a product → Снимки → choose the colour
-(or „Всички цветове") → pick the file. It resizes in the browser, names the file to the
+(or „Всички цветове") → pick the file → drag the 4:5 frame to choose what the tiles show
+(the dashed middle is what the square views keep). It crops and resizes in the browser, names the file to the
 `catalog-and-images.md` convention, uploads it and records the row. She never sees a path.
 
 The naming convention it generates, for reference when looking at the bucket:
@@ -212,9 +242,16 @@ The naming convention it generates, for reference when looking at the bucket:
 ```
 products/{product-slug}/01.webp                  # colour-agnostic
 products/{product-slug}/{color-slug}--01.webp    # colour-specific
+products/{product-slug}/full/01.webp             # the whole photo behind a tile
 ```
 
 A photo attached to a colour wins for that swatch; otherwise the colour-agnostic one shows.
+
+Each photo is stored twice: the cropped 4:5 tile and the whole photo (only shrunk) under `full/`.
+„Изрежи" re-crops from the whole photo, so she can widen the frame again, not just tighten it. The new
+tile gets a new file name (the old URL is cached) and the old tile is deleted; the whole photo never is.
+Photos uploaded before this have no original (the admin grid shows „Няма оригинал"): re-upload them for
+the best result.
 
 **iPhone note:** `.heic` files only convert to webp in Safari. Uploading from Chrome on
 Windows stores the original, which browsers can't display — upload from the phone, or

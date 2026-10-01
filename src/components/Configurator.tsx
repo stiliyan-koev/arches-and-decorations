@@ -25,18 +25,20 @@ import {
   type RequestItem,
 } from "@/app/actions";
 import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
-import { resolvePreviewImage } from "@/lib/images";
+import { carouselImages, resolvePreviewImage } from "@/lib/images";
 import type { CatalogGroup, Product } from "@/lib/types";
 
 // One confirmed selection. A category can hold several, so items carry their own
 // id rather than being keyed by product. addon* is the recommended add-on (a
-// cover for an arch), null when none was chosen.
+// cover for an arch), null when none was chosen. customText is what the
+// customer typed into a 'text' picker (the balloon theme), null when empty.
 type ConfItem = {
   uid: string;
   categoryId: string;
   productId: string;
   addonProductId: string | null;
   addonColorId: string | null;
+  customText: string | null;
 };
 
 // The modal's working copy while adding or editing an item.
@@ -46,6 +48,7 @@ type Draft = {
   optionGroup: string;
   productId: string;
   addonValue: string; // "" | productId | `${productId}::${colorId}`
+  customText: string;
 };
 
 function parseAddon(value: string) {
@@ -57,6 +60,12 @@ function parseAddon(value: string) {
 function addonValueOf(productId: string | null, colorId: string | null) {
   if (!productId) return "";
   return colorId ? `${productId}::${colorId}` : productId;
+}
+
+// The customer's text, cut short enough for a tile or a summary line.
+function textSnippet(text: string) {
+  const short = text.length > 60 ? `${text.slice(0, 60).trimEnd()}…` : text;
+  return `„${short}“`;
 }
 
 // The distinct option_group labels among a category's products, in product order.
@@ -93,7 +102,12 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const families = groups.filter((group) => group.in_configurator);
+  // A category with no products has nothing to configure (same rule as
+  // getCatalog). This matters most for a 'text' family: without a product the
+  // customer could type a theme but never confirm it.
+  const families = groups.filter(
+    (group) => group.in_configurator && group.products.length > 0,
+  );
 
   function groupById(id: string | null) {
     return id ? groups.find((group) => group.id === id) : undefined;
@@ -206,6 +220,7 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
           product?.option_group,
           product?.name,
           addonMeta(item, label),
+          item.customText && textSnippet(item.customText),
         ]
           .filter(Boolean)
           .join(" · ");
@@ -229,7 +244,11 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
       addon && item.addonColorId
         ? addon.colors.find((c) => c.id === item.addonColorId)
         : null;
-    const sub = [product?.name, color ? color.color_name : addon?.name]
+    const sub = [
+      product?.name,
+      color ? color.color_name : addon?.name,
+      item.customText && textSnippet(item.customText),
+    ]
       .filter(Boolean)
       .join(" · ");
     const price = itemPrice(item);
@@ -244,12 +263,18 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
   // ---- modal handlers ----
 
   function openAdd(categoryId: string) {
+    // A 'text' family has nothing to pick: its first product is the item and
+    // the customer describes what they want instead.
+    const category = groupById(categoryId);
+    const productId =
+      category?.picker === "text" ? (category.products[0]?.id ?? "") : "";
     setDraft({
       categoryId,
       editUid: null,
       optionGroup: "",
-      productId: "",
+      productId,
       addonValue: "",
+      customText: "",
     });
   }
 
@@ -262,6 +287,7 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
       optionGroup: productById(item.productId)?.option_group ?? "",
       productId: item.productId,
       addonValue: addonValueOf(item.addonProductId, item.addonColorId),
+      customText: item.customText ?? "",
     });
   }
 
@@ -274,6 +300,7 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
       productId: draft.productId,
       addonProductId,
       addonColorId,
+      customText: draft.customText.trim() || null,
     };
     setItems((current) =>
       draft.editUid
@@ -322,6 +349,7 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
         colorId: null,
         qty: 1,
         linePrice: priceOf(productById(item.productId)),
+        customText: item.customText,
       });
       // The recommended add-on is its own booking_items row, carrying the
       // chosen colour.
@@ -331,6 +359,7 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
           colorId: item.addonColorId,
           qty: 1,
           linePrice: priceOf(productById(item.addonProductId)),
+          customText: null,
         });
       }
     }
@@ -613,6 +642,12 @@ function ConfiguratorModal({
     addonProduct,
     addonColorId,
   );
+  // A chosen add-on colour recolours the whole item, so its single photo wins
+  // over the product's carousel.
+  const previewCarousel =
+    selectedProduct && !addonColorId
+      ? carouselImages(selectedProduct, "configurator")
+      : [];
 
   const draftPrice = (() => {
     if (!selectedProduct) return null;
@@ -638,7 +673,9 @@ function ConfiguratorModal({
       confirmLabel={editing ? "Запази промените" : "Потвърди избора"}
       picker={category.picker}
       optionGroupLabel="Вид"
-      optionGroupOptions={optionGroupOptions}
+      // A 'text' modal has no product picker, so it must not offer the "Вид"
+      // dropdown either — changing it clears productId with no way to set it back.
+      optionGroupOptions={category.picker === "text" ? [] : optionGroupOptions}
       optionGroup={draft.optionGroup}
       onOptionGroup={(value) =>
         setDraft({ ...draft, optionGroup: value, productId: "" })
@@ -650,13 +687,19 @@ function ConfiguratorModal({
       productDisabled={hasGroups && !draft.optionGroup}
       productId={draft.productId}
       onProduct={(value) => setDraft({ ...draft, productId: value })}
+      customText={draft.customText}
+      onCustomText={(value) => setDraft({ ...draft, customText: value })}
       recommend={recommend}
       addonValue={draft.addonValue}
       onAddon={(value) => setDraft({ ...draft, addonValue: value })}
       previewPhoto={previewPhoto}
+      previewCarousel={previewCarousel}
       previewAlt={selectedProduct?.name ?? category.name}
       priceLabel={priceLabel}
-      canConfirm={Boolean(selectedProduct)}
+      canConfirm={
+        Boolean(selectedProduct) &&
+        (category.picker !== "text" || draft.customText.trim().length > 0)
+      }
       onConfirm={onConfirm}
       onClose={() => setDraft(null)}
     />

@@ -14,13 +14,13 @@ create table categories (
   in_configurator boolean not null default true,   -- show as a family on the homepage
   description     text,                             -- hint line under the family title
   add_label       text,                             -- label on the green "add" button
-  picker          text not null default 'dropdown', -- 'dropdown' | 'grid'
+  picker          text not null default 'dropdown', -- 'dropdown' | 'grid' | 'text' (describe it in a text box)
   recommend_category_id uuid references categories(id) on delete set null, -- add-on category
   recommend_title text,
   recommend_hint  text,
   recommend_label text,
   created_at timestamptz default now(),
-  constraint categories_picker_check check (picker in ('dropdown', 'grid'))
+  constraint categories_picker_check check (picker in ('dropdown', 'grid', 'text'))
 );
 
 create table products (
@@ -30,7 +30,7 @@ create table products (
   name               text not null,               -- BG
   description        text,                         -- BG
   option_group       text,                         -- configurator first-dropdown grouping (null = skip)
-  base_price         numeric(10,2),                -- null = price on request
+  base_price         numeric(10,2),                -- EUR; null = price on request
   pricing_type       text not null default 'fixed',-- 'fixed' | 'custom_quote'
   quantity           int  not null default 1,      -- how many she physically owns
   track_availability boolean not null default true,-- false for consumables (balloons)
@@ -38,6 +38,11 @@ create table products (
   service_only       boolean not null default false,
   active             boolean not null default true,
   sort               int  not null default 0,
+  -- Carousel of variation photos (product_images.in_carousel), instead of the
+  -- single photo. The master switch hides it everywhere; the other two pick where.
+  carousel                 boolean not null default false,
+  carousel_in_configurator boolean not null default true,
+  carousel_in_catalog      boolean not null default true,
   created_at         timestamptz default now()
 );
 
@@ -57,7 +62,10 @@ create table product_images (
   id         uuid primary key default gen_random_uuid(),
   product_id uuid not null references products(id) on delete cascade,
   color_id   uuid references product_colors(id) on delete cascade,
-  path       text not null,            -- storage path, see catalog-and-images.md
+  path       text not null,            -- storage path of the 4:5 tile, see catalog-and-images.md
+  full_path  text,                     -- whole photo, shrunk. null = old row, use path
+  crop       jsonb,                    -- last crop {x,y,width,height} in full-photo pixels. null = not cropped
+  in_carousel boolean not null default false, -- a carousel photo (colour-agnostic), not a main/colour photo
   sort       int  not null default 0
 );
 
@@ -76,7 +84,7 @@ create table bookings (
   customer_name   text,
   phone           text,
   note            text,
-  estimated_total numeric(10,2),
+  estimated_total numeric(10,2),                 -- EUR
   created_at      timestamptz default now()
 );
 
@@ -87,8 +95,18 @@ create table booking_items (
   color_id    uuid references product_colors(id) on delete set null,
   custom_text text,                    -- e.g. the figure the customer described
   qty         int not null default 1,
-  line_price  numeric(10,2)
+  line_price  numeric(10,2),           -- EUR
+  -- custom_text comes from a public form and the public insert policy checks
+  -- nothing, so cap it here too. 1000 matches MAX_CUSTOM_TEXT in src/app/actions.ts.
+  constraint booking_items_custom_text_len
+    check (custom_text is null or length(custom_text) <= 1000)
 );
+
+-- Every money column is in euro. The comments show up in the Supabase table
+-- editor, so the currency is visible where she edits the data.
+comment on column products.base_price      is 'EUR';
+comment on column bookings.estimated_total  is 'EUR';
+comment on column booking_items.line_price  is 'EUR';
 
 -- Optional: owner days off / manual blocks
 create table blackout_dates (

@@ -15,7 +15,8 @@
 --   categories.in_configurator      -- show this category as a family on the homepage
 --   categories.description          -- the hint line under the family title
 --   categories.add_label            -- text on the green "add" button
---   categories.picker               -- 'dropdown' | 'grid' (how the products are chosen)
+--   categories.picker               -- 'dropdown' | 'grid' | 'text' (how the products are chosen;
+--                                      'text' comes from migration-euro-and-balloon-theme.sql)
 --   categories.recommend_category_id-- add-on category offered inside the modal (null = none)
 --   categories.recommend_title/hint/label -- copy for that add-on block
 --   products.option_group           -- first-dropdown grouping (null = skip the first step)
@@ -40,7 +41,7 @@ alter table categories add column if not exists recommend_label       text;
 alter table products   add column if not exists option_group          text;
 
 alter table categories drop constraint if exists categories_picker_check;
-alter table categories add  constraint categories_picker_check check (picker in ('dropdown', 'grid'));
+alter table categories add  constraint categories_picker_check check (picker in ('dropdown', 'grid', 'text'));
 
 -- ---------- Availability functions ----------
 -- Same as schema.sql; the comment there explains `security definer` and the
@@ -101,7 +102,7 @@ where slug = 'arches';
 -- figure has moved under „Надписи и табели" (below), leaving this category empty.
 update categories set in_configurator = false where slug in ('covers', 'balloon-figures');
 
-update categories set in_configurator = true, picker = 'dropdown', add_label = 'Добави балони',
+update categories set in_configurator = true, picker = 'text', add_label = 'Добави балони',
   description = 'Цветовете, които задават настроението на празника.' where slug = 'balloons';
 
 update categories set in_configurator = true, picker = 'grid', add_label = 'Добави фигурка',

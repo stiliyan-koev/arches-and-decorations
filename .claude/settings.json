@@ -1,4 +1,8 @@
 {
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "permissions": {
     "allow": [
       "Bash(gh pr *)",
@@ -14,6 +18,11 @@
       "Bash(git push origin *)",
       "Bash(npm run build*)",
       "Bash(npm run lint*)",
+      "Bash(npm run smoke*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git rev-parse*)",
+      "Bash(git branch --show-current)",
       "PowerShell(gh pr *)",
       "PowerShell(git fetch *)",
       "PowerShell(git ls-remote *)",
@@ -26,7 +35,12 @@
       "PowerShell(git push -u origin *)",
       "PowerShell(git push origin *)",
       "PowerShell(npm run build*)",
-      "PowerShell(npm run lint*)"
+      "PowerShell(npm run lint*)",
+      "PowerShell(npm run smoke*)",
+      "PowerShell(git status*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git rev-parse*)",
+      "PowerShell(git branch --show-current)"
     ],
     "deny": [
       "Bash(git push --force*)",

@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 export type DropdownOption = {
   value: string;
   label: string;
@@ -23,12 +25,17 @@ export default function OptionDropdown({
   disabled = false,
   onChange,
 }: Props) {
+  // Ties the <label> to its <select>, so screen readers announce the label
+  // and the smoke tests can find each dropdown by it.
+  const id = useId();
+
   return (
     <div>
-      <label className="mb-1.5 block text-[0.72rem] font-extrabold tracking-[0.06em] text-muted uppercase">
+      <label htmlFor={id} className="mb-1.5 block text-[0.72rem] font-extrabold tracking-[0.06em] text-muted uppercase">
         {label}
       </label>
       <select
+        id={id}
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

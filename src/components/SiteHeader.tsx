@@ -31,14 +31,20 @@ export default function SiteHeader() {
             </Link>
           ))}
         </nav>
-
-        <a
-          href={CONTACTS.phoneHref}
-          className="ml-auto inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface px-3 py-2 text-sm font-extrabold whitespace-nowrap shadow-sm transition-colors hover:border-cta sm:px-4 sm:py-2.5 sm:text-base md:ml-0"
-        >
-          📞 {CONTACTS.phone}
-        </a>
       </div>
+
+      {/* Mobile: the desktop nav is hidden, so show the links as a second row. */}
+      <nav className="mx-auto flex max-w-[1140px] justify-between gap-3 border-t border-border px-5 py-2.5 text-[0.95rem] font-bold md:hidden">
+        {NAV.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="opacity-85 transition-colors hover:text-cta hover:opacity-100"
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
