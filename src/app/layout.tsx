@@ -6,7 +6,8 @@ import "./globals.css";
 const unbounded = Unbounded({
   variable: "--font-unbounded",
   subsets: ["latin", "cyrillic"],
-  weight: ["500", "600", "700"],
+  // Variable font, no fixed weights: Google serves the static 700 file from a
+  // "/l/font?kit=…&skey=…" URL that Turbopack's font loader can't resolve.
 });
 
 const nunito = Nunito({
