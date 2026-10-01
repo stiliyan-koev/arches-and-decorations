@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CONTACTS } from "@/lib/contacts";
+import { FacebookIcon, TikTokIcon } from "@/components/SocialIcons";
 
 export const metadata: Metadata = {
   title: "За нас",
@@ -53,17 +54,6 @@ export default function AboutPage() {
           </h2>
           <dl className="mt-5 space-y-4 text-sm">
             <div>
-              <dt className="text-muted">Телефон</dt>
-              <dd className="mt-1">
-                <a
-                  href={CONTACTS.phoneHref}
-                  className="text-ink hover:text-cta"
-                >
-                  {CONTACTS.phone}
-                </a>
-              </dd>
-            </div>
-            <div>
               <dt className="text-muted">Имейл</dt>
               <dd className="mt-1">
                 <a
@@ -75,13 +65,13 @@ export default function AboutPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-muted">Instagram</dt>
+              <dt className="text-muted">TikTok</dt>
               <dd className="mt-1">
                 <a
-                  href={CONTACTS.instagram}
-                  className="text-ink hover:text-cta"
+                  href={CONTACTS.tiktok}
+                  className="inline-flex items-center gap-2 text-ink hover:text-cta"
                 >
-                  Instagram
+                  <TikTokIcon /> TikTok
                 </a>
               </dd>
             </div>
@@ -90,9 +80,9 @@ export default function AboutPage() {
               <dd className="mt-1">
                 <a
                   href={CONTACTS.facebook}
-                  className="text-ink hover:text-cta"
+                  className="inline-flex items-center gap-2 text-ink hover:text-cta"
                 >
-                  Facebook
+                  <FacebookIcon /> Facebook
                 </a>
               </dd>
             </div>
