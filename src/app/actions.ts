@@ -77,7 +77,7 @@ export async function submitRequest(
     return {
       ok: false,
       error:
-        "Връзката с базата данни още не е настроена. Моля, обадете се по телефона.",
+        "Връзката с базата данни още не е настроена. Моля, пишете ни във Facebook или TikTok.",
     };
   }
 
@@ -178,7 +178,7 @@ export async function submitRequest(
   if (itemsError) {
     return {
       ok: false,
-      error: "Заявката е приета частично. Моля, обадете се, за да я потвърдим.",
+      error: "Заявката е приета частично. Моля, пишете ни във Facebook или TikTok, за да я потвърдим.",
     };
   }
 
