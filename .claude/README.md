@@ -120,3 +120,25 @@ back, add the rule to CLAUDE.md or the reviewer's checklist. **Tuning these file
 
 Keep `main` as GitHub's default branch. The Lead always passes `--base release/X.Y.Z`, so nothing
 lands in `main` by accident.
+
+## Smoke tests (separate from the PR pipeline)
+
+```
+/smoke-test          qa agent: build + the specs in tests/smoke/, report by severity. Changes nothing.
+/smoke-fix [spec]    your main session: fixes ONE red spec in src/. Never commits.
+/ship-pr             the normal path: PR, 3 reviewers, fix rounds, you merge.
+```
+
+Three jobs, three permission levels: the tester can't edit, the fixer can't commit, and only
+`/ship-pr` opens PRs. That's why they are separate commands and not one "QA" command.
+
+| File | What it is | Why |
+|---|---|---|
+| `.claude/agents/qa.md` | Runs build + smoke, reads Playwright's results file, reports by severity. **No Edit/Write tools.** | A tester that can edit will "help" by fixing what it finds. Taking the tools away is the wall, same as the reviewers. |
+| `.claude/commands/smoke-test.md` | Starts `qa`, prints its report. | Keeps Playwright's long output out of your main session. |
+| `.claude/commands/smoke-fix.md` | One red spec -> smallest fix in `src/` -> green. Max 2 tries. | **The spec is the judge**: red before, green after, untouched (`git status` must show nothing new outside `src/`). An agent saying "fixed" proves nothing. |
+| `playwright.config.ts`, `tests/smoke/` | 6 read-only specs against the production build on port 3100. Severity is the spec's tag: `@blocker`, `@critical`, `@minor`. | Read-only because the database is the live one: no spec presses „Изпрати запитване“. |
+
+- Smoke is **not** a merge gate and not in CI (it needs the real `.env.local`). Run `/smoke-test`
+  before you merge a release, and again after a `/smoke-fix` PR's review rounds: those can undo the fix.
+- A new spec only for something a code review can't catch. Give it a tag, keep it read-only.
