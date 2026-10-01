@@ -25,8 +25,8 @@ BASE is `agentic/release-<VERSION>`.
 `git ls-remote --heads origin "agentic/release-<VERSION>"`.
 
 - Exists -> go on.
-- Missing -> create it from `main`:
-  `git branch agentic/release-<VERSION> origin/main`, then `git push origin agentic/release-<VERSION>`,
+- Missing -> create it from the release branch:
+  `git branch agentic/release-<VERSION> origin/release/<VERSION>`, then `git push origin agentic/release-<VERSION>`,
   then `git branch -D agentic/release-<VERSION>` (only the remote copy is needed).
   Tell the owner in one line that you created it.
 
