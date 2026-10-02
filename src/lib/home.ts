@@ -3,6 +3,11 @@
 // getHeroPhotos in hero-photos.ts); the list below is only the placeholder
 // shown until she adds some. `src: null` renders a pastel placeholder tile.
 
+// Longest hero caption. Long enough for "Кръщене · небесно синьо", short
+// enough to stay one pill. Lives here, not in hero-photos.ts, because the
+// admin form (a client component) needs it too.
+export const CAPTION_MAX = 60;
+
 export type HeroPhoto = {
   id: string;
   src: string | null; // full image URL, or null for a placeholder tile

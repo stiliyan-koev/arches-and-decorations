@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
+import { CAPTION_MAX } from "@/lib/home";
 
 // Every write here runs through the logged-in user's cookies, so RLS sees
 // `authenticated` and the "admin all …" policies in schema.sql apply. There is
@@ -431,13 +432,10 @@ export async function deleteImage(id: string): Promise<ActionResult> {
 
 // Like product photos, the file is uploaded straight from the browser; these
 // only record and edit the rows. Paths from the browser must sit in the
-// homepage photo folder.
+// homepage photo folder, named the way the admin form names them.
 function isHeroPhotoPath(path: string) {
-  return path.startsWith("home/hero/") && !path.includes("..");
+  return /^home\/hero\/[0-9a-f-]{36}\.webp$/.test(path);
 }
-
-// Long enough for "Кръщене · небесно синьо", short enough to stay one pill.
-const CAPTION_MAX = 60;
 
 export async function addHeroPhoto(input: {
   path: string;
@@ -521,8 +519,13 @@ export async function deleteHeroPhoto(id: string): Promise<ActionResult> {
     .eq("id", id)
     .maybeSingle();
 
-  const { error } = await supabase.from("hero_photos").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("hero_photos")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
 
   // Best effort, as with product photos.
   if (photo) await supabase.storage.from(BUCKET).remove([photo.path]);

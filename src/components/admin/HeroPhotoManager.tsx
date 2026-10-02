@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { resizeToWebp } from "@/lib/resize-image";
 import { PAGE_BG, imageUrl } from "@/lib/images";
+import { CAPTION_MAX } from "@/lib/home";
 import {
   addHeroPhoto,
   deleteHeroPhoto,
@@ -58,13 +59,29 @@ export default function HeroPhotoManager({ photos }: { photos: HeroPhotoRow[] })
     setBusy(`Качване на ${file.name}…`);
 
     const crop = choice.mode === "crop" ? choice.crop : undefined;
-    const photo = await resizeToWebp(file, crop, PHOTO_SIZE, PAGE_BG);
-    const path = `home/hero/${crypto.randomUUID()}.${photo.ext}`;
     const storage = createClient().storage.from(BUCKET);
-
-    const { error: uploadError } = await storage.upload(path, photo.blob, {
-      contentType: photo.blob.type,
-    });
+    let path;
+    let uploadError;
+    try {
+      const photo = await resizeToWebp(file, crop, PHOTO_SIZE, PAGE_BG);
+      // The server only accepts .webp paths; a format the browser can't
+      // redraw comes back as the original file.
+      if (photo.ext !== "webp") {
+        setBusy("");
+        setError("Този формат не може да се обработи. Запазете снимката като JPG и опитайте отново.");
+        finishQueue();
+        return;
+      }
+      path = `home/hero/${crypto.randomUUID()}.webp`;
+      ({ error: uploadError } = await storage.upload(path, photo.blob, {
+        contentType: photo.blob.type,
+      }));
+    } catch {
+      setBusy("");
+      setError(SAVE_FAILED);
+      finishQueue();
+      return;
+    }
     if (uploadError) {
       setBusy("");
       setError(`Качването се провали: ${uploadError.message}`);
@@ -205,7 +222,10 @@ export default function HeroPhotoManager({ photos }: { photos: HeroPhotoRow[] })
                 />
                 <button
                   type="button"
-                  onClick={() => run("Изтриване…", () => deleteHeroPhoto(photo.id))}
+                  onClick={() => {
+                    if (!confirm("Да изтрия тази снимка от карусела?")) return;
+                    run("Изтриване…", () => deleteHeroPhoto(photo.id));
+                  }}
                   disabled={locked}
                   className="ml-auto cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
                 >
@@ -263,7 +283,7 @@ function CaptionField({
       <input
         value={caption}
         onChange={(event) => setCaption(event.target.value)}
-        maxLength={60}
+        maxLength={CAPTION_MAX}
         placeholder="Надпис (по желание)"
         aria-label={`Надпис на снимка ${number}`}
         className="min-w-0 flex-1 rounded-item border border-border-strong bg-bg px-2 py-1.5 text-[0.8rem]"

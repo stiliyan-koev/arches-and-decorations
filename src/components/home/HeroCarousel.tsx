@@ -51,6 +51,7 @@ function centredIndex(strip: HTMLDivElement) {
 export default function HeroCarousel({ photos }: { photos: HeroPhoto[] }) {
   const stripRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; scrollLeft: number } | null>(null);
+  const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [active, setActive] = useState(0);
 
   function update(strip: HTMLDivElement) {
@@ -86,6 +87,8 @@ export default function HeroCarousel({ photos }: { photos: HeroPhoto[] }) {
   function startDrag(event: PointerEvent<HTMLDivElement>) {
     if (event.pointerType !== "mouse" || event.button !== 0) return;
     const strip = event.currentTarget;
+    // A new drag before the last glide ended: keep snapping off.
+    if (snapTimerRef.current) clearTimeout(snapTimerRef.current);
     dragRef.current = { x: event.clientX, scrollLeft: strip.scrollLeft };
     strip.setPointerCapture(event.pointerId);
     strip.style.scrollSnapType = "none";
@@ -103,7 +106,7 @@ export default function HeroCarousel({ photos }: { photos: HeroPhoto[] }) {
     const strip = event.currentTarget;
     scrollToSlide(centredIndex(strip));
     // Snapping back on only after the glide, or it would jump there instead.
-    setTimeout(() => {
+    snapTimerRef.current = setTimeout(() => {
       strip.style.scrollSnapType = "";
     }, 400);
   }

@@ -19,7 +19,8 @@ export async function getHeroPhotoRows(): Promise<HeroPhotoRow[]> {
   const { data, error } = await supabase
     .from("hero_photos")
     .select("id, path, caption, sort")
-    .order("sort");
+    .order("sort")
+    .order("id");
   if (error) throw error;
   return data;
 }
