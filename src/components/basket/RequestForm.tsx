@@ -72,12 +72,16 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   const notRentable = items.filter((item) => !item.product.rentable);
   const canRent = items.length > 0 && notRentable.length === 0;
   const activeMode: Mode = canRent ? mode : "service";
+  // Forget a rental choice once the basket can't rent, so it doesn't come back
+  // on its own when the basket qualifies again. Guarded, so it runs once.
+  if (!canRent && mode === "rental") setMode("service");
 
   // The dates the request occupies: one day for a service, pickup→return for a
   // rental. Empty until they're filled in (and the return isn't before pickup).
   const from = activeMode === "rental" ? event.startDate : event.date;
   const to = activeMode === "rental" ? event.endDate : event.date;
   const datesReady = Boolean(from && to && to >= from);
+  const returnBeforePickup = Boolean(from && to && to < from);
   const rangeKey = datesReady ? `${from}:${to}` : "";
   const reserved = availability.key === rangeKey ? availability.reserved : {};
   const checking = datesReady && availability.key !== rangeKey;
@@ -126,13 +130,15 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   const hint =
     items.length === 0
       ? "Офертата е празна."
-      : !datesReady
-        ? activeMode === "rental"
-          ? "Изберете дати за вземане и връщане."
-          : "Изберете дата на събитието."
-        : !contact.phone.trim()
-          ? "Попълнете телефон, за да изпратим."
-          : null;
+      : returnBeforePickup
+        ? "Връщането е преди вземането."
+        : !datesReady
+          ? activeMode === "rental"
+            ? "Изберете дати за вземане и връщане."
+            : "Изберете дата на събитието."
+          : !contact.phone.trim()
+            ? "Попълнете телефон, за да изпратим."
+            : null;
 
   const ctaDisabled = submitting || hint !== null;
   const ctaLabel = submitting ? "Изпращане…" : "Изпрати запитване";
@@ -151,27 +157,33 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
     );
 
     setSubmitting(true);
-    const result = await submitRequest({
-      mode: activeMode,
-      customerName: contact.customerName,
-      phone: contact.phone,
-      city: event.city,
-      note: contact.note,
-      eventDate: activeMode === "service" ? event.date : "",
-      eventTime: activeMode === "service" ? event.time : "",
-      startDate: activeMode === "rental" ? event.startDate : "",
-      endDate: activeMode === "rental" ? event.endDate : "",
-      setup2hBefore: event.setup2hBefore,
-      estimatedTotal: total,
-      items: requestItems,
-    });
-    setSubmitting(false);
+    try {
+      const result = await submitRequest({
+        mode: activeMode,
+        customerName: contact.customerName,
+        phone: contact.phone,
+        city: event.city,
+        note: contact.note,
+        eventDate: activeMode === "service" ? event.date : "",
+        eventTime: activeMode === "service" ? event.time : "",
+        startDate: activeMode === "rental" ? event.startDate : "",
+        endDate: activeMode === "rental" ? event.endDate : "",
+        setup2hBefore: event.setup2hBefore,
+        estimatedTotal: total,
+        items: requestItems,
+      });
 
-    if (result.ok) {
-      setSentTotal(total);
-      selection.clear();
-    } else {
-      setError(result.error);
+      if (result.ok) {
+        setSentTotal(total);
+        selection.clear();
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      // The action itself failed (network drop, server down), not the data.
+      setError("Нещо се обърка при изпращането. Моля, опитайте отново.");
+    } finally {
+      setSubmitting(false);
     }
   }
 

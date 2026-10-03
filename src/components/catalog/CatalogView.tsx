@@ -41,9 +41,11 @@ export default function CatalogView({
   const [limit, setLimit] = useState(PAGE);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   // The mini-basket drawer. `lastAdded` names the product whose „Добави“ opened
-  // it (null when opened from the pill); `openedFrom` gets focus back on close.
+  // it (null when opened from the pill); `basketFull` is set when an add was
+  // refused; `openedFrom` gets focus back on close.
   const [basketOpen, setBasketOpen] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const [basketFull, setBasketFull] = useState(false);
   const openedFrom = useRef<HTMLElement | null>(null);
 
   // Keep the URL in step with the view so it survives a reload and can be shared.
@@ -77,9 +79,10 @@ export default function CatalogView({
   // Reset the facets but keep the chosen sort (matches the reference).
   const clearFilters = () => setState((s) => ({ ...EMPTY_STATE, sort: s.sort }));
 
-  function openBasket(addedSlug: string | null) {
+  function openBasket(addedSlug: string | null, full = false) {
     openedFrom.current = document.activeElement as HTMLElement | null;
     setLastAdded(addedSlug);
+    setBasketFull(full);
     setBasketOpen(true);
   }
 
@@ -161,7 +164,10 @@ export default function CatalogView({
             личната среща.
           </p>
         </div>
-        <OfferButton onClick={() => openBasket(null)} />
+        <OfferButton
+          onClick={() => openBasket(null)}
+          products={data.products}
+        />
       </div>
 
       {/* Mobile category pill row, sticky under the site header */}
@@ -329,6 +335,7 @@ export default function CatalogView({
         onClose={closeBasket}
         products={data.products}
         lastAdded={lastAdded}
+        full={basketFull}
       />
 
       <FilterSheet

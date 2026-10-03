@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import BasketLines from "@/components/basket/BasketLines";
 import { formatPrice } from "@/lib/format";
-import { useBasket } from "@/lib/selection";
+import { MAX_LINES, useBasket } from "@/lib/selection";
 import { basketView, type PlpProduct } from "@/lib/catalog-plp";
 
 type Props = {
@@ -12,12 +12,19 @@ type Props = {
   onClose: () => void;
   products: PlpProduct[];
   lastAdded: string | null; // slug of the product just added, for the confirmation line
+  full: boolean; // an add was refused because the basket already holds MAX_LINES products
 };
 
 // The mini-basket: a drawer from the right edge (full width on phones). It opens
 // on every „Добави“ and from the „Вашата оферта“ pill, lists what's picked with
 // the running approximate total, and hands over to /request.
-export default function MiniBasket({ open, onClose, products, lastAdded }: Props) {
+export default function MiniBasket({
+  open,
+  onClose,
+  products,
+  lastAdded,
+  full,
+}: Props) {
   const lines = useBasket();
   const closeRef = useRef<HTMLButtonElement>(null);
   const { items, total, hasQuote } = basketView(lines, products);
@@ -93,6 +100,15 @@ export default function MiniBasket({ open, onClose, products, lastAdded }: Props
               ✓
             </span>
             Добавено: „{added.product.name}“
+          </p>
+        )}
+
+        {full && (
+          <p
+            className="border-b border-border bg-surface-2 px-5 py-2.5 text-[0.85rem] font-bold text-ink"
+            role="status"
+          >
+            Максимум {MAX_LINES} различни продукта в едно запитване.
           </p>
         )}
 

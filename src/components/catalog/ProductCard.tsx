@@ -22,7 +22,8 @@ export default function ProductCard({
 }: {
   product: PlpProduct;
   priority?: boolean;
-  onAdd: (addedSlug: string | null) => void; // null = it was already in, just reopen
+  // addedSlug null = nothing new went in, just reopen; full = the basket was full.
+  onAdd: (addedSlug: string | null, full: boolean) => void;
 }) {
   const added = useIsSelected(product.slug);
   const booked = product.isBooked;
@@ -120,8 +121,9 @@ export default function ProductCard({
             disabled={booked}
             aria-label={buttonAria}
             onClick={() => {
-              selection.add(product.slug);
-              onAdd(added ? null : product.slug);
+              if (added) return onAdd(null, false);
+              const accepted = selection.add(product.slug);
+              onAdd(accepted ? product.slug : null, !accepted);
             }}
             className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
           >

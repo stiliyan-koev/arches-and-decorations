@@ -15,6 +15,10 @@ export type BasketLine = { slug: string; qty: number };
 
 const KEY = "oferta.v1";
 
+// Most different products one request can hold. Must match MAX_ITEMS in
+// src/app/actions.ts, or the server rejects a basket the catalog let through.
+export const MAX_LINES = 30;
+
 let lines: BasketLine[] = [];
 let hydrated = false;
 const listeners = new Set<() => void>();
@@ -91,10 +95,13 @@ export const selection = {
     hydrate();
     return lines.some((line) => line.slug === slug);
   },
-  // Adds one of the product; a product already in the basket is left as it is.
+  // Adds one of the product; a product already in the basket is left as it is,
+  // and a full basket (MAX_LINES) takes nothing more. Returns whether it added.
   add(slug: string) {
-    if (this.has(slug)) return;
+    if (this.has(slug)) return false;
+    if (lines.length >= MAX_LINES) return false;
     commit([...lines, { slug, qty: 1 }]);
+    return true;
   },
   // Zero or less removes the line.
   setQty(slug: string, qty: number) {
@@ -116,16 +123,6 @@ export const selection = {
 // The whole basket, reactive. Components re-render when it changes.
 export function useBasket() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
-// How many pieces in total — the "Вашата оферта" pill only needs this. A number
-// is a stable snapshot on its own.
-export function useBasketCount() {
-  return useSyncExternalStore(
-    subscribe,
-    () => getSnapshot().reduce((sum, line) => sum + line.qty, 0),
-    () => 0,
-  );
 }
 
 // Whether one product is in the basket — what a catalog card needs. A boolean is
