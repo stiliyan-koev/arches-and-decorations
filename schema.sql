@@ -69,6 +69,16 @@ create table product_images (
   sort       int  not null default 0
 );
 
+-- ---------- Homepage ----------
+
+-- The homepage photo carousel, managed from /admin/home.
+create table hero_photos (
+  id      uuid primary key default gen_random_uuid(),
+  path    text not null,             -- storage path of the 4:5 photo, home/hero/…
+  caption text not null default '',  -- the white pill on the photo; '' = no pill
+  sort    int  not null default 0
+);
+
 -- ---------- Bookings ----------
 
 create table bookings (
@@ -184,12 +194,14 @@ alter table product_images enable row level security;
 alter table bookings       enable row level security;
 alter table booking_items  enable row level security;
 alter table blackout_dates enable row level security;
+alter table hero_photos    enable row level security;
 
 -- Public read of the catalog
 create policy "public read categories"     on categories     for select using (true);
 create policy "public read products"        on products        for select using (active);
 create policy "public read product_colors" on product_colors for select using (true);
 create policy "public read product_images" on product_images for select using (true);
+create policy "public read hero_photos"    on hero_photos    for select using (true);
 
 -- Public may submit a request (insert only), but never read bookings
 create policy "public create booking"       on bookings       for insert with check (status = 'requested');
@@ -203,3 +215,4 @@ create policy "admin all product_images" on product_images for all using (auth.r
 create policy "admin all bookings"        on bookings        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all booking_items"  on booking_items  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all blackout"        on blackout_dates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all hero_photos"    on hero_photos    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

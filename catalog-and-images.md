@@ -54,6 +54,7 @@ products/{product-slug}/{NN}.webp                    # color-agnostic / base ima
 products/{product-slug}/{color-slug}--{NN}.webp      # color-specific image
 products/{product-slug}/full/{color-slug--}{NN}.webp # the whole photo behind a tile, same name
 products/{product-slug}/carousel--{NN}.webp          # carousel photo (tile); its full photo is under full/ too
+home/hero/{uuid}.webp                                # homepage carousel photo (already 4:5), row in hero_photos
 gallery/{theme-slug}/{NN}.webp                        # past-work gallery, grouped by theme
 ```
 

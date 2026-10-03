@@ -1,61 +1,63 @@
-import Configurator from "@/components/Configurator";
-import CategoryTiles from "@/components/CategoryTiles";
-import GalleryTeaser from "@/components/GalleryTeaser";
-import { getCatalog } from "@/lib/catalog";
+import type { Metadata } from "next";
+import Link from "next/link";
+import FloatingBalloons from "@/components/FloatingBalloons";
+import HeroCarousel from "@/components/home/HeroCarousel";
+import OccasionCards from "@/components/home/OccasionCards";
+import { ArrowRightIcon } from "@/components/home/Icons";
+import { getHeroPhotos } from "@/lib/hero-photos";
 
-// Decorative balloons floating behind the hero.
-const BALLOONS = [
-  { size: 70, color: "var(--color-balloon-pink)", left: "4%", top: "14%", delay: "0s" },
-  { size: 52, color: "var(--color-balloon-yellow)", left: "16%", top: "56%", delay: "1.2s" },
-  { size: 60, color: "var(--color-balloon-blue)", right: "6%", top: "10%", delay: "0.6s" },
-  { size: 44, color: "var(--color-balloon-orange)", right: "15%", top: "52%", delay: "1.8s" },
-  { size: 38, color: "var(--color-balloon-pink)", right: "30%", top: "4%", delay: "2.3s" },
-];
+export const metadata: Metadata = {
+  title: { absolute: "Балони и арки — празнични украси във Варна" },
+  description:
+    "Балонни украси и арки за рождени дни, кръщенета и партита във Варна. Разгледай каталога и виж ориентировъчна цена.",
+};
 
+// The homepage: photos of finished work, a call to open the catalog, and the
+// gallery by occasion. The catalog is the main flow now; the old configurator
+// homepage lives on at /configurator as a hidden backup.
 export default async function HomePage() {
-  const groups = await getCatalog();
+  const heroPhotos = await getHeroPhotos();
 
   return (
     <>
-      <section id="calc" className="relative overflow-hidden pt-11 pb-15">
-        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-          {BALLOONS.map((balloon, index) => (
+      <HeroCarousel photos={heroPhotos} />
+
+      <section className="relative overflow-hidden">
+        <FloatingBalloons />
+
+        <div className="relative z-10 mx-auto flex max-w-[1140px] flex-col items-center px-5 pt-10 pb-11 text-center md:pt-[72px] md:pb-20">
+          <span className="text-xs font-extrabold tracking-[0.14em] text-cta uppercase md:text-[13px]">
+            Празнични украси · Варна
+          </span>
+          <h1 className="mt-3 max-w-[900px] text-[32px] md:mt-3.5 md:text-[52px]">
+            Изчисли своята{" "}
             <span
-              key={index}
-              className="animate-float absolute rounded-full opacity-50"
+              className="px-1 md:px-1.5"
               style={{
-                width: balloon.size,
-                height: balloon.size * 1.18,
-                background: balloon.color,
-                left: balloon.left,
-                right: balloon.right,
-                top: balloon.top,
-                animationDelay: balloon.delay,
+                background:
+                  "linear-gradient(transparent 62%, var(--color-balloon-yellow) 62%)",
               }}
-            />
-          ))}
-        </div>
-
-        <div className="mx-auto max-w-[1140px] px-5">
-          <div className="relative z-10 mx-auto mb-[26px] max-w-[660px] text-center">
-            <span className="text-[0.78rem] font-extrabold uppercase tracking-[0.12em] text-cta">
-              Празнични украси · Варна
+            >
+              украса
             </span>
-            <h1 className="my-2 text-[clamp(1.9rem,4.4vw,3rem)]">
-              Сглоби своята украса и виж цената веднага
-            </h1>
-            <p className="text-[1.06rem] text-muted">
-              Избери какво искаш за твоя повод — арка, балони, фигурки — и
-              получи ориентировъчна цена на момента.
-            </p>
-          </div>
-
-          <Configurator groups={groups} />
+          </h1>
+          <p className="mt-3.5 max-w-[620px] text-[17px] text-muted md:mt-[18px] md:text-xl">
+            Разгледай каталога, добави арките, балоните и фигурките, които
+            харесваш, и виж ориентировъчна цена за целия декор.
+          </p>
+          <Link
+            href="/catalog"
+            className="mt-6 flex h-[54px] w-full items-center justify-center gap-2.5 rounded-full bg-cta px-[30px] text-[17px] font-extrabold text-white shadow-[0_10px_24px_rgb(201_58_114/0.28)] transition-[background-color,transform] hover:-translate-y-px hover:bg-cta-strong md:mt-8 md:inline-flex md:h-14 md:w-auto md:gap-3 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+          >
+            Към каталога <ArrowRightIcon />
+          </Link>
+          <p className="mt-3.5 text-[13px] text-muted md:mt-4 md:text-sm">
+            Цената е ориентировъчна — точната оферта уточняваме лично.
+          </p>
         </div>
       </section>
 
-      <CategoryTiles groups={groups} />
-      <GalleryTeaser />
+      <OccasionCards />
     </>
   );
 }

@@ -11,6 +11,7 @@ export const metadata = {
 const NAV = [
   { href: "/admin/products", label: "Продукти" },
   { href: "/admin/categories", label: "Категории" },
+  { href: "/admin/home", label: "Начална страница" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

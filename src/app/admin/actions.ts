@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
+import { CAPTION_MAX } from "@/lib/home";
 
 // Every write here runs through the logged-in user's cookies, so RLS sees
 // `authenticated` and the "admin all …" policies in schema.sql apply. There is
@@ -422,6 +423,112 @@ export async function deleteImage(id: string): Promise<ActionResult> {
   // Best effort: the row is what the site reads, so a stranded file is
   // untidy rather than broken.
   if (image) await supabase.storage.from(BUCKET).remove(photoFiles([image]));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Homepage photos ----------
+
+// Like product photos, the file is uploaded straight from the browser; these
+// only record and edit the rows. Paths from the browser must sit in the
+// homepage photo folder, named the way the admin form names them.
+function isHeroPhotoPath(path: string) {
+  return /^home\/hero\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+export async function addHeroPhoto(input: {
+  path: string;
+  caption: string;
+}): Promise<ActionResult> {
+  if (!isHeroPhotoPath(input.path)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const supabase = await createClient();
+
+  // New photos go to the end of the carousel.
+  const { data: lastRow } = await supabase
+    .from("hero_photos")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("hero_photos").insert({
+    path: input.path,
+    caption: input.caption.trim().slice(0, CAPTION_MAX),
+    sort: (lastRow?.sort ?? 0) + 1,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+export async function saveHeroCaption(
+  id: string,
+  caption: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("hero_photos")
+    .update({ caption: caption.trim().slice(0, CAPTION_MAX) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring photos, the same way as swapImageOrder.
+export async function swapHeroOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("hero_photos").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("hero_photos").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) {
+      return { ok: false, error: "Снимката не е намерена." };
+    }
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+export async function deleteHeroPhoto(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  // The file path comes from the row, never from the browser.
+  const { data: photo } = await supabase
+    .from("hero_photos")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { data: deleted, error } = await supabase
+    .from("hero_photos")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  // Best effort, as with product photos.
+  if (photo) await supabase.storage.from(BUCKET).remove([photo.path]);
 
   revalidateCatalog();
   return { ok: true };
