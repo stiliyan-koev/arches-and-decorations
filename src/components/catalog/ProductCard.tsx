@@ -12,14 +12,17 @@ const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 
 // One catalog card. Five states (brief): standard, hover, added, "заето на тази
 // дата", and "по запитване". Hover is pure CSS; the rest come from the data and
-// the shared selection. `priority` marks the first row so their photos (the LCP)
-// load eagerly.
+// the shared basket. `priority` marks the first row so their photos (the LCP)
+// load eagerly. The button adds the product and opens the mini-basket; once it's
+// in, the button just reopens the mini-basket — removing happens there.
 export default function ProductCard({
   product,
   priority = false,
+  onAdd,
 }: {
   product: PlpProduct;
   priority?: boolean;
+  onAdd: (addedSlug: string | null) => void; // null = it was already in, just reopen
 }) {
   const added = useIsSelected(product.slug);
   const booked = product.isBooked;
@@ -43,7 +46,7 @@ export default function ProductCard({
   const buttonAria = booked
     ? `„${product.name}“ е заето на тази дата`
     : added
-      ? `Премахни „${product.name}“ от офертата`
+      ? `„${product.name}“ е в офертата — отвори офертата`
       : `Добави „${product.name}“ към офертата`;
 
   const buttonStyle = booked
@@ -116,8 +119,10 @@ export default function ProductCard({
             type="button"
             disabled={booked}
             aria-label={buttonAria}
-            aria-pressed={added}
-            onClick={() => selection.toggle(product.slug)}
+            onClick={() => {
+              selection.add(product.slug);
+              onAdd(added ? null : product.slug);
+            }}
             className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
           >
             {/* Icon on narrow phones, full label from sm up. */}

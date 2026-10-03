@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import Filters from "@/components/catalog/Filters";
 import FilterSheet from "@/components/catalog/FilterSheet";
 import ProductCard from "@/components/catalog/ProductCard";
 import OfferButton from "@/components/catalog/OfferButton";
+import MiniBasket from "@/components/basket/MiniBasket";
 import {
   activeFilterCount,
   buildQuery,
@@ -39,6 +40,11 @@ export default function CatalogView({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
+  // The mini-basket drawer. `lastAdded` names the product whose „Добави“ opened
+  // it (null when opened from the pill); `openedFrom` gets focus back on close.
+  const [basketOpen, setBasketOpen] = useState(false);
+  const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const openedFrom = useRef<HTMLElement | null>(null);
 
   // Keep the URL in step with the view so it survives a reload and can be shared.
   // replaceState, not push — Back should leave the catalog, not undo nine filter
@@ -70,6 +76,18 @@ export default function CatalogView({
     setState((s) => ({ ...s, bands: toggle(s.bands, id) }));
   // Reset the facets but keep the chosen sort (matches the reference).
   const clearFilters = () => setState((s) => ({ ...EMPTY_STATE, sort: s.sort }));
+
+  function openBasket(addedSlug: string | null) {
+    openedFrom.current = document.activeElement as HTMLElement | null;
+    setLastAdded(addedSlug);
+    setBasketOpen(true);
+  }
+
+  // Stable, because the drawer's Escape listener depends on it.
+  const closeBasket = useCallback(() => {
+    setBasketOpen(false);
+    openedFrom.current?.focus();
+  }, []);
 
   const closeSheet = () => {
     setSheetOpen(false);
@@ -123,8 +141,8 @@ export default function CatalogView({
     <div className="mx-auto max-w-[1140px] px-5 pt-6 pb-16">
       <p className="mb-5 flex items-center gap-2.5 rounded-item border border-border bg-surface-2 px-4 py-3 text-[0.82rem] text-muted">
         <span className="h-2 w-2 shrink-0 rounded-full bg-balloon-orange" />
-        Предварителен преглед · Цените са примерни. Онлайн запитванията още не са
-        активни.
+        Предварителен преглед · Цените са примерни. Крайната оферта уточняваме
+        лично.
       </p>
 
       {/* Head */}
@@ -143,7 +161,7 @@ export default function CatalogView({
             личната среща.
           </p>
         </div>
-        <OfferButton />
+        <OfferButton onClick={() => openBasket(null)} />
       </div>
 
       {/* Mobile category pill row, sticky under the site header */}
@@ -254,6 +272,7 @@ export default function CatalogView({
                     key={product.slug}
                     product={product}
                     priority={index < 3}
+                    onAdd={openBasket}
                   />
                 ))}
               </div>
@@ -304,6 +323,13 @@ export default function CatalogView({
           )}
         </div>
       </div>
+
+      <MiniBasket
+        open={basketOpen}
+        onClose={closeBasket}
+        products={data.products}
+        lastAdded={lastAdded}
+      />
 
       <FilterSheet
         open={sheetOpen}

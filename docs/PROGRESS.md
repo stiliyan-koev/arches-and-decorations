@@ -92,7 +92,8 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
       homepage shows the pastel placeholders and `/admin/home` says the table is missing
 - [ ] Hero photos uploaded **(her)**
 - [ ] Occasion card photos in `public/home/` + paths in `src/lib/home.ts` **(you)**
-- [ ] Catalog add-to-total logic (the new main flow) — separate task
+- [x] Catalog add-to-total logic (the new main flow): basket + mini-basket drawer on
+      `/catalog`, order summary at `/request` (2 Oct 2026, see Step 3)
 - [ ] `/gallery` reading `?occasion=` — the gallery is still a placeholder
 
 ## Step 2 — Configurator ✅ (was the homepage; now `/configurator`)
@@ -142,11 +143,17 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       data 21 Sep 2026.
 - [x] `/catalog/[category]` — same page, category preselected; server-rendered for SEO
       (per-category `<title>`), then canonicalises onto `/catalog?cat=…`
-- [x] Shared „оферта" selection store (`src/lib/selection.ts`, localStorage-backed) —
-      „Добави" on a card writes to it and the „Вашата оферта" pill counts it, surviving the
-      hop to the configurator. **TODO: the homepage Configurator still keeps its own local
-      list and does not read this store yet — wiring it up is a separate task (the brief
-      lists the configurator itself as out of scope).**
+- [x] Basket („оферта“) store (`src/lib/selection.ts`, localStorage, `{slug, qty}` lines)
+      — „Добави" on a card adds one and opens the **mini-basket** drawer (right side, full
+      width on phones): what was added, −/+ per line (capped by stock and 20), „Премахни",
+      running total, „Продължи към запитването →". The „Вашата оферта" pill reopens it.
+- [x] `/request` — order summary instead of checkout: editable basket, „Украса с монтаж" /
+      „Само под наем" (rental off when any line isn't `rentable`), event dates, contacts,
+      then `submitRequest()` — `booking_items.qty` = the line qty, `line_price` = unit × qty.
+      Over-stock for the chosen dates is a warning, not a block. Verified in the browser
+      2 Oct 2026, **never submitted** (live DB). The hidden `/configurator` is untouched and
+      does not share the basket.
+- [ ] Colour choice per basket line — today the customer writes it in the note.
 - [ ] Date / „Скрий заетите" availability filter on the PLP — **deliberately hidden**
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO
@@ -199,7 +206,7 @@ are still open.
 
 ## Smoke tests 🟡 built, one run so far
 
-Six read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
+Seven read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
 a request, because the database is the live one. `/smoke-test` reports, `/smoke-fix` fixes one red
 spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 
@@ -208,6 +215,8 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 - [x] `@critical` the configurator total adds up, and „по запитване" items add nothing
 - [x] `@minor` /about shows the contacts from `contacts.ts`
 - [x] `@minor` the mobile summary bar stays pinned on a phone viewport (390×844)
+- [x] `@critical` the basket: add two → drawer total, qty +, remove, carry over to `/request`
+      with the same total and a shut send button (never clicked)
 - [x] `@blocker` step 1 → step 2: the contact form opens with the date, city and estimate,
       and the send button is shut until a phone number is filled (never clicked)
 - [x] **(you)** `@playwright/test` installed, `npx playwright install chromium` done

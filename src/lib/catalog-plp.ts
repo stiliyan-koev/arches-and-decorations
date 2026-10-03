@@ -10,6 +10,7 @@ import { carouselImages, fullImagePath } from "@/lib/images";
 // The catalog renders a flat list, so we flatten getCatalog()'s nested groups
 // into one array of the fields a card and the filters actually use.
 export type PlpProduct = {
+  id: string; // what a booking_items row points at
   slug: string;
   name: string;
   spec: string; // description from the DB; "" when none yet
@@ -17,6 +18,8 @@ export type PlpProduct = {
   categoryName: string;
   price: number | null; // null = "по запитване" (custom_quote or no base_price)
   rentable: boolean;
+  stock: number | null; // how many she owns; null = consumable, never runs out
+  maxQty: number; // the most one request may ask for — see MAX_PER_LINE
   isBooked: boolean; // tracked item she owns none of right now — see note below
   colors: string[]; // color slugs, for the swatch filter
   imagePath: string | null; // first image, or null -> tinted placeholder
@@ -52,6 +55,11 @@ function tintFor(categorySlug: string) {
   return CATEGORY_TINTS[categorySlug] ?? "var(--color-surface-2)";
 }
 
+// The most of one product a single request may carry. Must match MAX_QTY in
+// src/app/actions.ts, which rejects anything above it. A tracked product is also
+// capped by how many she owns; balloons and other consumables only by this.
+export const MAX_PER_LINE = 20;
+
 function priceOf(product: {
   base_price: number | null;
   pricing_type: "fixed" | "custom_quote";
@@ -86,6 +94,7 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
       }
 
       products.push({
+        id: product.id,
         slug: product.slug,
         name: product.name,
         spec: product.description ?? "",
@@ -93,6 +102,10 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         categoryName: group.name,
         price: priceOf(product),
         rentable: product.rentable,
+        stock: product.track_availability ? product.quantity : null,
+        maxQty: product.track_availability
+          ? Math.max(0, Math.min(product.quantity, MAX_PER_LINE))
+          : MAX_PER_LINE,
         // Without the confirmed-bookings query wired (see the availability note
         // in PLP-BRIEF.md), the only honest "unavailable" signal is a tracked
         // product she currently owns none of. Real per-date availability is a
@@ -109,6 +122,45 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
   }
 
   return { products, categories, colors: [...colorBySlug.values()] };
+}
+
+// ---------------------------------------------------------------------- basket
+
+export type BasketItem = {
+  product: PlpProduct;
+  qty: number;
+  lineTotal: number | null; // null = "по запитване"
+};
+
+export type BasketView = {
+  items: BasketItem[];
+  total: number;
+  hasQuote: boolean;
+};
+
+// Joins the stored basket lines ({slug, qty}) with the catalog. A slug that is no
+// longer in the catalog is dropped, and qty is clamped to what may be asked for.
+// "По запитване" lines add nothing to the total — same rule as the configurator.
+export function basketView(
+  lines: { slug: string; qty: number }[],
+  products: PlpProduct[],
+): BasketView {
+  const bySlug = new Map(products.map((product) => [product.slug, product]));
+  const items: BasketItem[] = [];
+  let total = 0;
+  let hasQuote = false;
+
+  for (const line of lines) {
+    const product = bySlug.get(line.slug);
+    if (!product) continue;
+    const qty = Math.max(1, Math.min(line.qty, product.maxQty || 1));
+    const lineTotal = product.price === null ? null : product.price * qty;
+    if (lineTotal === null) hasQuote = true;
+    else total += lineTotal;
+    items.push({ product, qty, lineTotal });
+  }
+
+  return { items, total, hasQuote };
 }
 
 // ------------------------------------------------------------------ price bands

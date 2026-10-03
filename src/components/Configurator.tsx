@@ -88,6 +88,8 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
     date: "",
     time: "",
     setup2hBefore: true,
+    startDate: "",
+    endDate: "",
   });
   const [contact, setContact] = useState<ContactFields>({
     customerName: "",
