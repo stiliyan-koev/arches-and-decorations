@@ -49,7 +49,7 @@ export default function GalleryGrid({ photos }: { photos: GalleryItem[] }) {
         ))}
       </ul>
 
-      {openIndex !== null && (
+      {openIndex !== null && openIndex < photos.length && (
         <GalleryLightbox
           photos={photos}
           index={openIndex}

@@ -169,6 +169,9 @@ export default function GalleryLightbox({ photos, index, onIndexChange, onClose 
             <Link
               key={tag.slug}
               href={galleryHref(tag)}
+              // Close first: on the tag already filtered, the grid stays and the
+              // list shrinks back to its first page, so this index may be gone.
+              onClick={() => dialogRef.current?.close()}
               className="shrink-0 rounded-full bg-white/90 px-3.5 py-2 text-[0.85rem] font-extrabold whitespace-nowrap text-ink hover:bg-white hover:text-cta focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
             >
               {tag.name}
