@@ -16,7 +16,7 @@ npm start       # serve a production build
 npm run smoke   # Playwright smoke specs against the production build (run npm run build first)
 ```
 
-**Tests: smoke specs only.** [`tests/smoke/`](tests/smoke/) holds 6 read-only Playwright specs: `npm run build`, then `npm run smoke` (it serves the build on port 3100, so it doesn't clash with `npm run dev`). They browse like a visitor and never press „Изпрати запитване“, because the database is shared with the live site. No unit tests, no coverage targets; add a spec only for something a code review can't catch, and tag it `@blocker`, `@critical` or `@minor`. Beyond that, verify changes with `npm run build` (catches type errors) and by looking at the running dev server.
+**Tests: smoke specs only.** [`tests/smoke/`](tests/smoke/) holds 6 read-only Playwright specs: `npm run build`, then `npm run smoke` (it serves the build on port 3100, so it doesn't clash with `npm run dev`). They browse like a visitor and never press „Изпрати запитване“, because the database is shared with the live site. The admin is covered only from outside (no session → redirected to `/admin/login`); the specs never log in. The old configurator specs sit in [`tests/archive/configurator/`](tests/archive/configurator/), which Playwright doesn't run. No unit tests, no coverage targets; add a spec only for something a code review can't catch, and tag it `@blocker`, `@critical` or `@minor`. Beyond that, verify changes with `npm run build` (catches type errors) and by looking at the running dev server.
 
 ## Architecture — what the code actually does
 
