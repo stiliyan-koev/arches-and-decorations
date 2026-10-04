@@ -82,3 +82,29 @@ export async function resizeToWebp(
     };
   }
 }
+
+// Browser-only. The middle part of the photo in the given width/height shape
+// (e.g. 4/5), in the photo's own pixels: what a gallery tile shows when she
+// uploads a batch without framing each photo. Undefined when the browser
+// can't open the photo; resizeToWebp then handles it as it is.
+export async function centerCrop(
+  photo: Blob,
+  aspect: number,
+): Promise<CropRect | undefined> {
+  try {
+    const bitmap = await createImageBitmap(photo);
+    const { width, height } = bitmap;
+    bitmap.close();
+
+    // Too wide for the shape: keep the full height, cut the sides.
+    if (width / height > aspect) {
+      const cropWidth = Math.round(height * aspect);
+      return { x: Math.round((width - cropWidth) / 2), y: 0, width: cropWidth, height };
+    }
+    // Too tall: keep the full width, cut top and bottom.
+    const cropHeight = Math.round(width / aspect);
+    return { x: 0, y: Math.round((height - cropHeight) / 2), width, height: cropHeight };
+  } catch {
+    return undefined;
+  }
+}

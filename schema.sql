@@ -79,6 +79,32 @@ create table hero_photos (
   sort    int  not null default 0
 );
 
+-- ---------- Gallery ----------
+
+-- Past work, managed from /admin/gallery. A photo can have several tags; the
+-- tags with photos become the filter chips on /gallery. Newest first.
+create table gallery_photos (
+  id         uuid primary key default gen_random_uuid(),
+  path       text not null,                      -- 4:5 tile, gallery/{uuid}.webp
+  full_path  text not null,                      -- whole photo, gallery/full/{uuid}.webp
+  created_at timestamptz not null default now()
+);
+
+create table gallery_tags (
+  id   uuid primary key default gen_random_uuid(),
+  name text not null,         -- the filter chip, e.g. "Рожден ден"
+  slug text not null unique   -- the URL, /gallery?tag=rozhden-den
+);
+
+create table gallery_photo_tags (
+  photo_id uuid not null references gallery_photos(id) on delete cascade,
+  tag_id   uuid not null references gallery_tags(id)   on delete cascade,
+  primary key (photo_id, tag_id)
+);
+
+create index gallery_photos_created_at on gallery_photos (created_at desc);
+create index gallery_photo_tags_tag    on gallery_photo_tags (tag_id, photo_id);
+
 -- ---------- Bookings ----------
 
 create table bookings (
@@ -195,6 +221,9 @@ alter table bookings       enable row level security;
 alter table booking_items  enable row level security;
 alter table blackout_dates enable row level security;
 alter table hero_photos    enable row level security;
+alter table gallery_photos     enable row level security;
+alter table gallery_tags       enable row level security;
+alter table gallery_photo_tags enable row level security;
 
 -- Public read of the catalog
 create policy "public read categories"     on categories     for select using (true);
@@ -202,6 +231,9 @@ create policy "public read products"        on products        for select using 
 create policy "public read product_colors" on product_colors for select using (true);
 create policy "public read product_images" on product_images for select using (true);
 create policy "public read hero_photos"    on hero_photos    for select using (true);
+create policy "public read gallery_photos"     on gallery_photos     for select using (true);
+create policy "public read gallery_tags"       on gallery_tags       for select using (true);
+create policy "public read gallery_photo_tags" on gallery_photo_tags for select using (true);
 
 -- Public may submit a request (insert only), but never read bookings
 create policy "public create booking"       on bookings       for insert with check (status = 'requested');
@@ -216,3 +248,6 @@ create policy "admin all bookings"        on bookings        for all using (auth
 create policy "admin all booking_items"  on booking_items  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all blackout"        on blackout_dates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all hero_photos"    on hero_photos    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all gallery_photos"     on gallery_photos     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all gallery_tags"       on gallery_tags       for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
