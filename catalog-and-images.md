@@ -55,13 +55,14 @@ products/{product-slug}/{color-slug}--{NN}.webp      # color-specific image
 products/{product-slug}/full/{color-slug--}{NN}.webp # the whole photo behind a tile, same name
 products/{product-slug}/carousel--{NN}.webp          # carousel photo (tile); its full photo is under full/ too
 home/hero/{uuid}.webp                                # homepage carousel photo (already 4:5), row in hero_photos
-gallery/{theme-slug}/{NN}.webp                        # past-work gallery, grouped by theme
+gallery/{uuid}.webp                                  # past-work gallery tile (4:5), row in gallery_photos
+gallery/full/{uuid}.webp                             # the whole photo behind it, same uuid; tags in gallery_photo_tags
 ```
 
 Rules:
 - lowercase, ASCII, `webp`, two-digit index `01`, `02`, …
 - `--` separates the color segment from the index (slugs may contain single `-`)
-- Examples: `products/arch-cover/red--01.webp`, `products/arch-cover/elsa-castle--01.webp`, `products/figure-elsa/01.webp`, `gallery/frozen-theme/03.webp`
+- Examples: `products/arch-cover/red--01.webp`, `products/arch-cover/elsa-castle--01.webp`, `products/figure-elsa/01.webp`
 
 ### Tile vs full
 Each product photo is two files:

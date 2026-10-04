@@ -29,7 +29,7 @@ export default function OccasionCards() {
         {OCCASIONS.map((occasion, index) => (
           <li key={occasion.slug} className="w-[260px] shrink-0 snap-start md:w-auto">
             <Link
-              href={`/gallery?occasion=${occasion.slug}`}
+              href={`/gallery?tag=${occasion.slug}`}
               className="group flex flex-col rounded-card text-ink focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-cta"
             >
               <div className="relative aspect-[4/5] overflow-hidden rounded-card">

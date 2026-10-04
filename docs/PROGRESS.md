@@ -83,7 +83,7 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
 `reference/homepage-v2/`.
 
 - [x] `/` — photo carousel (`HeroCarousel`), „Изчисли своята украса" + „Към каталога",
-      „Вдъхнови се по повод" cards → `/gallery?occasion=…`. Content in `src/lib/home.ts`.
+      „Вдъхнови се по повод" cards → `/gallery?tag=…`. Content in `src/lib/home.ts`.
 - [x] Old homepage moved as-is to `/configurator` (`noindex`, not linked anywhere)
 - [x] Footer „Конфигуратор" link removed; `--color-muted` darkened to pass WCAG AA
 - [x] Hero carousel managed from `/admin/home`: upload (4:5 cropper), caption, ← → order,
@@ -94,7 +94,8 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
 - [ ] Occasion card photos in `public/home/` + paths in `src/lib/home.ts` **(you)**
 - [x] Catalog add-to-total logic (the new main flow): basket + mini-basket drawer on
       `/catalog`, order summary at `/request` (2 Oct 2026, see Step 3)
-- [ ] `/gallery` reading `?occasion=` — the gallery is still a placeholder
+- [x] `/gallery` filters by `?tag=` (the occasion cards' slugs `rozhden-den`, `krashtene`,
+      `parti` match once she creates tags with those names)
 
 ## Step 2 — Configurator ✅ (was the homepage; now `/configurator`)
 
@@ -187,8 +188,8 @@ catalog pages get built. The requests inbox is still untouched.
 
 ## Step 6 — Admin CRUD, gallery, deploy 🟡
 
-The product-management half is done (pulled forward with step 4). Gallery, SEO and deploy
-are still open.
+The product-management half is done (pulled forward with step 4). The gallery is built;
+SEO and deploy are still open.
 
 - [x] `/admin/products` — add/edit/hide products, `/admin/categories` for categories
 - [x] Edit prices and quantities without touching Supabase
@@ -196,7 +197,16 @@ are still open.
 - [x] Crop photos to 4:5 on upload, and re-crop existing ones („Изрежи“)
 - [x] Keep the whole photo next to the cropped tile (`full_path`); re-crop starts from it. Tighter 4:5 catalog cards
 - [x] Manage colours/swatches per product
-- [ ] `/gallery` — real past work, grouped by theme
+- [x] `/gallery` — past work, filter chips per tag (only tags with photos), 4:5 grid,
+      24 per page + „Покажи още“, full-screen viewer with ‹ › / arrow keys / swipe
+- [x] `/admin/gallery` — tags (add/rename/delete), batch upload with tags (tile cut from the
+      middle, no framing step), a search-as-you-type tag picker that can create tags
+      (`TagPicker`), per-photo tag chips, „Избери снимки“ to add/remove a tag on or delete
+      many photos at once, a „Без етикет“ filter, „Изрежи“, delete. Tables
+      `gallery_photos`, `gallery_tags`, `gallery_photo_tags`; files in `catalog` → `gallery/`
+- [ ] **Run `migration-gallery.sql`** in the SQL editor **(you)** — until then `/gallery` says
+      „Очаквайте скоро“ and `/admin/gallery` says the tables are missing
+- [ ] Gallery photos uploaded **(her)**
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
 - [ ] Responsive pass on a real phone
 - [ ] Push to GitHub → import to Netlify → add the two env vars → deploy

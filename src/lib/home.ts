@@ -27,7 +27,7 @@ export const HERO_PLACEHOLDERS: HeroPhoto[] = [
 export type Occasion = {
   title: string;
   text: string;
-  slug: string; // goes into /gallery?occasion=<slug>
+  slug: string; // goes into /gallery?tag=<slug>; filters once a gallery tag has this slug
   src: string | null;
 };
 
