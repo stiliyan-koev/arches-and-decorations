@@ -75,6 +75,8 @@ Reviewers: logic N, security N, performance N · M dropped
 ```
 
 APPROVED -> step 6.
+CHANGES REQUESTED -> go to step 4 **immediately, in the same turn**. Posting the review is not
+the end of the job. Do not stop, summarise or ask the owner between review and fix.
 
 ## 4. Fix round K
 

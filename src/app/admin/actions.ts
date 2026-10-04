@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
+import { CAPTION_MAX } from "@/lib/home";
+import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
+import type { GalleryTag } from "@/lib/gallery";
+import { slugify } from "@/lib/slug";
 
 // Every write here runs through the logged-in user's cookies, so RLS sees
 // `authenticated` and the "admin all …" policies in schema.sql apply. There is
@@ -422,6 +426,368 @@ export async function deleteImage(id: string): Promise<ActionResult> {
   // Best effort: the row is what the site reads, so a stranded file is
   // untidy rather than broken.
   if (image) await supabase.storage.from(BUCKET).remove(photoFiles([image]));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Homepage photos ----------
+
+// Like product photos, the file is uploaded straight from the browser; these
+// only record and edit the rows. Paths from the browser must sit in the
+// homepage photo folder, named the way the admin form names them.
+function isHeroPhotoPath(path: string) {
+  return /^home\/hero\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+export async function addHeroPhoto(input: {
+  path: string;
+  caption: string;
+}): Promise<ActionResult> {
+  if (!isHeroPhotoPath(input.path)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const supabase = await createClient();
+
+  // New photos go to the end of the carousel.
+  const { data: lastRow } = await supabase
+    .from("hero_photos")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("hero_photos").insert({
+    path: input.path,
+    caption: input.caption.trim().slice(0, CAPTION_MAX),
+    sort: (lastRow?.sort ?? 0) + 1,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+export async function saveHeroCaption(
+  id: string,
+  caption: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("hero_photos")
+    .update({ caption: caption.trim().slice(0, CAPTION_MAX) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring photos, the same way as swapImageOrder.
+export async function swapHeroOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("hero_photos").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("hero_photos").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) {
+      return { ok: false, error: "Снимката не е намерена." };
+    }
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+export async function deleteHeroPhoto(id: string): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  // The file path comes from the row, never from the browser.
+  const { data: photo } = await supabase
+    .from("hero_photos")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { data: deleted, error } = await supabase
+    .from("hero_photos")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  // Best effort, as with product photos.
+  if (photo) await supabase.storage.from(BUCKET).remove([photo.path]);
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Gallery ----------
+
+// Same deal as the homepage photos: the browser uploads the files, these only
+// record and edit the rows. Each photo has a tile and a whole photo, under
+// the names the admin form gives them.
+function isGalleryTilePath(path: string) {
+  return /^gallery\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+function isGalleryFullPath(path: string) {
+  return /^gallery\/full\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// Ids from the browser: only well-formed ones, each once.
+function cleanIds(ids: string[]) {
+  return [...new Set(ids)].filter((id) => typeof id === "string" && UUID.test(id));
+}
+
+// keepFiles: the row could not be taken out again after a failure, so it
+// still points at the files and the form must not remove them.
+export async function addGalleryPhoto(input: {
+  path: string;
+  fullPath: string;
+  tagIds: string[];
+}): Promise<ActionResult | { ok: false; error: string; keepFiles: true }> {
+  if (!isGalleryTilePath(input.path) || !isGalleryFullPath(input.fullPath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const supabase = await createClient();
+
+  // The id is made here so the tags can be linked without reading the row
+  // back, the same way submitRequest makes its booking id.
+  const id = crypto.randomUUID();
+  const { error } = await supabase
+    .from("gallery_photos")
+    .insert({ id, path: input.path, full_path: input.fullPath });
+  if (error) return { ok: false, error: error.message };
+
+  const tagIds = cleanIds(input.tagIds).slice(0, MAX_BULK);
+  if (tagIds.length > 0) {
+    const { error: tagError } = await supabase
+      .from("gallery_photo_tags")
+      .insert(tagIds.map((tag_id) => ({ photo_id: id, tag_id })));
+    // Take the photo out again, so a failed upload leaves nothing behind and
+    // the form can remove its files the same way as for any other failure.
+    if (tagError) {
+      const { error: rollbackError } = await supabase
+        .from("gallery_photos")
+        .delete()
+        .eq("id", id);
+      if (rollbackError) {
+        revalidateCatalog();
+        return {
+          ok: false,
+          error: `Снимката е качена без етикети: ${tagError.message}`,
+          keepFiles: true,
+        };
+      }
+      return { ok: false, error: tagError.message };
+    }
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Photo ids from the browser. More than MAX_BULK is refused outright rather
+// than cut, so an action never quietly skips some of the photos.
+function cleanPhotoIds(photoIds: string[]) {
+  const ids = cleanIds(photoIds);
+  return ids.length > MAX_BULK ? null : ids;
+}
+
+const TOO_MANY = `Изберете най-много ${MAX_BULK} снимки наведнъж.`;
+
+// Gives one tag to every photo in the list. Photos that already have it are
+// left alone, so it is safe to run on a mixed selection.
+export async function addTagToGalleryPhotos(
+  photoIds: string[],
+  tagId: string,
+): Promise<ActionResult> {
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0 || !UUID.test(tagId)) {
+    return { ok: false, error: "Няма избрани снимки." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("gallery_photo_tags")
+    .upsert(
+      ids.map((photo_id) => ({ photo_id, tag_id: tagId })),
+      { onConflict: "photo_id,tag_id", ignoreDuplicates: true },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Takes one tag off every photo in the list. The photos and the tag stay.
+export async function removeTagFromGalleryPhotos(
+  photoIds: string[],
+  tagId: string,
+): Promise<ActionResult> {
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0 || !UUID.test(tagId)) {
+    return { ok: false, error: "Няма избрани снимки." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("gallery_photo_tags")
+    .delete()
+    .eq("tag_id", tagId)
+    .in("photo_id", ids);
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Points a photo at a new tile after a re-crop and removes the old tile file.
+// The whole photo is never touched.
+export async function replaceGalleryTile(
+  id: string,
+  path: string,
+): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  if (!isGalleryTilePath(path)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const supabase = await createClient();
+  const { data: photo } = await supabase
+    .from("gallery_photos")
+    .select("path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from("gallery_photos")
+    .update({ path })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  // Best effort, as with product photos.
+  if (photo && photo.path !== path) {
+    await supabase.storage.from(BUCKET).remove([photo.path]);
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Deletes the photos and both files of each. Used for one photo and for a
+// selection alike.
+export async function deleteGalleryPhotos(photoIds: string[]): Promise<ActionResult> {
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+
+  const supabase = await createClient();
+
+  // The file paths come from the rows, never from the browser. Their tag
+  // links go with them (on delete cascade).
+  const { data: deleted, error } = await supabase
+    .from("gallery_photos")
+    .delete()
+    .in("id", ids)
+    .select("path, full_path");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимките не са намерени." };
+
+  // Best effort, as with product photos.
+  await supabase.storage
+    .from(BUCKET)
+    .remove(deleted.flatMap((photo) => [photo.path, photo.full_path]));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// The name she types, tidied, and its slug. Null when there is nothing usable.
+function cleanTagName(name: string) {
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, TAG_NAME_MAX);
+  const slug = slugify(clean);
+  return clean && slug ? { name: clean, slug } : null;
+}
+
+// Postgres "unique violation": a tag with this slug already exists.
+const DUPLICATE_TAG = "23505";
+
+// Returns the new tag, so the tag picker can put it on a photo straight away.
+export async function createGalleryTag(
+  name: string,
+): Promise<{ ok: true; tag: GalleryTag } | { ok: false; error: string }> {
+  const tag = cleanTagName(name);
+  if (!tag) return { ok: false, error: "Напишете име на етикета." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("gallery_tags")
+    .insert(tag)
+    .select("id, name, slug")
+    .single();
+  if (error?.code === DUPLICATE_TAG) return { ok: false, error: "Вече има такъв етикет." };
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true, tag: { ...data, count: 0 } };
+}
+
+// Renaming changes the slug too, so an old /gallery?tag=… link falls back to
+// all photos rather than pointing at a name that no longer exists.
+export async function renameGalleryTag(id: string, name: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
+  const tag = cleanTagName(name);
+  if (!tag) return { ok: false, error: "Напишете име на етикета." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("gallery_tags")
+    .update(tag)
+    .eq("id", id)
+    .select("id");
+  if (error?.code === DUPLICATE_TAG) return { ok: false, error: "Вече има такъв етикет." };
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Етикетът не е намерен." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// The photos stay; they only lose this tag (on delete cascade).
+export async function deleteGalleryTag(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("gallery_tags")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Етикетът не е намерен." };
 
   revalidateCatalog();
   return { ok: true };

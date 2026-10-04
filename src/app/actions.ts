@@ -28,11 +28,11 @@ export type RequestPayload = {
 
 export type RequestResult = { ok: true } | { ok: false; error: string };
 
-// Limits for what one request may carry. The form only ever sends qty 1, a few
-// items and short texts, but submitRequest is a public endpoint that anyone can
+// Limits for what one request may carry. The forms stay well inside them, but
+// submitRequest is a public endpoint that anyone can
 // call with a hand-built payload, so the limits are checked here.
 const MAX_ITEMS = 30;
-const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed
+const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed. = MAX_PER_LINE in catalog-plp.ts
 const MAX_SHORT_TEXT = 200; // name, phone, city
 const MAX_NOTE = 3000; // same as the note textarea's maxLength
 const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength
