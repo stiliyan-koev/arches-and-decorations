@@ -12,7 +12,8 @@ import { createGalleryTag } from "@/app/admin/actions";
 const MAX_MATCHES = 8;
 
 type Props = {
-  tags: GalleryTag[]; // the tags to choose from
+  tags: GalleryTag[]; // every tag, so „Създай“ knows which names are taken
+  excludeIds?: string[]; // tags not to offer here (e.g. the photo already has them)
   label: string; // the closed button, e.g. "+ Етикет"
   onPick: (tag: GalleryTag) => void;
   // Offer „Създай …“ when nothing matches. Off where a new tag makes no sense
@@ -30,6 +31,7 @@ type Props = {
 // doesn't exist yet. Arrow keys + Enter work, Escape closes.
 export default function TagPicker({
   tags,
+  excludeIds = [],
   label,
   onPick,
   allowCreate = true,
@@ -47,12 +49,13 @@ export default function TagPicker({
   // Match on the name, and on the slug so „hulk“ also finds „Хълк“.
   const text = query.trim().toLowerCase();
   const slug = slugify(query);
+  const offered = tags.filter((tag) => !excludeIds.includes(tag.id));
   const matches = (
     text
-      ? tags.filter(
+      ? offered.filter(
           (tag) => tag.name.toLowerCase().includes(text) || (slug && tag.slug.includes(slug)),
         )
-      : tags
+      : offered
   ).slice(0, MAX_MATCHES);
   const exists = tags.some((tag) => tag.slug === slug);
   const canCreate = allowCreate && slug !== "" && !exists;
@@ -189,7 +192,7 @@ export default function TagPicker({
         )}
         {optionCount === 0 && (
           <li className="px-3 py-1.5 text-[0.8rem] text-muted">
-            {tags.length === 0 ? "Няма етикети." : "Няма такъв етикет."}
+            {offered.length === 0 ? "Няма етикети." : "Няма такъв етикет."}
           </li>
         )}
       </ul>

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { centerCrop, resizeToWebp } from "@/lib/resize-image";
 import { PAGE_BG, TILE_ASPECT } from "@/lib/images";
-import { GALLERY_PAGE_SIZE } from "@/lib/gallery";
+import { GALLERY_PAGE_SIZE, MAX_BULK } from "@/lib/gallery";
 import type { GalleryPhoto, GalleryTag } from "@/lib/gallery";
 import {
   addGalleryPhoto,
@@ -64,7 +64,7 @@ export default function GalleryPhotoManager({
 }: Props) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [batchTags, setBatchTags] = useState<GalleryTag[]>([]);
+  const [batchTagIds, setBatchTagIds] = useState<string[]>([]);
   const [recrop, setRecrop] = useState<Recrop | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -73,6 +73,9 @@ export default function GalleryPhotoManager({
 
   const storage = () => createClient().storage.from(BUCKET);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
+  // The tags for the next upload, looked up fresh each time: a tag deleted
+  // meanwhile just drops out instead of breaking the upload.
+  const batchTags = batchTagIds.flatMap((id) => tagById.get(id) ?? []);
 
   // Only photos still on the page count: after a delete or a filter change,
   // the old ids just drop out.
@@ -81,6 +84,12 @@ export default function GalleryPhotoManager({
   const selectedTags = tags.filter((tag) =>
     selected.some((photo) => photo.tagIds.includes(tag.id)),
   );
+  const unselectedTagIds = tags
+    .filter((tag) => !selectedTags.includes(tag))
+    .map((tag) => tag.id);
+  // A bulk action takes at most MAX_BULK photos; „Избери всички“ stops there.
+  const selectableCount = Math.min(photos.length, MAX_BULK);
+  const tooMany = selected.length > MAX_BULK;
 
   // Uploads one file. Returns true if it worked; on failure the files it
   // already put in Storage are removed again (no row points at them).
@@ -132,7 +141,8 @@ export default function GalleryPhotoManager({
       result = { ok: false as const, error: SAVE_FAILED };
     }
     if (!result.ok) {
-      await storage().remove(uploaded);
+      // keepFiles: the row is still there and points at the files.
+      if (!("keepFiles" in result)) await storage().remove(uploaded);
       setError(`${file.name}: ${result.error}`);
       return false;
     }
@@ -280,14 +290,15 @@ export default function GalleryPhotoManager({
               key={tag.id}
               tag={tag}
               disabled={locked}
-              onRemove={() => setBatchTags(batchTags.filter((other) => other.id !== tag.id))}
+              onRemove={() => setBatchTagIds(batchTagIds.filter((id) => id !== tag.id))}
             />
           ))}
           <TagPicker
-            tags={tags.filter((tag) => !batchTags.some((other) => other.id === tag.id))}
+            tags={tags}
+            excludeIds={batchTagIds}
             label="+ Етикет"
             disabled={locked}
-            onPick={(tag) => setBatchTags([...batchTags, tag])}
+            onPick={(tag) => setBatchTagIds([...batchTagIds, tag.id])}
             onError={setError}
           />
         </div>
@@ -405,7 +416,8 @@ export default function GalleryPhotoManager({
                     ))}
                     {!selecting && (
                       <TagPicker
-                        tags={tags.filter((tag) => !photo.tagIds.includes(tag.id))}
+                        tags={tags}
+                        excludeIds={photo.tagIds}
                         label="+ Етикет"
                         disabled={locked}
                         onPick={(tag) =>
@@ -467,20 +479,29 @@ export default function GalleryPhotoManager({
           <button
             type="button"
             onClick={() =>
-              setSelectedIds(selected.length === photos.length ? [] : photos.map((photo) => photo.id))
+              setSelectedIds(
+                selected.length >= selectableCount
+                  ? []
+                  : photos.slice(0, MAX_BULK).map((photo) => photo.id),
+              )
             }
             disabled={locked}
             className={`${BAR_BUTTON} text-cta hover:underline`}
           >
-            {selected.length === photos.length ? "Изчисти" : `Избери всички (${photos.length})`}
+            {selected.length >= selectableCount ? "Изчисти" : `Избери всички (${selectableCount})`}
           </button>
+          {tooMany && (
+            <span className="text-[0.8rem] font-bold text-booked">
+              Най-много {MAX_BULK} снимки наведнъж.
+            </span>
+          )}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <TagPicker
               tags={tags}
               label="+ Добави етикет"
               openUp
-              disabled={locked || selected.length === 0}
+              disabled={locked || selected.length === 0 || tooMany}
               onPick={(tag) =>
                 run(`Добавяне на „${tag.name}“…`, () =>
                   addTagToGalleryPhotos(selected.map((photo) => photo.id), tag.id),
@@ -489,11 +510,12 @@ export default function GalleryPhotoManager({
               onError={setError}
             />
             <TagPicker
-              tags={selectedTags}
+              tags={tags}
+              excludeIds={unselectedTagIds}
               label="− Махни етикет"
               openUp
               allowCreate={false}
-              disabled={locked || selectedTags.length === 0}
+              disabled={locked || selectedTags.length === 0 || tooMany}
               onPick={(tag) =>
                 run(`Махане на „${tag.name}“…`, () =>
                   removeTagFromGalleryPhotos(selected.map((photo) => photo.id), tag.id),
@@ -502,7 +524,7 @@ export default function GalleryPhotoManager({
             />
             <button
               type="button"
-              disabled={locked || selected.length === 0}
+              disabled={locked || selected.length === 0 || tooMany}
               onClick={async () => {
                 const count = selected.length === 1 ? "1 снимка" : `${selected.length} снимки`;
                 if (!confirm(`Да изтрия ${count} от галерията? Това не може да се върне.`)) return;

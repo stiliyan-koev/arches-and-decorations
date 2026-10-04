@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
 import { CAPTION_MAX } from "@/lib/home";
-import { TAG_NAME_MAX } from "@/lib/gallery";
+import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
 
@@ -557,11 +557,13 @@ function cleanIds(ids: string[]) {
   return [...new Set(ids)].filter((id) => typeof id === "string" && UUID.test(id));
 }
 
+// keepFiles: the row could not be taken out again after a failure, so it
+// still points at the files and the form must not remove them.
 export async function addGalleryPhoto(input: {
   path: string;
   fullPath: string;
   tagIds: string[];
-}): Promise<ActionResult> {
+}): Promise<ActionResult | { ok: false; error: string; keepFiles: true }> {
   if (!isGalleryTilePath(input.path) || !isGalleryFullPath(input.fullPath)) {
     return { ok: false, error: "Невалиден път до снимката." };
   }
@@ -576,7 +578,7 @@ export async function addGalleryPhoto(input: {
     .insert({ id, path: input.path, full_path: input.fullPath });
   if (error) return { ok: false, error: error.message };
 
-  const tagIds = cleanIds(input.tagIds);
+  const tagIds = cleanIds(input.tagIds).slice(0, MAX_BULK);
   if (tagIds.length > 0) {
     const { error: tagError } = await supabase
       .from("gallery_photo_tags")
@@ -584,7 +586,18 @@ export async function addGalleryPhoto(input: {
     // Take the photo out again, so a failed upload leaves nothing behind and
     // the form can remove its files the same way as for any other failure.
     if (tagError) {
-      await supabase.from("gallery_photos").delete().eq("id", id);
+      const { error: rollbackError } = await supabase
+        .from("gallery_photos")
+        .delete()
+        .eq("id", id);
+      if (rollbackError) {
+        revalidateCatalog();
+        return {
+          ok: false,
+          error: `Снимката е качена без етикети: ${tagError.message}`,
+          keepFiles: true,
+        };
+      }
       return { ok: false, error: tagError.message };
     }
   }
@@ -593,14 +606,14 @@ export async function addGalleryPhoto(input: {
   return { ok: true };
 }
 
-// The most photos one bulk action takes: a few pages' worth. Past that the
-// request is not coming from the admin grid.
-const MAX_BULK = 500;
-
-// Photo ids from the browser, at most MAX_BULK of them.
+// Photo ids from the browser. More than MAX_BULK is refused outright rather
+// than cut, so an action never quietly skips some of the photos.
 function cleanPhotoIds(photoIds: string[]) {
-  return cleanIds(photoIds).slice(0, MAX_BULK);
+  const ids = cleanIds(photoIds);
+  return ids.length > MAX_BULK ? null : ids;
 }
+
+const TOO_MANY = `Изберете най-много ${MAX_BULK} снимки наведнъж.`;
 
 // Gives one tag to every photo in the list. Photos that already have it are
 // left alone, so it is safe to run on a mixed selection.
@@ -609,6 +622,7 @@ export async function addTagToGalleryPhotos(
   tagId: string,
 ): Promise<ActionResult> {
   const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0 || !UUID.test(tagId)) {
     return { ok: false, error: "Няма избрани снимки." };
   }
@@ -632,6 +646,7 @@ export async function removeTagFromGalleryPhotos(
   tagId: string,
 ): Promise<ActionResult> {
   const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0 || !UUID.test(tagId)) {
     return { ok: false, error: "Няма избрани снимки." };
   }
@@ -654,6 +669,7 @@ export async function replaceGalleryTile(
   id: string,
   path: string,
 ): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   if (!isGalleryTilePath(path)) {
     return { ok: false, error: "Невалиден път до снимката." };
   }
@@ -686,6 +702,7 @@ export async function replaceGalleryTile(
 // selection alike.
 export async function deleteGalleryPhotos(photoIds: string[]): Promise<ActionResult> {
   const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
 
   const supabase = await createClient();
@@ -742,6 +759,7 @@ export async function createGalleryTag(
 // Renaming changes the slug too, so an old /gallery?tag=… link falls back to
 // all photos rather than pointing at a name that no longer exists.
 export async function renameGalleryTag(id: string, name: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const tag = cleanTagName(name);
   if (!tag) return { ok: false, error: "Напишете име на етикета." };
 
@@ -761,6 +779,7 @@ export async function renameGalleryTag(id: string, name: string): Promise<Action
 
 // The photos stay; they only lose this tag (on delete cascade).
 export async function deleteGalleryTag(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("gallery_tags")

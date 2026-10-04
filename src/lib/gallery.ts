@@ -14,6 +14,10 @@ const MAX_PAGES = 40;
 // enough to stay one chip.
 export const TAG_NAME_MAX = 40;
 
+// The most photos one bulk action (tag, untag, delete) takes. The admin grid
+// lets her pick at most this many; the server refuses more.
+export const MAX_BULK = 200;
+
 export type GalleryTag = {
   id: string;
   name: string;
