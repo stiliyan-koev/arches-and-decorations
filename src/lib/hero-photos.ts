@@ -3,13 +3,18 @@ import { isSupabaseConfigured } from "@/lib/catalog";
 import { imageUrl } from "@/lib/images";
 import { HERO_PLACEHOLDERS } from "@/lib/home";
 import type { HeroPhoto } from "@/lib/home";
+import type { CropRect } from "@/lib/resize-image";
 
-// A row of the hero_photos table, as the admin page edits it.
+// A row of the hero_photos table, as the admin page edits it, with the
+// library photo it is cut from (null only for rows not linked yet).
 export type HeroPhotoRow = {
   id: string;
+  photo_id: string | null;
   path: string;
+  crop: CropRect | null;
   caption: string;
   sort: number;
+  photo: { path: string; has_original: boolean } | null;
 };
 
 // Every hero photo row, in the order she set. Throws on a database error:
@@ -18,11 +23,11 @@ export async function getHeroPhotoRows(): Promise<HeroPhotoRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("hero_photos")
-    .select("id, path, caption, sort")
+    .select("id, photo_id, path, crop, caption, sort, photo:photos(path, has_original)")
     .order("sort")
     .order("id");
   if (error) throw error;
-  return data;
+  return data as unknown as HeroPhotoRow[];
 }
 
 // The homepage carousel. Placeholder tiles until there is a database with at

@@ -9,7 +9,9 @@ import type { ProductColor, ProductImage, ProductRow } from "@/lib/types";
 
 type ProductDetail = ProductRow & {
   product_colors: ProductColor[];
-  product_images: ProductImage[];
+  product_images: (ProductImage & {
+    photo: { path: string; has_original: boolean } | null;
+  })[];
 };
 
 export default async function EditProductPage({
@@ -26,7 +28,8 @@ export default async function EditProductPage({
          quantity, track_availability, rentable, service_only, active, sort,
          carousel, carousel_in_configurator, carousel_in_catalog,
          product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, full_path, crop, in_carousel, sort )`,
+         product_images ( id, color_id, photo_id, path, full_path, crop, in_carousel, sort,
+                          photo:photos ( path, has_original ) )`,
       )
       .eq("id", id)
       .maybeSingle(),
@@ -38,7 +41,14 @@ export default async function EditProductPage({
   if (!product) notFound();
 
   const colors = [...product.product_colors].sort((a, b) => a.sort - b.sort);
-  const images = [...product.product_images].sort((a, b) => a.sort - b.sort);
+  // The whole photo is the library photo; see getCatalog.
+  const images: ProductImage[] = [...product.product_images]
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ photo, ...image }) => ({
+      ...image,
+      full_path: photo?.path ?? image.full_path,
+      has_original: photo ? photo.has_original : image.full_path != null,
+    }));
   const mainImages = images.filter((image) => !image.in_carousel);
   const carouselImages = images.filter((image) => image.in_carousel);
 

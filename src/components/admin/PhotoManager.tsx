@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { resizeToWebp } from "@/lib/resize-image";
+import { resizeToWebp, scaleCrop } from "@/lib/resize-image";
 import type { CropRect } from "@/lib/resize-image";
 import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
 import {
@@ -13,9 +13,12 @@ import {
   swapImageOrder,
   replaceImage,
 } from "@/app/admin/actions";
+import { BAD_FORMAT, downloadOriginal, uploadOriginal } from "@/lib/upload-photo";
 import PhotoViewer from "@/components/PhotoViewer";
 import ImageCropper from "@/components/admin/ImageCropper";
+import PhotoPicker from "@/components/admin/PhotoPicker";
 import type { CropResult } from "@/components/admin/ImageCropper";
+import type { PhotoRef } from "@/lib/photo-library";
 import type { ProductColor, ProductImage } from "@/lib/types";
 
 const BUCKET = "catalog";
@@ -26,10 +29,8 @@ const BUCKET = "catalog";
 type SaveResult = { ok: boolean; error?: string };
 const SAVE_FAILED = "Запазването се провали. Опитайте отново.";
 
-// Longest side of the stored whole photo, and the tile's height (a 4:5 tile's
-// long side). Big enough to look at full screen on a phone, small enough for
-// the free Storage quota.
-const FULL_SIZE = 2000;
+// The tile's height (a 4:5 tile's long side). The whole photo is the library
+// photo (see upload-photo.ts).
 const TILE_SIZE = 1200;
 
 type Props = {
@@ -55,11 +56,16 @@ type Queue = {
 // An existing photo being re-cropped, its whole photo already downloaded.
 type Recrop = { image: ProductImage; blob: Blob };
 
+// A photo picked from the library, downloaded, waiting to be cropped. The
+// colour and index are fixed when she picks it, like a queue's.
+type Picked = { photo: PhotoRef; blob: Blob; colorId: string | null; index: number };
+
 // The next NN for products/{slug}/{prefix}NN.ext. Scanning the paths we already
 // have beats counting rows: deleting photo 02 of three shouldn't make the next
-// upload collide with 03. Whole photos sit in a full/ subfolder under the same
-// name, and a re-crop moves a tile to a new NN while its whole photo keeps the
-// old one, so both paths count.
+// upload collide with 03. Older whole photos sit in a full/ subfolder under
+// the same name, and a re-crop moved a tile to a new NN while its whole photo
+// kept the old one, so both paths count. (New whole photos go to the library,
+// photos/, and never match.)
 function nextIndex(images: ProductImage[], base: string) {
   let max = 0;
   for (const image of images) {
@@ -78,24 +84,13 @@ function fileNumber(index: number) {
   return String(index).padStart(2, "0");
 }
 
-// The crop is chosen on the original file but stored in the whole photo's
-// pixels (the file a later re-crop opens), so shrink it by the same factor.
-function scaleCrop(crop: CropRect, scale: number): CropRect {
-  return {
-    x: Math.round(crop.x * scale),
-    y: Math.round(crop.y * scale),
-    width: Math.round(crop.width * scale),
-    height: Math.round(crop.height * scale),
-  };
-}
-
 const MOVE_BUTTON =
   "grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-white/90 text-[0.95rem] font-extrabold text-ink shadow-[0_2px_6px_rgb(59_47_66/0.25)] hover:bg-white disabled:cursor-default disabled:opacity-0";
 
 // Small label on a photo in the grid, so she can tell how it was saved.
 function photoLabel(image: ProductImage) {
   // Uploaded before we kept whole photos: re-uploading gives a better result.
-  if (image.full_path == null) return "Няма оригинал";
+  if (image.has_original === false || image.full_path == null) return "Няма оригинал";
   if (image.path === image.full_path) return "Без изрязване";
   return null;
 }
@@ -112,20 +107,21 @@ export default function PhotoManager({
   const [colorId, setColorId] = useState("");
   const [queue, setQueue] = useState<Queue | null>(null);
   const [recrop, setRecrop] = useState<Recrop | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Picked | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
   // products/{slug}/ plus the colour prefix, if the photo belongs to a colour,
-  // or "carousel--" for carousel photos. Whole photos go in a full/ subfolder
-  // under the same file name.
-  function pathBase(id: string | null, full = false) {
+  // or "carousel--" for carousel photos.
+  function pathBase(id: string | null) {
     const color = colors.find((item) => item.id === id);
     const prefix = carousel
       ? "carousel--"
       : color
         ? `${color.color_slug}--`
         : "";
-    return `products/${productSlug}/${full ? "full/" : ""}${prefix}`;
+    return `products/${productSlug}/${prefix}`;
   }
 
   // Puts one file in Storage. False once the error is on screen.
@@ -177,67 +173,102 @@ export default function PhotoManager({
     });
   }
 
-  // Each photo becomes two files: the whole photo, only shrunk, and the
-  // cropped tile the site's grids show. With "Без изрязване" (or a file the
-  // browser can't decode) one file serves as both.
+  // Puts a library photo on this product, with its own tile: `choice` out of
+  // `source` (what the cropper showed), or the library photo itself with
+  // "Без изрязване". `scale` turns the crop into the library photo's pixels.
+  // True if it worked; on failure the error is on screen and the tile just
+  // uploaded is removed again.
+  async function saveNew(
+    photo: PhotoRef,
+    source: Blob,
+    choice: CropResult,
+    colorId: string | null,
+    index: number,
+    scale: number,
+  ) {
+    let path = photo.path;
+    let crop: CropRect | null = null;
+    if (choice.mode === "crop") {
+      const tile = await resizeToWebp(source, choice.crop, TILE_SIZE, PAGE_BG);
+      if (tile.ext !== "webp") {
+        setError(BAD_FORMAT);
+        return false;
+      }
+      path = `${pathBase(colorId)}${fileNumber(index)}.webp`;
+      if (!(await upload(path, tile.blob))) return false;
+      crop = scaleCrop(choice.crop, scale);
+    }
+
+    let result: SaveResult;
+    try {
+      result = await attachImage({
+        product_id: productId,
+        color_id: colorId,
+        in_carousel: carousel,
+        photo_id: photo.id,
+        path,
+        crop,
+        sort: index,
+      });
+    } catch {
+      result = { ok: false, error: SAVE_FAILED };
+    }
+    if (!result.ok) {
+      // No row points at the tile. The library photo stays either way.
+      if (path !== photo.path) await removeFiles([path]);
+      setError(result.error ?? SAVE_FAILED);
+      return false;
+    }
+    return true;
+  }
+
+  // A new file goes into the library first, then onto the product.
   // Sequential, not all at once: each upload needs to know which index the
   // previous one took, and she's adding two or three photos, not two hundred.
   async function handleCropped(current: Queue, choice: CropResult) {
-    const crop = choice.mode === "crop" ? choice.crop : null;
     const file = current.files[0];
     setBusy(`Качване на ${file.name}…`);
 
-    const name = fileNumber(current.index);
-    const full = await resizeToWebp(file, undefined, FULL_SIZE);
-    const fullPath = `${pathBase(current.colorId, true)}${name}.${full.ext}`;
-    const uploaded: string[] = [];
-    let path: string | null = null;
-    let savedCrop: CropRect | null = null;
-
-    if (await upload(fullPath, full.blob)) {
-      uploaded.push(fullPath);
-      if (!crop || full.ext !== "webp") {
-        path = fullPath;
-      } else {
-        const tile = await resizeToWebp(file, crop, TILE_SIZE, PAGE_BG);
-        const tilePath = `${pathBase(current.colorId)}${name}.${tile.ext}`;
-        if (await upload(tilePath, tile.blob)) {
-          uploaded.push(tilePath);
-          path = tilePath;
-          savedCrop = scaleCrop(crop, full.scale);
-        }
-      }
+    const original = await uploadOriginal(file);
+    let ok = false;
+    if (!original.ok) {
+      setError(original.error);
+    } else {
+      ok = await saveNew(original.photo, file, choice, current.colorId, current.index, original.scale);
+      // The photo made it into the library; only this product's copy failed.
+      if (!ok) setError((error) => `${error} Снимката остана в „Снимки“.`);
     }
-
-    let result: SaveResult | null = null;
-    if (path) {
-      try {
-        result = await attachImage({
-          product_id: productId,
-          color_id: current.colorId,
-          in_carousel: carousel,
-          path,
-          full_path: fullPath,
-          crop: savedCrop,
-          sort: current.index,
-        });
-      } catch {
-        result = { ok: false, error: SAVE_FAILED };
-      }
-    }
-
-    // No row points at them, so the files just uploaded would be orphans.
-    if (!result?.ok) await removeFiles(uploaded);
-
     setBusy("");
-    if (result && !result.ok) setError(result.error ?? SAVE_FAILED);
 
     // On any failure, stop here — but still refresh so the ones that made it show.
-    if (!result?.ok) {
+    if (!ok) {
       finishQueue();
       return;
     }
     nextInQueue(current, true);
+  }
+
+  // A photo from the library: download it, then the same cropper as a new file.
+  async function handlePick(photo: PhotoRef) {
+    setPicking(false);
+    setError("");
+    setBusy("Зареждане на снимката…");
+    const blob = await downloadOriginal(photo.path);
+    setBusy("");
+    if (!blob) {
+      setError("Снимката не може да се зареди.");
+      return;
+    }
+    const id = carousel ? null : colorId || null;
+    setPicked({ photo, blob, colorId: id, index: nextIndex(images, pathBase(id)) });
+  }
+
+  async function handlePickedCropped(current: Picked, choice: CropResult) {
+    setBusy("Запазване…");
+    await saveNew(current.photo, current.blob, choice, current.colorId, current.index, 1);
+    setBusy("");
+    setPicked(null);
+    router.refresh();
   }
 
   // Downloads the whole photo, not the tile, so a re-crop can widen the frame
@@ -267,7 +298,7 @@ export default function PhotoManager({
     // the old tile file but never the whole photo. An old photo has no whole
     // photo to go back to, and an uncropped one is already there.
     if (choice.mode === "original") {
-      if (!image.full_path) {
+      if (image.has_original === false || !image.full_path) {
         setError("Тази снимка няма оригинал — изтрийте я и я качете отново.");
         return;
       }
@@ -287,7 +318,8 @@ export default function PhotoManager({
     }
     // An old photo has no whole photo (what was downloaded is its old tile),
     // so there is no full-photo crop to remember for it.
-    await saveReplace(image.id, path, image.full_path ? choice.crop : null, true);
+    const hasOriginal = image.has_original !== false && image.full_path != null;
+    await saveReplace(image.id, path, hasOriginal ? choice.crop : null, true);
   }
 
   // Points a row at a new tile. With `removeOnFail`, `path` is a tile just
@@ -354,7 +386,8 @@ export default function PhotoManager({
     return colors.find((color) => color.id === id)?.color_name ?? "—";
   }
 
-  const locked = Boolean(busy) || Boolean(queue) || Boolean(recrop);
+  const locked =
+    Boolean(busy) || Boolean(queue) || Boolean(recrop) || picking || Boolean(picked);
   const queueTotal = queue ? queue.done + queue.files.length : 0;
 
   return (
@@ -369,10 +402,9 @@ export default function PhotoManager({
         <>
           <h2 className="text-lg">Снимки</h2>
           <p className="mt-1 text-[0.85rem] text-muted">
-            Изберете снимка и я наместете в рамката — така ще изглежда в
-            плочките на сайта. Цялата снимка също се пази, така че по-късно
-            можете да я изрежете отново. Файловете се преоразмеряват и
-            преименуват автоматично.
+            Качете снимка или добавете от „Снимки“, и я наместете в рамката —
+            така ще изглежда в плочките на сайта. Цялата снимка се пази в
+            „Снимки“, така че по-късно можете да я изрежете отново.
           </p>
         </>
       )}
@@ -409,6 +441,14 @@ export default function PhotoManager({
           }}
           className="cursor-pointer rounded-item border border-border-strong bg-bg px-3 py-2.5 text-[0.9rem] file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-cta file:px-4 file:py-1.5 file:font-extrabold file:text-white disabled:opacity-60"
         />
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          disabled={locked}
+          className="cursor-pointer rounded-full border-[1.5px] border-ink px-4 py-2 text-[0.85rem] font-extrabold text-ink hover:border-cta hover:text-cta disabled:opacity-50"
+        >
+          + Добави от „Снимки“
+        </button>
       </div>
 
       {busy && <p className="mt-3 text-[0.85rem] font-bold text-muted">{busy}</p>}
@@ -500,7 +540,7 @@ export default function PhotoManager({
                     disabled={locked}
                     className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
                   >
-                    Изтрий
+                    Махни
                   </button>
                 </div>
               </li>
@@ -522,6 +562,30 @@ export default function PhotoManager({
           cancelLabel={queueTotal > 1 ? "Пропусни" : "Отказ"}
           onConfirm={(choice) => handleCropped(queue, choice)}
           onCancel={() => nextInQueue(queue, false)}
+        />
+      )}
+
+      {picking && (
+        <PhotoPicker
+          title={carousel ? "Добави в карусела на продукта" : "Добави снимка на продукта"}
+          filter="all"
+          onCancel={() => setPicking(false)}
+          onPick={([photo]) => (photo ? handlePick(photo) : setPicking(false))}
+        />
+      )}
+
+      {picked && !busy && (
+        <ImageCropper
+          key={picked.photo.id}
+          source={picked.blob}
+          title="Изрежете снимката"
+          cancelLabel="Отказ"
+          onConfirm={(choice) => handlePickedCropped(picked, choice)}
+          onCancel={() => setPicked(null)}
+          onLoadError={() => {
+            setPicked(null);
+            setError("Снимката не може да се отвори за изрязване.");
+          }}
         />
       )}
 

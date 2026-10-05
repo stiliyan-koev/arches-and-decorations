@@ -3,6 +3,17 @@ const ALLOWED_EXTENSIONS = ["heic", "heif", "jpg", "jpeg", "png", "webp"];
 // The part of the photo to keep, in the photo's own pixels.
 export type CropRect = { x: number; y: number; width: number; height: number };
 
+// A crop chosen on one file, in the pixels of a copy shrunk by `scale` (e.g.
+// the stored original, which a later re-crop opens).
+export function scaleCrop(crop: CropRect, scale: number): CropRect {
+  return {
+    x: Math.round(crop.x * scale),
+    y: Math.round(crop.y * scale),
+    width: Math.round(crop.width * scale),
+    height: Math.round(crop.height * scale),
+  };
+}
+
 // Browser-only. Phone photos are 3–5 MB and the site renders them a few hundred
 // pixels wide, so shrink before upload: it keeps the free-tier Storage quota
 // sane and makes uploading over mobile data bearable. With a crop, only that

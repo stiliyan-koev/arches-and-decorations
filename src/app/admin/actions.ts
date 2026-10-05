@@ -8,6 +8,7 @@ import { CAPTION_MAX } from "@/lib/home";
 import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
+import type { PhotoRef } from "@/lib/photo-library";
 
 // Every write here runs through the logged-in user's cookies, so RLS sees
 // `authenticated` and the "admin all …" policies in schema.sql apply. There is
@@ -37,16 +38,112 @@ function cleanCrop(crop: CropRect | null | undefined): CropRect | null | false {
   return { x, y, width, height };
 }
 
-// Every Storage file a set of photo rows uses: the tile and the whole photo,
-// once each (a photo saved without cropping points both at the same file).
-// Old rows have no full_path.
-function photoFiles(rows: { path: string; full_path: string | null }[]) {
-  const files = new Set<string>();
-  for (const row of rows) {
-    files.add(row.path);
-    if (row.full_path) files.add(row.full_path);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// Ids from the browser: only well-formed ones, each once.
+function cleanIds(ids: string[]) {
+  return [...new Set(ids)].filter((id) => typeof id === "string" && UUID.test(id));
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+// Postgres "unique violation": e.g. the photo is already in the carousel.
+const UNIQUE_VIOLATION = "23505";
+
+// ---------- Photo library: shared rules ----------
+//
+// Every original photo is one row in `photos` (the library). The carousel, the
+// gallery and the products each use a library photo through their own row,
+// with their own tile: a 4:5 crop in their own folder, or the original itself
+// when she saved it "Без изрязване".
+
+// New originals, named the way the upload helper names them.
+function isLibraryPhotoPath(path: string) {
+  return /^photos\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+// A one-to-one embed comes back as an object, a one-to-many one as a list.
+function asList<T>(value: T | T[] | null | undefined): T[] {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+// The library photo a place wants to use. Null when the id is not a photo.
+async function getLibraryPhoto(supabase: Supabase, id: string) {
+  if (!UUID.test(id)) return null;
+  const { data } = await supabase
+    .from("photos")
+    .select("id, path")
+    .eq("id", id)
+    .maybeSingle();
+  return data as { id: string; path: string } | null;
+}
+
+// A tile path from the browser is accepted if it sits in that place's own
+// folder, or if it is the library photo itself ("Без изрязване").
+function tileAllowed(path: string, photo: { path: string }, inFolder: (path: string) => boolean) {
+  return path === photo.path || inFolder(path);
+}
+
+// Removes tile files whose rows are gone or moved on — but never a file that
+// is a library photo: a tile saved "Без изрязване" IS the original, and
+// deleting it would lose the photo everywhere it is used. Best effort: the rows
+// are what the site reads, so a stranded file is untidy rather than broken.
+async function removeTiles(supabase: Supabase, paths: string[]) {
+  const unique = [...new Set(paths)];
+  if (unique.length === 0) return;
+  const { data: originals, error } = await supabase
+    .from("photos")
+    .select("path")
+    .in("path", unique);
+  if (error) return; // can't tell which are originals, so keep them all
+  const keep = new Set(originals.map((photo) => photo.path));
+  const files = unique.filter((path) => !keep.has(path));
+  if (files.length) await supabase.storage.from(BUCKET).remove(files);
+}
+
+// Points one place's row at a new tile after a re-crop (always a new file
+// name: the old URL is cached) and removes the old tile. The tile may only be
+// in that place's folder, or the row's own library photo.
+async function replaceTile(
+  table: "hero_photos" | "gallery_photos" | "product_images",
+  inFolder: (path: string) => boolean,
+  id: string,
+  input: { path: string; crop: CropRect | null },
+): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const crop = cleanCrop(input.crop);
+  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from(table)
+    .select("path, photo:photos(path)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Снимката не е намерена." };
+  const photo = asList(row.photo as unknown as { path: string } | null)[0];
+  if (!photo) {
+    return { ok: false, error: "Снимката я няма в библиотеката. Качете я отново." };
   }
-  return [...files];
+  if (!tileAllowed(input.path, photo, inFolder)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const { data: updated, error } = await supabase
+    .from(table)
+    .update({ path: input.path, crop })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  if (row.path !== input.path) await removeTiles(supabase, [row.path]);
+
+  revalidateCatalog();
+  return { ok: true };
 }
 
 // Admin pages are server-rendered from the same tables the public site reads,
@@ -190,18 +287,17 @@ export async function saveProduct(
 export async function deleteProduct(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
-  // Storage isn't touched by the cascade, so clear the files first. Losing a
-  // row and orphaning its photos is worse than failing loudly here.
+  // Storage isn't touched by the cascade, so note the tiles first and remove
+  // them once the rows are gone. The library photos stay in the library.
   const { data: images } = await supabase
     .from("product_images")
-    .select("path, full_path")
+    .select("path")
     .eq("product_id", id);
-
-  const files = photoFiles(images ?? []);
-  if (files.length) await supabase.storage.from(BUCKET).remove(files);
 
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  await removeTiles(supabase, (images ?? []).map((image) => image.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -272,17 +368,17 @@ export async function addColor(input: ColorInput): Promise<ActionResult> {
 export async function deleteColor(id: string): Promise<ActionResult> {
   const supabase = await createClient();
 
-  // product_images.color_id cascades, so the rows go — but again, not the files.
+  // product_images.color_id cascades, so the rows go — but again, not the
+  // tiles. The library photos stay in the library.
   const { data: images } = await supabase
     .from("product_images")
-    .select("path, full_path")
+    .select("path")
     .eq("color_id", id);
-
-  const files = photoFiles(images ?? []);
-  if (files.length) await supabase.storage.from(BUCKET).remove(files);
 
   const { error } = await supabase.from("product_colors").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  await removeTiles(supabase, (images ?? []).map((image) => image.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -292,31 +388,36 @@ export async function deleteColor(id: string): Promise<ActionResult> {
 
 // The files themselves are uploaded straight from the browser to Storage —
 // they never pass through the server. This only records where they landed:
-// `path` is the tile, `full_path` the whole photo (the same file when she
-// saved it without cropping).
+// `photo_id` is the library photo, `path` the tile (the library photo itself
+// when she saved it without cropping).
 export async function attachImage(input: {
   product_id: string;
   color_id: string | null;
   in_carousel: boolean;
+  photo_id: string;
   path: string;
-  full_path: string;
   crop: CropRect | null;
   sort: number;
 }): Promise<ActionResult> {
-  if (!isProductPhotoPath(input.path) || !isProductPhotoPath(input.full_path)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
   const crop = cleanCrop(input.crop);
   if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
   const supabase = await createClient();
+  const photo = await getLibraryPhoto(supabase, input.photo_id);
+  if (!photo) return { ok: false, error: "Снимката я няма в библиотеката." };
+  if (!tileAllowed(input.path, photo, isProductPhotoPath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
   const { error } = await supabase.from("product_images").insert({
     product_id: input.product_id,
     // Carousel photos belong to the product, never to one colour.
     color_id: input.in_carousel ? null : input.color_id,
     in_carousel: input.in_carousel,
+    photo_id: photo.id,
     path: input.path,
-    full_path: input.full_path,
+    // A copy for code that still reads it, until the cleanup migration.
+    full_path: photo.path,
     crop,
     sort: input.sort,
   });
@@ -327,47 +428,13 @@ export async function attachImage(input: {
 }
 
 // A re-cropped photo gets a new tile under a new name (the old public URL is
-// cached), so point the row at it and drop the old tile. Sending
-// `path = full_path` with `crop = null` switches a photo back to uncropped.
+// cached). Sending the library photo's own path with `crop = null` switches a
+// photo back to uncropped.
 export async function replaceImage(
   id: string,
   input: { path: string; crop: CropRect | null },
 ): Promise<ActionResult> {
-  if (!isProductPhotoPath(input.path)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
-  const crop = cleanCrop(input.crop);
-  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
-
-  const supabase = await createClient();
-
-  const { data: image } = await supabase
-    .from("product_images")
-    .select("path, full_path")
-    .eq("id", id)
-    .maybeSingle();
-
-  // An unknown id (or one RLS hides) updates nothing and is not an error, so
-  // check that a row actually changed before removing any file.
-  const { data: updated, error } = await supabase
-    .from("product_images")
-    .update({ path: input.path, crop })
-    .eq("id", id)
-    .select("id");
-  if (error) return { ok: false, error: error.message };
-  if (!updated || updated.length === 0) {
-    return { ok: false, error: "Снимката не е намерена." };
-  }
-
-  // Best effort, as in deleteImage. Never remove the whole photo: a photo
-  // saved without cropping has path = full_path, so its "old tile" IS the
-  // original, and deleting it would lose the photo for good.
-  if (image && image.path !== input.path && image.path !== image.full_path) {
-    await supabase.storage.from(BUCKET).remove([image.path]);
-  }
-
-  revalidateCatalog();
-  return { ok: true };
+  return replaceTile("product_images", isProductPhotoPath, id, input);
 }
 
 // Swaps two neighbouring photos: `first` is the one shown earlier, `second`
@@ -409,23 +476,18 @@ export async function swapImageOrder(
   return { ok: true };
 }
 
+// Takes the photo off this product. The library photo stays.
 export async function deleteImage(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-
-  // The file paths come from the row, not from the browser, so this can only
-  // ever remove the files that belong to this photo.
-  const { data: image } = await supabase
+  const { data: deleted, error } = await supabase
     .from("product_images")
-    .select("path, full_path")
+    .delete()
     .eq("id", id)
-    .maybeSingle();
-
-  const { error } = await supabase.from("product_images").delete().eq("id", id);
+    .select("path");
   if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
 
-  // Best effort: the row is what the site reads, so a stranded file is
-  // untidy rather than broken.
-  if (image) await supabase.storage.from(BUCKET).remove(photoFiles([image]));
+  await removeTiles(supabase, deleted.map((image) => image.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -433,22 +495,29 @@ export async function deleteImage(id: string): Promise<ActionResult> {
 
 // ---------- Homepage photos ----------
 
-// Like product photos, the file is uploaded straight from the browser; these
-// only record and edit the rows. Paths from the browser must sit in the
-// homepage photo folder, named the way the admin form names them.
+// Like product photos, the files are uploaded straight from the browser;
+// these only record and edit the rows. A tile from the browser must sit in the
+// homepage photo folder, named the way the admin form names it — or be the
+// library photo itself.
 function isHeroPhotoPath(path: string) {
   return /^home\/hero\/[0-9a-f-]{36}\.webp$/.test(path);
 }
 
+// Puts a library photo at the end of the carousel, with its own tile.
 export async function addHeroPhoto(input: {
+  photoId: string;
   path: string;
-  caption: string;
+  crop: CropRect | null;
 }): Promise<ActionResult> {
-  if (!isHeroPhotoPath(input.path)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
+  const crop = cleanCrop(input.crop);
+  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
   const supabase = await createClient();
+  const photo = await getLibraryPhoto(supabase, input.photoId);
+  if (!photo) return { ok: false, error: "Снимката я няма в библиотеката." };
+  if (!tileAllowed(input.path, photo, isHeroPhotoPath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
 
   // New photos go to the end of the carousel.
   const { data: lastRow } = await supabase
@@ -459,14 +528,27 @@ export async function addHeroPhoto(input: {
     .maybeSingle();
 
   const { error } = await supabase.from("hero_photos").insert({
+    photo_id: photo.id,
     path: input.path,
-    caption: input.caption.trim().slice(0, CAPTION_MAX),
+    crop,
+    caption: "",
     sort: (lastRow?.sort ?? 0) + 1,
   });
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Снимката вече е в карусела." };
+  }
   if (error) return { ok: false, error: error.message };
 
   revalidateCatalog();
   return { ok: true };
+}
+
+// A new framing for a carousel photo, cut from its library photo.
+export async function replaceHeroTile(
+  id: string,
+  input: { path: string; crop: CropRect | null },
+): Promise<ActionResult> {
+  return replaceTile("hero_photos", isHeroPhotoPath, id, input);
 }
 
 export async function saveHeroCaption(
@@ -512,26 +594,18 @@ export async function swapHeroOrder(
   return { ok: true };
 }
 
-export async function deleteHeroPhoto(id: string): Promise<ActionResult> {
+// Takes the photo out of the carousel. The library photo stays.
+export async function removeHeroPhoto(id: string): Promise<ActionResult> {
   const supabase = await createClient();
-
-  // The file path comes from the row, never from the browser.
-  const { data: photo } = await supabase
-    .from("hero_photos")
-    .select("path")
-    .eq("id", id)
-    .maybeSingle();
-
   const { data: deleted, error } = await supabase
     .from("hero_photos")
     .delete()
     .eq("id", id)
-    .select("id");
+    .select("path");
   if (error) return { ok: false, error: error.message };
   if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
 
-  // Best effort, as with product photos.
-  if (photo) await supabase.storage.from(BUCKET).remove([photo.path]);
+  await removeTiles(supabase, deleted.map((photo) => photo.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -540,42 +614,45 @@ export async function deleteHeroPhoto(id: string): Promise<ActionResult> {
 // ---------- Gallery ----------
 
 // Same deal as the homepage photos: the browser uploads the files, these only
-// record and edit the rows. Each photo has a tile and a whole photo, under
-// the names the admin form gives them.
+// record and edit the rows. Each gallery photo is a library photo plus its
+// gallery tile, named the way the admin form names it.
 function isGalleryTilePath(path: string) {
   return /^gallery\/[0-9a-f-]{36}\.webp$/.test(path);
 }
 
-function isGalleryFullPath(path: string) {
-  return /^gallery\/full\/[0-9a-f-]{36}\.webp$/.test(path);
-}
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-// Ids from the browser: only well-formed ones, each once.
-function cleanIds(ids: string[]) {
-  return [...new Set(ids)].filter((id) => typeof id === "string" && UUID.test(id));
-}
-
+// Puts a library photo in the gallery, with its own tile and the tags given.
 // keepFiles: the row could not be taken out again after a failure, so it
-// still points at the files and the form must not remove them.
+// still points at the tile and the form must not remove it.
 export async function addGalleryPhoto(input: {
+  photoId: string;
   path: string;
-  fullPath: string;
+  crop: CropRect | null;
   tagIds: string[];
 }): Promise<ActionResult | { ok: false; error: string; keepFiles: true }> {
-  if (!isGalleryTilePath(input.path) || !isGalleryFullPath(input.fullPath)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
+  const crop = cleanCrop(input.crop);
+  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
   const supabase = await createClient();
+  const photo = await getLibraryPhoto(supabase, input.photoId);
+  if (!photo) return { ok: false, error: "Снимката я няма в библиотеката." };
+  if (!tileAllowed(input.path, photo, isGalleryTilePath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
 
   // The id is made here so the tags can be linked without reading the row
   // back, the same way submitRequest makes its booking id.
   const id = crypto.randomUUID();
-  const { error } = await supabase
-    .from("gallery_photos")
-    .insert({ id, path: input.path, full_path: input.fullPath });
+  const { error } = await supabase.from("gallery_photos").insert({
+    id,
+    photo_id: photo.id,
+    path: input.path,
+    // A copy for code that still reads it, until the cleanup migration.
+    full_path: photo.path,
+    crop,
+  });
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Снимката вече е в галерията." };
+  }
   if (error) return { ok: false, error: error.message };
 
   const tagIds = cleanIds(input.tagIds).slice(0, MAX_BULK);
@@ -583,8 +660,8 @@ export async function addGalleryPhoto(input: {
     const { error: tagError } = await supabase
       .from("gallery_photo_tags")
       .insert(tagIds.map((tag_id) => ({ photo_id: id, tag_id })));
-    // Take the photo out again, so a failed upload leaves nothing behind and
-    // the form can remove its files the same way as for any other failure.
+    // Take the photo out again, so a failed add leaves nothing behind and
+    // the form can remove its tile the same way as for any other failure.
     if (tagError) {
       const { error: rollbackError } = await supabase
         .from("gallery_photos")
@@ -594,7 +671,7 @@ export async function addGalleryPhoto(input: {
         revalidateCatalog();
         return {
           ok: false,
-          error: `Снимката е качена без етикети: ${tagError.message}`,
+          error: `Снимката е добавена без етикети: ${tagError.message}`,
           keepFiles: true,
         };
       }
@@ -663,64 +740,31 @@ export async function removeTagFromGalleryPhotos(
   return { ok: true };
 }
 
-// Points a photo at a new tile after a re-crop and removes the old tile file.
-// The whole photo is never touched.
+// A new framing for a gallery photo, cut from its library photo.
 export async function replaceGalleryTile(
   id: string,
-  path: string,
+  input: { path: string; crop: CropRect | null },
 ): Promise<ActionResult> {
-  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
-  if (!isGalleryTilePath(path)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
-
-  const supabase = await createClient();
-  const { data: photo } = await supabase
-    .from("gallery_photos")
-    .select("path")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { data, error } = await supabase
-    .from("gallery_photos")
-    .update({ path })
-    .eq("id", id)
-    .select("id");
-  if (error) return { ok: false, error: error.message };
-  if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
-
-  // Best effort, as with product photos.
-  if (photo && photo.path !== path) {
-    await supabase.storage.from(BUCKET).remove([photo.path]);
-  }
-
-  revalidateCatalog();
-  return { ok: true };
+  return replaceTile("gallery_photos", isGalleryTilePath, id, input);
 }
 
-// Deletes the photos and both files of each. Used for one photo and for a
-// selection alike.
-export async function deleteGalleryPhotos(photoIds: string[]): Promise<ActionResult> {
+// Takes the photos out of the gallery, with their tags (on delete cascade).
+// The library photos stay. Used for one photo and for a selection alike.
+export async function removeFromGallery(photoIds: string[]): Promise<ActionResult> {
   const ids = cleanPhotoIds(photoIds);
   if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
 
   const supabase = await createClient();
-
-  // The file paths come from the rows, never from the browser. Their tag
-  // links go with them (on delete cascade).
   const { data: deleted, error } = await supabase
     .from("gallery_photos")
     .delete()
     .in("id", ids)
-    .select("path, full_path");
+    .select("path");
   if (error) return { ok: false, error: error.message };
   if (deleted.length === 0) return { ok: false, error: "Снимките не са намерени." };
 
-  // Best effort, as with product photos.
-  await supabase.storage
-    .from(BUCKET)
-    .remove(deleted.flatMap((photo) => [photo.path, photo.full_path]));
+  await removeTiles(supabase, deleted.map((photo) => photo.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -788,6 +832,67 @@ export async function deleteGalleryTag(id: string): Promise<ActionResult> {
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: "Етикетът не е намерен." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Photo library ----------
+
+// Records an original the browser just uploaded to photos/. Returns the new
+// library photo, so the form can go on and use it in a place straight away.
+export async function addPhoto(
+  path: string,
+): Promise<{ ok: true; photo: PhotoRef } | { ok: false; error: string }> {
+  if (!isLibraryPhotoPath(path)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  // The id is made here so the row needn't be read back (see addGalleryPhoto).
+  const id = crypto.randomUUID();
+  const supabase = await createClient();
+  const { error } = await supabase.from("photos").insert({ id, path });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true, photo: { id, path } };
+}
+
+// Deletes library photos for good: from every place that uses them (on delete
+// cascade), with every file — the original and each place's tile. The paths
+// come from the rows, never from the browser.
+export async function deletePhotos(photoIds: string[]): Promise<ActionResult> {
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+
+  const supabase = await createClient();
+  const { data: photos, error: readError } = await supabase
+    .from("photos")
+    .select("id, path, hero_photos(path), gallery_photos(path), product_images(path)")
+    .in("id", ids);
+  if (readError) return { ok: false, error: readError.message };
+
+  const { data: deleted, error } = await supabase
+    .from("photos")
+    .delete()
+    .in("id", ids)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимките не са намерени." };
+
+  // Only the photos that really went. Their originals are no longer library
+  // photos now, so removeTiles lets them go too.
+  const gone = new Set(deleted.map((photo) => photo.id));
+  const files = photos
+    .filter((photo) => gone.has(photo.id))
+    .flatMap((photo) => [
+      photo.path,
+      ...asList(photo.hero_photos as unknown as { path: string } | null).map((row) => row.path),
+      ...asList(photo.gallery_photos as unknown as { path: string } | null).map((row) => row.path),
+      ...photo.product_images.map((row) => row.path),
+    ]);
+  await removeTiles(supabase, files);
 
   revalidateCatalog();
   return { ok: true };
