@@ -4,31 +4,32 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { centerCrop, resizeToWebp } from "@/lib/resize-image";
-import { PAGE_BG, TILE_ASPECT } from "@/lib/images";
+import { centerCrop } from "@/lib/resize-image";
+import { TILE_ASPECT } from "@/lib/images";
 import { GALLERY_PAGE_SIZE, MAX_BULK } from "@/lib/gallery";
 import type { GalleryPhoto, GalleryTag } from "@/lib/gallery";
 import {
-  addGalleryPhoto,
   addTagToGalleryPhotos,
-  deleteGalleryPhotos,
+  removeFromGallery,
   removeTagFromGalleryPhotos,
   replaceGalleryTile,
 } from "@/app/admin/actions";
+import {
+  BAD_FORMAT,
+  GALLERY_TILE_SIZE,
+  SAVE_FAILED,
+  addToGallery,
+  downloadOriginal,
+  makeTile,
+  removeFiles,
+  uploadOriginal,
+} from "@/lib/upload-photo";
 import ImageCropper from "@/components/admin/ImageCropper";
 import type { CropResult } from "@/components/admin/ImageCropper";
+import PhotoPicker from "@/components/admin/PhotoPicker";
+import TagChip from "@/components/admin/TagChip";
 import TagPicker from "@/components/admin/TagPicker";
-
-const BUCKET = "catalog";
-const SAVE_FAILED = "Запазването се провали. Опитайте отново.";
-const BAD_FORMAT =
-  "Този формат не може да се обработи. Запазете снимката като JPG и опитайте отново.";
-
-// The grid shows tiles at most ~400px wide, so 1000px tall is sharp on any
-// screen. The whole photo is for the full-screen viewer, like product photos.
-const TILE_SIZE = 1000;
-const FULL_SIZE = 2000;
+import type { PhotoRef } from "@/lib/photo-library";
 
 const CHIP =
   "cursor-pointer rounded-full border px-2.5 py-1 text-[0.75rem] font-extrabold transition-colors";
@@ -46,14 +47,16 @@ type Props = {
   shown: number;
 };
 
-// A photo being re-framed, with its whole photo downloaded for the cropper.
-type Recrop = { photo: GalleryPhoto; blob: Blob };
+// A photo being re-framed, with its library photo downloaded for the cropper.
+type Recrop = { photo: GalleryPhoto; original: PhotoRef; blob: Blob };
 
-// Gallery photos. Upload a batch with the tags picked for it (each tile cut
-// from the middle of the photo, no framing step). Then per photo: its tags as
-// chips (✕ removes, „+ Етикет“ searches or creates one), „Изрежи“, „Изтрий“.
-// „Избери“ switches to picking many photos and tagging or deleting them
-// together. Newest first, like the site.
+// Gallery photos. Their photos come from the library („Снимки“): upload a
+// batch here (it lands in the library too) or add photos already there, with
+// the tags picked for the batch (each tile cut from the middle of the photo,
+// no framing step). Then per photo: its tags as chips (✕ removes, „+ Етикет“
+// searches or creates one), „Изрежи“, „Махни“. „Избери“ switches to picking
+// many photos and tagging or taking them out together. Newest first, like
+// the site.
 export default function GalleryPhotoManager({
   tags,
   activeTag,
@@ -66,12 +69,12 @@ export default function GalleryPhotoManager({
   const fileInput = useRef<HTMLInputElement>(null);
   const [batchTagIds, setBatchTagIds] = useState<string[]>([]);
   const [recrop, setRecrop] = useState<Recrop | null>(null);
+  const [picking, setPicking] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
-  const storage = () => createClient().storage.from(BUCKET);
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
   // The tags for the next upload, looked up fresh each time: a tag deleted
   // meanwhile just drops out instead of breaking the upload.
@@ -91,59 +94,23 @@ export default function GalleryPhotoManager({
   const selectableCount = Math.min(photos.length, MAX_BULK);
   const tooMany = selected.length > MAX_BULK;
 
-  // Uploads one file. Returns true if it worked; on failure the files it
-  // already put in Storage are removed again (no row points at them).
+  // Uploads one file: into the library first, then into the gallery. Returns
+  // true if it worked. If the second step fails the photo is still in
+  // „Снимки“, so nothing is lost.
   async function uploadOne(file: File): Promise<boolean> {
-    const full = await resizeToWebp(file, undefined, FULL_SIZE);
-    // The server only accepts .webp paths; a format the browser can't redraw
-    // comes back as the original file.
-    if (full.ext !== "webp") {
-      setError(`${file.name}: ${BAD_FORMAT}`);
+    const original = await uploadOriginal(file);
+    if (!original.ok) {
+      setError(`${file.name}: ${original.error}`);
       return false;
     }
-    const tile = await resizeToWebp(
+    const result = await addToGallery(
+      original.photo,
       file,
-      await centerCrop(file, TILE_ASPECT),
-      TILE_SIZE,
-      PAGE_BG,
+      batchTags.map((tag) => tag.id),
+      original.scale,
     );
-
-    // One random name for both files, so a photo's tile and whole photo are
-    // easy to pair up in Storage.
-    const name = crypto.randomUUID();
-    const path = `gallery/${name}.webp`;
-    const fullPath = `gallery/full/${name}.webp`;
-    const uploaded: string[] = [];
-
-    for (const [target, blob] of [
-      [fullPath, full.blob],
-      [path, tile.blob],
-    ] as const) {
-      const { error: uploadError } = await storage().upload(target, blob, {
-        contentType: blob.type,
-      });
-      if (uploadError) {
-        await storage().remove(uploaded);
-        setError(`${file.name}: качването се провали: ${uploadError.message}`);
-        return false;
-      }
-      uploaded.push(target);
-    }
-
-    let result;
-    try {
-      result = await addGalleryPhoto({
-        path,
-        fullPath,
-        tagIds: batchTags.map((tag) => tag.id),
-      });
-    } catch {
-      result = { ok: false as const, error: SAVE_FAILED };
-    }
     if (!result.ok) {
-      // keepFiles: the row is still there and points at the files.
-      if (!("keepFiles" in result)) await storage().remove(uploaded);
-      setError(`${file.name}: ${result.error}`);
+      setError(`${file.name}: ${result.error ?? SAVE_FAILED} Снимката остана в „Снимки“.`);
       return false;
     }
     return true;
@@ -156,17 +123,29 @@ export default function GalleryPhotoManager({
     setError("");
     for (const [index, file] of files.entries()) {
       setBusy(`Качване ${index + 1} от ${files.length}…`);
-      let ok;
-      try {
-        ok = await uploadOne(file);
-      } catch {
-        setError(`${file.name}: ${SAVE_FAILED}`);
-        ok = false;
-      }
-      if (!ok) break;
+      if (!(await uploadOne(file))) break;
     }
     setBusy("");
     if (fileInput.current) fileInput.current.value = "";
+    router.refresh();
+  }
+
+  // Photos picked from the library, one after another like an upload.
+  async function handlePicked(photos: PhotoRef[]) {
+    setPicking(false);
+    setError("");
+    for (const [index, photo] of photos.entries()) {
+      setBusy(`Добавяне ${index + 1} от ${photos.length}…`);
+      const blob = await downloadOriginal(photo.path);
+      const result = blob
+        ? await addToGallery(photo, blob, batchTags.map((tag) => tag.id))
+        : { ok: false, error: "Снимката не може да се зареди." };
+      if (!result.ok) {
+        setError(result.error ?? SAVE_FAILED);
+        break;
+      }
+    }
+    setBusy("");
     router.refresh();
   }
 
@@ -197,25 +176,21 @@ export default function GalleryPhotoManager({
     setSelectedIds([]);
   }
 
-  // Downloads the whole photo, not the tile, so a re-frame can widen the
+  // Downloads the library photo, not the tile, so a re-frame can widen the
   // frame again instead of only cutting more off.
-  async function startRecrop(photo: GalleryPhoto) {
+  async function startRecrop(photo: GalleryPhoto, original: PhotoRef) {
     setError("");
     setBusy("Зареждане на снимката…");
-    try {
-      const response = await fetch(photo.fullUrl);
-      if (!response.ok) throw new Error(String(response.status));
-      setRecrop({ photo, blob: await response.blob() });
-    } catch {
-      setError("Снимката не може да се зареди за изрязване.");
-    }
+    const blob = await downloadOriginal(original.path);
+    if (blob) setRecrop({ photo, original, blob });
+    else setError("Снимката не може да се зареди за изрязване.");
     setBusy("");
   }
 
   // The new tile is saved under a new name rather than over the old file: the
   // old URL is cached by the browser and the CDN, so an overwrite would keep
   // showing the old framing for a while. „Без изрязване“ goes back to the
-  // middle of the photo, the way it was uploaded.
+  // middle of the photo, the way it was added.
   async function handleRecropped(current: Recrop, choice: CropResult) {
     setRecrop(null);
     setError("");
@@ -223,38 +198,33 @@ export default function GalleryPhotoManager({
 
     const crop =
       choice.mode === "crop" ? choice.crop : await centerCrop(current.blob, TILE_ASPECT);
-    const tile = await resizeToWebp(current.blob, crop, TILE_SIZE, PAGE_BG);
-    if (tile.ext !== "webp") {
+    if (!crop) {
       setBusy("");
       setError(BAD_FORMAT);
       return;
     }
-
-    const path = `gallery/${crypto.randomUUID()}.webp`;
-    const { error: uploadError } = await storage().upload(path, tile.blob, {
-      contentType: tile.blob.type,
-    });
-    if (uploadError) {
+    const tile = await makeTile(current.original, current.blob, crop, "gallery", GALLERY_TILE_SIZE);
+    if (!tile.ok) {
       setBusy("");
-      setError(`Качването се провали: ${uploadError.message}`);
+      setError(tile.error);
       return;
     }
 
     let result;
     try {
-      result = await replaceGalleryTile(current.photo.id, path);
+      result = await replaceGalleryTile(current.photo.id, { path: tile.path, crop: tile.crop });
     } catch {
       result = { ok: false as const, error: SAVE_FAILED };
     }
     if (!result.ok) {
-      await storage().remove([path]);
+      await removeFiles([tile.path]);
       setError(result.error);
     }
     setBusy("");
     router.refresh();
   }
 
-  const locked = Boolean(busy) || Boolean(recrop);
+  const locked = Boolean(busy) || Boolean(recrop) || picking;
 
   // Links for the list filter and „Покажи още“, keeping the other setting.
   function listHref(filter: { tag?: GalleryTag | null; untagged?: boolean }, count = GALLERY_PAGE_SIZE) {
@@ -276,9 +246,10 @@ export default function GalleryPhotoManager({
     <section className="rounded-card border border-border bg-surface p-5">
       <h2 className="text-lg">Снимки</h2>
       <p className="mt-1 text-[0.85rem] text-muted">
-        Изберете етикетите за новите снимки, после самите снимки — може много
-        наведнъж. Всяка снимка се изрязва в рамка 4:5 от средата; ако рамката
-        не стои добре, натиснете „Изрежи“ под снимката.
+        Изберете етикетите за новите снимки, после качете снимки или ги
+        добавете от „Снимки“ — може много наведнъж. Всяка снимка се изрязва в
+        рамка 4:5 от средата; ако рамката не стои добре, натиснете „Изрежи“
+        под снимката.
       </p>
 
       {/* The tags every photo in the next upload gets. */}
@@ -314,8 +285,17 @@ export default function GalleryPhotoManager({
           const files = event.target.files;
           if (files?.length) handleFiles(Array.from(files));
         }}
-        className="mt-4 cursor-pointer rounded-item border border-border-strong bg-bg px-3 py-2.5 text-[0.9rem] file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-cta file:px-4 file:py-1.5 file:font-extrabold file:text-white disabled:opacity-60"
+        className="mt-4 mr-3 cursor-pointer rounded-item border border-border-strong bg-bg px-3 py-2.5 text-[0.9rem] file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-cta file:px-4 file:py-1.5 file:font-extrabold file:text-white disabled:opacity-60"
       />
+
+      <button
+        type="button"
+        onClick={() => setPicking(true)}
+        disabled={locked}
+        className="mt-4 cursor-pointer rounded-full border-[1.5px] border-ink px-4 py-2 text-[0.85rem] font-extrabold text-ink hover:border-cta hover:text-cta disabled:opacity-50"
+      >
+        + Добави от „Снимки“
+      </button>
 
       {busy && <p className="mt-3 text-[0.85rem] font-bold text-muted">{busy}</p>}
       {error && (
@@ -429,24 +409,31 @@ export default function GalleryPhotoManager({
                   </div>
                   {!selecting && (
                     <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => startRecrop(photo)}
-                        disabled={locked}
-                        className="cursor-pointer text-[0.75rem] font-extrabold text-cta hover:underline disabled:opacity-50"
-                      >
-                        Изрежи
-                      </button>
+                      {/* Rows not linked to the library yet have nothing to re-frame from. */}
+                      {photo.photoId ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startRecrop(photo, { id: photo.photoId!, path: photo.fullPath })
+                          }
+                          disabled={locked}
+                          className="cursor-pointer text-[0.75rem] font-extrabold text-cta hover:underline disabled:opacity-50"
+                        >
+                          Изрежи
+                        </button>
+                      ) : (
+                        <span />
+                      )}
                       <button
                         type="button"
                         onClick={() => {
-                          if (!confirm("Да изтрия тази снимка от галерията?")) return;
-                          run("Изтриване…", () => deleteGalleryPhotos([photo.id]));
+                          if (!confirm("Да махна тази снимка от галерията? Тя остава в „Снимки“.")) return;
+                          run("Махане…", () => removeFromGallery([photo.id]));
                         }}
                         disabled={locked}
                         className="cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
                       >
-                        Изтрий
+                        Махни
                       </button>
                     </div>
                   )}
@@ -515,6 +502,7 @@ export default function GalleryPhotoManager({
               label="− Махни етикет"
               openUp
               allowCreate={false}
+              minChars={0}
               disabled={locked || selectedTags.length === 0 || tooMany}
               onPick={(tag) =>
                 run(`Махане на „${tag.name}“…`, () =>
@@ -527,22 +515,33 @@ export default function GalleryPhotoManager({
               disabled={locked || selected.length === 0 || tooMany}
               onClick={async () => {
                 const count = selected.length === 1 ? "1 снимка" : `${selected.length} снимки`;
-                if (!confirm(`Да изтрия ${count} от галерията? Това не може да се върне.`)) return;
-                if (await run("Изтриване…", () => deleteGalleryPhotos(selected.map((photo) => photo.id)))) {
+                if (!confirm(`Да махна ${count} от галерията? Остават в „Снимки“.`)) return;
+                if (await run("Махане…", () => removeFromGallery(selected.map((photo) => photo.id)))) {
                   setSelectedIds([]);
                 }
               }}
               className={`${BAR_BUTTON} bg-booked text-white hover:opacity-90`}
             >
-              Изтрий избраните
+              Махни избраните
             </button>
           </div>
         </div>
       )}
 
+      {picking && (
+        <PhotoPicker
+          title="Добави в галерията"
+          filter="not-gallery"
+          multiple
+          onCancel={() => setPicking(false)}
+          onPick={handlePicked}
+        />
+      )}
+
       {recrop && (
         <ImageCropper
           source={recrop.blob}
+          initialCrop={recrop.photo.crop ?? undefined}
           title="Наместете снимката"
           cancelLabel="Отказ"
           onConfirm={(choice) => handleRecropped(recrop, choice)}
@@ -554,31 +553,5 @@ export default function GalleryPhotoManager({
         />
       )}
     </section>
-  );
-}
-
-// A tag on a photo (or on the next upload), with ✕ to take it off.
-function TagChip({
-  tag,
-  disabled,
-  onRemove,
-}: {
-  tag: GalleryTag;
-  disabled: boolean;
-  onRemove: () => void;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-cta/10 py-0.5 pr-1 pl-2.5 text-[0.75rem] font-extrabold text-cta">
-      {tag.name}
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={disabled}
-        aria-label={`Махни етикета ${tag.name}`}
-        className="grid h-5 w-5 cursor-pointer place-items-center rounded-full hover:bg-cta hover:text-white disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-cta"
-      >
-        ✕
-      </button>
-    </span>
   );
 }

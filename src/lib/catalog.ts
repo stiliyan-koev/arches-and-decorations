@@ -28,7 +28,7 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
          quantity, track_availability, rentable, service_only,
          carousel, carousel_in_configurator, carousel_in_catalog,
          product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, full_path, in_carousel, sort )
+         product_images ( id, color_id, path, full_path, in_carousel, sort, photo:photos ( path ) )
        )`,
     )
     .order("sort")
@@ -51,7 +51,17 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     products: category.products
       .filter((product) => product.active)
       .map((product) => {
-        const images = [...product.product_images].sort((a, b) => a.sort - b.sort);
+        // The whole photo is the library photo. full_path is the copy older
+        // rows still carry; it goes once migration-photo-library-cleanup.sql runs.
+        const images = [...product.product_images]
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ photo, ...image }) => ({
+            ...image,
+            // One photo per row; without generated DB types the client can't
+            // know that and types it as a list.
+            full_path:
+              (photo as unknown as { path: string } | null)?.path ?? image.full_path,
+          }));
         return {
           id: product.id,
           slug: product.slug,

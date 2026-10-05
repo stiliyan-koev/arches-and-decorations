@@ -44,7 +44,9 @@ export type ProductImage = {
   id: string;
   color_id: string | null; // null = colour-agnostic photo of the product
   path: string; // storage path of the tile (4:5 crop) inside the `catalog` bucket
-  full_path: string | null; // whole photo, only shrunk. null = old row, use path
+  full_path: string | null; // whole photo (the library photo), only shrunk. null = old row, use path
+  photo_id?: string | null; // the library photo. Admin reads only
+  has_original?: boolean; // false = the library only has a cropped copy. Admin reads only
   crop?: CropRect | null; // last crop, in full-photo pixels. Admin reads only
   in_carousel?: boolean; // a carousel photo rather than a main/colour one
   sort: number;

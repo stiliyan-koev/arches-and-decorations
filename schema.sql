@@ -57,24 +57,41 @@ create table product_colors (
   unique (product_id, color_slug)
 );
 
+-- The photo library, managed from /admin/photos: every original photo, once.
+-- The carousel, the gallery and the products each use a library photo through
+-- their own row, with their own framing (tile + crop).
+create table photos (
+  id           uuid primary key default gen_random_uuid(),
+  path         text not null unique,                -- the original, shrunk: photos/{uuid}.webp
+  has_original boolean not null default true,       -- false = only a cropped copy survived (old rows)
+  created_at   timestamptz not null default now()
+);
+
+create index photos_created_at on photos (created_at desc);
+
 -- Images for the carousel. color_id null = color-agnostic / base image.
 create table product_images (
   id         uuid primary key default gen_random_uuid(),
   product_id uuid not null references products(id) on delete cascade,
   color_id   uuid references product_colors(id) on delete cascade,
+  photo_id   uuid references photos(id) on delete cascade, -- the library photo this tile is cut from
   path       text not null,            -- storage path of the 4:5 tile, see catalog-and-images.md
-  full_path  text,                     -- whole photo, shrunk. null = old row, use path
+  full_path  text,                     -- copy of the library photo's path (until migration-photo-library-cleanup.sql)
   crop       jsonb,                    -- last crop {x,y,width,height} in full-photo pixels. null = not cropped
   in_carousel boolean not null default false, -- a carousel photo (colour-agnostic), not a main/colour photo
   sort       int  not null default 0
 );
+
+create index product_images_photo on product_images (photo_id);
 
 -- ---------- Homepage ----------
 
 -- The homepage photo carousel, managed from /admin/home.
 create table hero_photos (
   id      uuid primary key default gen_random_uuid(),
-  path    text not null,             -- storage path of the 4:5 photo, home/hero/…
+  photo_id uuid unique references photos(id) on delete cascade, -- the library photo; once at most
+  path    text not null,             -- storage path of the 4:5 tile, home/hero/… (or the original: "Без изрязване")
+  crop    jsonb,                     -- last crop {x,y,width,height} in original pixels
   caption text not null default '',  -- the white pill on the photo; '' = no pill
   sort    int  not null default 0
 );
@@ -85,8 +102,10 @@ create table hero_photos (
 -- tags with photos become the filter chips on /gallery. Newest first.
 create table gallery_photos (
   id         uuid primary key default gen_random_uuid(),
+  photo_id   uuid unique references photos(id) on delete cascade, -- the library photo; once at most
   path       text not null,                      -- 4:5 tile, gallery/{uuid}.webp
-  full_path  text not null,                      -- whole photo, gallery/full/{uuid}.webp
+  full_path  text,                               -- copy of the library photo's path (until the cleanup migration)
+  crop       jsonb,                              -- last crop {x,y,width,height} in original pixels
   created_at timestamptz not null default now()
 );
 
@@ -216,6 +235,7 @@ grant execute on function reserved_qty_all(date, date)   to anon, authenticated;
 alter table categories     enable row level security;
 alter table products       enable row level security;
 alter table product_colors enable row level security;
+alter table photos         enable row level security;
 alter table product_images enable row level security;
 alter table bookings       enable row level security;
 alter table booking_items  enable row level security;
@@ -229,6 +249,7 @@ alter table gallery_photo_tags enable row level security;
 create policy "public read categories"     on categories     for select using (true);
 create policy "public read products"        on products        for select using (active);
 create policy "public read product_colors" on product_colors for select using (true);
+create policy "public read photos"         on photos         for select using (true);
 create policy "public read product_images" on product_images for select using (true);
 create policy "public read hero_photos"    on hero_photos    for select using (true);
 create policy "public read gallery_photos"     on gallery_photos     for select using (true);
@@ -243,6 +264,7 @@ create policy "public create booking_items" on booking_items  for insert with ch
 create policy "admin all categories"     on categories     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all products"        on products        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all product_colors" on product_colors for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all photos"         on photos         for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all product_images" on product_images for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all bookings"        on bookings        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all booking_items"  on booking_items  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
