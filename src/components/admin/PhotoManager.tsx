@@ -43,7 +43,7 @@ type Props = {
 };
 
 // Files she picked that are still waiting to be cropped, one at a time. The
-// colour and next sort index are fixed when she picks them: `images` only
+// colour and next sort value are fixed when she picks them: `images` only
 // catches up after the refresh at the end.
 type Queue = {
   files: File[];
@@ -56,25 +56,13 @@ type Queue = {
 type Recrop = { image: ProductImage; blob: Blob };
 
 // A photo picked from the library, downloaded, waiting to be cropped. The
-// colour and index are fixed when she picks it, like a queue's.
+// colour and sort value are fixed when she picks it, like a queue's.
 type Picked = { photo: PhotoRef; blob: Blob; colorId: string | null; index: number };
 
-// The sort value for the next photo. Older tiles are named
-// products/{slug}/{prefix}NN.ext, so scanning those numbers (and the old full/
-// copies) still gives a number past every existing photo. New tiles get a
-// random name instead and simply don't count here; the sort value is all this
-// is used for now, never a file name.
-function nextIndex(images: ProductImage[], base: string) {
-  let max = 0;
-  for (const image of images) {
-    const paths = [image.path, image.full_path?.replace("/full/", "/")];
-    for (const path of paths) {
-      if (!path?.startsWith(base)) continue;
-      const index = parseInt(path.slice(base.length), 10);
-      if (Number.isFinite(index) && index > max) max = index;
-    }
-  }
-  return max + 1;
+// The sort value for the next photo: one past the highest one already on
+// this product. Tile names are random now, so they say nothing about order.
+function nextSort(images: ProductImage[]) {
+  return Math.max(0, ...images.map((image) => image.sort)) + 1;
 }
 
 const MOVE_BUTTON =
@@ -134,7 +122,7 @@ export default function PhotoManager({
     setQueue({
       files: Array.from(files),
       colorId: id,
-      index: nextIndex(images, pathBase(id)),
+      index: nextSort(images),
       done: 0,
     });
   }
@@ -212,7 +200,7 @@ export default function PhotoManager({
   }
 
   // A new file goes into the library first, then onto the product.
-  // Sequential, not all at once: each upload needs to know which sort index
+  // Sequential, not all at once: each upload needs to know which sort value
   // the previous one took, and she's adding two or three photos, not two hundred.
   async function handleCropped(current: Queue, choice: CropResult) {
     const file = current.files[0];
@@ -249,7 +237,7 @@ export default function PhotoManager({
       return;
     }
     const id = carousel ? null : colorId || null;
-    setPicked({ photo, blob, colorId: id, index: nextIndex(images, pathBase(id)) });
+    setPicked({ photo, blob, colorId: id, index: nextSort(images) });
   }
 
   async function handlePickedCropped(current: Picked, choice: CropResult) {
