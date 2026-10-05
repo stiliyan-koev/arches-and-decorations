@@ -854,7 +854,7 @@ export async function addPhoto(
   const { error } = await supabase.from("photos").insert({ id, path });
   if (error) return { ok: false, error: error.message };
 
-  revalidateCatalog();
+  // No revalidate: a photo only in the library is on no public page yet.
   return { ok: true, photo: { id, path } };
 }
 

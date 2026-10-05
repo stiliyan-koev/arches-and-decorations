@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { resizeToWebp, scaleCrop } from "@/lib/resize-image";
 import type { CropRect } from "@/lib/resize-image";
 import { PAGE_BG, fullImagePath, imageUrl } from "@/lib/images";
@@ -13,21 +12,21 @@ import {
   swapImageOrder,
   replaceImage,
 } from "@/app/admin/actions";
-import { BAD_FORMAT, downloadOriginal, uploadOriginal } from "@/lib/upload-photo";
+import {
+  BAD_FORMAT,
+  SAVE_FAILED,
+  downloadOriginal,
+  removeFiles,
+  uploadFile,
+  uploadOriginal,
+} from "@/lib/upload-photo";
+import type { SaveResult } from "@/lib/upload-photo";
 import PhotoViewer from "@/components/PhotoViewer";
 import ImageCropper from "@/components/admin/ImageCropper";
 import PhotoPicker from "@/components/admin/PhotoPicker";
 import type { CropResult } from "@/components/admin/ImageCropper";
 import type { PhotoRef } from "@/lib/photo-library";
 import type { ProductColor, ProductImage } from "@/lib/types";
-
-const BUCKET = "catalog";
-
-// What a save action tells us back. A thrown action (network drop, server
-// error) is turned into the same shape, so the busy message always clears and
-// files nobody points at get cleaned up.
-type SaveResult = { ok: boolean; error?: string };
-const SAVE_FAILED = "Запазването се провали. Опитайте отново.";
 
 // The tile's height (a 4:5 tile's long side). The whole photo is the library
 // photo (see upload-photo.ts).
@@ -44,8 +43,8 @@ type Props = {
 };
 
 // Files she picked that are still waiting to be cropped, one at a time. The
-// colour and next index are fixed when she picks them: `images` only catches
-// up after the refresh at the end.
+// colour and next sort index are fixed when she picks them: `images` only
+// catches up after the refresh at the end.
 type Queue = {
   files: File[];
   colorId: string | null;
@@ -60,12 +59,11 @@ type Recrop = { image: ProductImage; blob: Blob };
 // colour and index are fixed when she picks it, like a queue's.
 type Picked = { photo: PhotoRef; blob: Blob; colorId: string | null; index: number };
 
-// The next NN for products/{slug}/{prefix}NN.ext. Scanning the paths we already
-// have beats counting rows: deleting photo 02 of three shouldn't make the next
-// upload collide with 03. Older whole photos sit in a full/ subfolder under
-// the same name, and a re-crop moved a tile to a new NN while its whole photo
-// kept the old one, so both paths count. (New whole photos go to the library,
-// photos/, and never match.)
+// The sort value for the next photo. Older tiles are named
+// products/{slug}/{prefix}NN.ext, so scanning those numbers (and the old full/
+// copies) still gives a number past every existing photo. New tiles get a
+// random name instead and simply don't count here; the sort value is all this
+// is used for now, never a file name.
 function nextIndex(images: ProductImage[], base: string) {
   let max = 0;
   for (const image of images) {
@@ -77,11 +75,6 @@ function nextIndex(images: ProductImage[], base: string) {
     }
   }
   return max + 1;
-}
-
-// Two-digit file number: 1 -> "01".
-function fileNumber(index: number) {
-  return String(index).padStart(2, "0");
 }
 
 const MOVE_BUTTON =
@@ -124,22 +117,15 @@ export default function PhotoManager({
     return `products/${productSlug}/${prefix}`;
   }
 
-  // Puts one file in Storage. False once the error is on screen.
+  // Puts one file in Storage. False once the error is on screen. Never
+  // overwrites: a tile name is new every time (see saveNew).
   async function upload(path: string, blob: Blob) {
-    const { error: uploadError } = await createClient()
-      .storage.from(BUCKET)
-      .upload(path, blob, { upsert: true, contentType: blob.type });
-
+    const uploadError = await uploadFile(path, blob);
     if (uploadError) {
-      setError(`Качването се провали: ${uploadError.message}`);
+      setError(uploadError);
       return false;
     }
     return true;
-  }
-
-  // Best effort: clears files a failed save left behind.
-  async function removeFiles(paths: string[]) {
-    if (paths.length) await createClient().storage.from(BUCKET).remove(paths);
   }
 
   function handleFiles(files: FileList) {
@@ -194,7 +180,10 @@ export default function PhotoManager({
         setError(BAD_FORMAT);
         return false;
       }
-      path = `${pathBase(colorId)}${fileNumber(index)}.webp`;
+      // A random name, never a number: an old photo's tile can now be a
+      // library photo sitting at products/{slug}/NN.webp, and reusing its NN
+      // would overwrite it.
+      path = `${pathBase(colorId)}${crypto.randomUUID()}.webp`;
       if (!(await upload(path, tile.blob))) return false;
       crop = scaleCrop(choice.crop, scale);
     }
@@ -223,8 +212,8 @@ export default function PhotoManager({
   }
 
   // A new file goes into the library first, then onto the product.
-  // Sequential, not all at once: each upload needs to know which index the
-  // previous one took, and she's adding two or three photos, not two hundred.
+  // Sequential, not all at once: each upload needs to know which sort index
+  // the previous one took, and she's adding two or three photos, not two hundred.
   async function handleCropped(current: Queue, choice: CropResult) {
     const file = current.files[0];
     setBusy(`Качване на ${file.name}…`);
@@ -311,7 +300,8 @@ export default function PhotoManager({
     setBusy("Запазване…");
     const base = pathBase(image.color_id);
     const tile = await resizeToWebp(current.blob, choice.crop, TILE_SIZE, PAGE_BG);
-    const path = `${base}${fileNumber(nextIndex(images, base))}.${tile.ext}`;
+    // A random name, like a new tile's (see saveNew).
+    const path = `${base}${crypto.randomUUID()}.${tile.ext}`;
     if (!(await upload(path, tile.blob))) {
       setBusy("");
       return;
