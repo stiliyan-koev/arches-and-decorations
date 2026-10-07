@@ -96,6 +96,27 @@ create table hero_photos (
   sort    int  not null default 0
 );
 
+-- Showcases ("Украси"), managed from /admin/showcases: finished decorations,
+-- each a title, a short text and several library photos shown whole. The
+-- first three by sort that have a photo are the cards on the homepage.
+create table showcases (
+  id         uuid primary key default gen_random_uuid(),
+  title      text not null,
+  body       text not null default '',   -- plain text; a blank line starts a new paragraph
+  sort       int  not null default 0,    -- the first three by sort show on the homepage
+  created_at timestamptz not null default now()
+);
+
+create table showcase_photos (
+  id          uuid primary key default gen_random_uuid(),
+  showcase_id uuid not null references showcases(id) on delete cascade,
+  photo_id    uuid not null references photos(id)    on delete cascade,
+  sort        int  not null default 0,   -- the first photo is the card's cover
+  unique (showcase_id, photo_id)
+);
+
+create index showcase_photos_showcase on showcase_photos (showcase_id, sort);
+
 -- ---------- Gallery ----------
 
 -- Past work, managed from /admin/gallery. A photo can have several tags; the
@@ -241,6 +262,8 @@ alter table bookings       enable row level security;
 alter table booking_items  enable row level security;
 alter table blackout_dates enable row level security;
 alter table hero_photos    enable row level security;
+alter table showcases       enable row level security;
+alter table showcase_photos enable row level security;
 alter table gallery_photos     enable row level security;
 alter table gallery_tags       enable row level security;
 alter table gallery_photo_tags enable row level security;
@@ -252,6 +275,8 @@ create policy "public read product_colors" on product_colors for select using (t
 create policy "public read photos"         on photos         for select using (true);
 create policy "public read product_images" on product_images for select using (true);
 create policy "public read hero_photos"    on hero_photos    for select using (true);
+create policy "public read showcases"       on showcases       for select using (true);
+create policy "public read showcase_photos" on showcase_photos for select using (true);
 create policy "public read gallery_photos"     on gallery_photos     for select using (true);
 create policy "public read gallery_tags"       on gallery_tags       for select using (true);
 create policy "public read gallery_photo_tags" on gallery_photo_tags for select using (true);
@@ -270,6 +295,8 @@ create policy "admin all bookings"        on bookings        for all using (auth
 create policy "admin all booking_items"  on booking_items  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all blackout"        on blackout_dates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all hero_photos"    on hero_photos    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all showcases"       on showcases       for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin all showcase_photos" on showcase_photos for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all gallery_photos"     on gallery_photos     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all gallery_tags"       on gallery_tags       for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

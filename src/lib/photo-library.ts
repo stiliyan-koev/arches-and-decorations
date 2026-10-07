@@ -18,6 +18,7 @@ export type LibraryFilter =
   | "carousel"
   | "gallery"
   | "products"
+  | "showcases"
   | "not-carousel"
   | "not-gallery";
 
@@ -27,6 +28,7 @@ export const LIBRARY_FILTERS: { value: LibraryFilter; label: string }[] = [
   { value: "carousel", label: "В карусела" },
   { value: "gallery", label: "В галерията" },
   { value: "products", label: "В продукти" },
+  { value: "showcases", label: "В украси" },
 ];
 
 export type LibraryPhoto = {
@@ -37,6 +39,7 @@ export type LibraryPhoto = {
   heroId: string | null; // its row in the carousel, if it is in it
   gallery: { id: string; tagIds: string[] } | null; // its gallery row and tags
   products: { id: string; name: string }[]; // each product that uses it, once
+  showcases: { id: string; title: string }[]; // each showcase it is in
 };
 
 // The bare photo the placement helpers need.
@@ -52,6 +55,7 @@ type Row = {
     | { id: string; gallery_photo_tags: { tag_id: string }[] }[]
     | null;
   product_images: { product_id: string; products: { name: string } | null }[];
+  showcase_photos: { showcase_id: string; showcases: { title: string } | null }[];
 };
 
 // A one-to-one embed (photo_id is unique in hero_photos and gallery_photos)
@@ -79,7 +83,8 @@ export async function queryLibrary(
   let columns = `id, path, has_original,
     hero_photos(id),
     gallery_photos(id, gallery_photo_tags(tag_id)),
-    product_images(product_id, products(name))`;
+    product_images(product_id, products(name)),
+    showcase_photos(showcase_id, showcases(title))`;
   const notUsedIn: string[] = [];
   switch (options.filter) {
     case "carousel":
@@ -91,9 +96,13 @@ export async function queryLibrary(
     case "products":
       columns += ", only:product_images!inner(id)";
       break;
+    case "showcases":
+      columns += ", only:showcase_photos!inner(id)";
+      break;
     case "unused":
-      columns += ", nh:hero_photos(id), ng:gallery_photos(id), np:product_images(id)";
-      notUsedIn.push("nh", "ng", "np");
+      columns +=
+        ", nh:hero_photos(id), ng:gallery_photos(id), np:product_images(id), ns:showcase_photos(id)";
+      notUsedIn.push("nh", "ng", "np", "ns");
       break;
     case "not-carousel":
       columns += ", nh:hero_photos(id)";
@@ -135,6 +144,11 @@ export async function queryLibrary(
           ? { id: gallery.id, tagIds: gallery.gallery_photo_tags.map((link) => link.tag_id) }
           : null,
         products: [...products].map(([id, name]) => ({ id, name })),
+        // A photo is in a showcase at most once, so no doubles here.
+        showcases: row.showcase_photos.map((link) => ({
+          id: link.showcase_id,
+          title: link.showcases?.title ?? "Украса",
+        })),
       };
     }),
     total: count ?? rows.length,
@@ -148,5 +162,6 @@ export function usageText(photo: LibraryPhoto) {
   if (photo.heroId) places.push("карусела");
   if (photo.gallery) places.push("галерията");
   for (const product of photo.products) places.push(`продукт „${product.name}“`);
+  for (const showcase of photo.showcases) places.push(`украса „${showcase.title}“`);
   return places.join(", ");
 }
