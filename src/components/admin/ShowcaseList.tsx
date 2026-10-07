@@ -29,6 +29,8 @@ export default function ShowcaseList({ showcases }: { showcases: ShowcaseRow[] }
     .filter((showcase) => showcase.showcase_photos.length > 0)
     .slice(0, HOME_SHOWCASE_COUNT)
     .map((showcase) => showcase.id);
+  // The homepage shows none of them until all three are ready.
+  const homeReady = onHome.length === HOME_SHOWCASE_COUNT;
 
   // Runs one save action with the busy message, then reloads the list.
   async function run(message: string, action: () => Promise<ActionResult>) {
@@ -144,7 +146,7 @@ export default function ShowcaseList({ showcases }: { showcases: ShowcaseRow[] }
                 </p>
               </div>
 
-              {onHome.includes(showcase.id) ? (
+              {homeReady && onHome.includes(showcase.id) ? (
                 <span className="rounded-full bg-green px-2.5 py-1 text-[0.7rem] font-extrabold text-green-ink">
                   На началната
                 </span>

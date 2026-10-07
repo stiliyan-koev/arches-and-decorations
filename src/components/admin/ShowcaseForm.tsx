@@ -39,20 +39,22 @@ export default function ShowcaseForm({ showcase }: Props) {
     } catch {
       result = { ok: false as const, error: SAVE_FAILED };
     }
-    setBusy(false);
 
     if (!result.ok) {
       setError(result.error);
+      setBusy(false);
       return;
     }
 
     // A new showcase has nowhere to put photos until it exists, so go
-    // straight to its edit page, where the photos are added.
+    // straight to its edit page, where the photos are added. The button
+    // stays busy while that page loads, so a second click can't make a copy.
     if (isNew && result.id) {
       router.push(`/admin/showcases/${result.id}`);
       return;
     }
 
+    setBusy(false);
     setSaved(true);
     router.refresh();
   }

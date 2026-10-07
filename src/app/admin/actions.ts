@@ -729,6 +729,12 @@ export async function addShowcasePhotos(
   if (!UUID.test(showcaseId)) return { ok: false, error: SHOWCASE_NOT_FOUND };
   const ids = cleanIds(photoIds);
   if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+  if (ids.length > SHOWCASE_MAX_PHOTOS) {
+    return {
+      ok: false,
+      error: `Една украса може да има до ${SHOWCASE_MAX_PHOTOS} снимки.`,
+    };
+  }
 
   const supabase = await createClient();
   const { data: showcase, error: showcaseError } = await supabase
@@ -751,7 +757,9 @@ export async function addShowcasePhotos(
   const current = showcase.showcase_photos;
   const already = new Set(current.map((row) => row.photo_id));
   const newIds = ids.filter((id) => !already.has(id));
-  if (newIds.length === 0) return { ok: true };
+  if (newIds.length === 0) {
+    return { ok: false, error: "Избраните снимки вече са в украсата." };
+  }
 
   if (current.length + newIds.length > SHOWCASE_MAX_PHOTOS) {
     const left = Math.max(0, SHOWCASE_MAX_PHOTOS - current.length);
