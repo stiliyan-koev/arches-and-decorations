@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/products", label: "Продукти" },
   { href: "/admin/categories", label: "Категории" },
   { href: "/admin/home", label: "Начална страница" },
+  { href: "/admin/showcases", label: "Украси" },
   { href: "/admin/gallery", label: "Галерия" },
 ];
 
@@ -45,7 +46,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             Админ панел
           </Link>
 
-          <nav className="flex gap-4 text-[0.95rem] font-bold">
+          <nav className="flex flex-wrap gap-x-4 gap-y-2 text-[0.95rem] font-bold">
             {NAV.map((item) => (
               <Link
                 key={item.href}
