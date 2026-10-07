@@ -3,7 +3,10 @@ import Link from "next/link";
 import FloatingBalloons from "@/components/FloatingBalloons";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import OccasionCards from "@/components/home/OccasionCards";
+import ShowcaseCards from "@/components/home/ShowcaseCards";
 import { getHeroPhotos } from "@/lib/hero-photos";
+import { getHomeShowcases } from "@/lib/showcases";
+import { HOME_SHOWCASE_COUNT } from "@/lib/home";
 
 export const metadata: Metadata = {
   title: { absolute: "Балони и арки — празнични украси във Варна" },
@@ -11,11 +14,16 @@ export const metadata: Metadata = {
     "Балонни украси и арки за рождени дни, кръщенета и партита във Варна. Разгледай каталога и виж ориентировъчна цена.",
 };
 
-// The homepage: photos of finished work, a call to open the catalog, and the
-// gallery by occasion. The catalog is the main flow now; the old configurator
-// homepage lives on at /configurator as a hidden backup.
+// The homepage: photos of finished work, a call to open the catalog, and three
+// finished decorations up close (the showcases from /admin/showcases). Until
+// three showcases have photos, the gallery-by-occasion cards stand in for
+// them. The catalog is the main flow now; the old configurator homepage lives
+// on at /configurator as a hidden backup.
 export default async function HomePage() {
-  const heroPhotos = await getHeroPhotos();
+  const [heroPhotos, showcases] = await Promise.all([
+    getHeroPhotos(),
+    getHomeShowcases(),
+  ]);
 
   return (
     <>
@@ -58,7 +66,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <OccasionCards />
+      {showcases.length === HOME_SHOWCASE_COUNT ? (
+        <ShowcaseCards showcases={showcases} />
+      ) : (
+        <OccasionCards />
+      )}
     </>
   );
 }

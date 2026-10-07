@@ -96,6 +96,13 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
       `/catalog`, order summary at `/request` (2 Oct 2026, see Step 3)
 - [x] `/gallery` filters by `?tag=` (the occasion cards' slugs `rozhden-den`, `krashtene`,
       `parti` match once she creates tags with those names)
+- [x] Showcases („Украси“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),
+      `/admin/showcases` (create, edit, ‹ › order, delete; up to 12 library photos each, first
+      = cover), and „Наши украси отблизо“ on `/`: three cards, each opening a popup with the text
+      and every photo whole (✕ / Escape / backdrop / Back close it). Browser-checked on the live
+      DB (admin) and with a local preview (popup, phone + desktop).
+- [ ] Three showcases with photos created **(her)** — until then `/` shows „Вдъхнови се по повод“
+- [ ] Cleanup once three are live: delete `OccasionCards` + `OCCASIONS`
 
 ## Step 2 — Configurator ✅ (was the homepage; now `/configurator`)
 
@@ -229,6 +236,8 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       with the same total and a shut send button (never clicked)
 - [x] `@blocker` step 1 → step 2: the contact form opens with the date, city and estimate,
       and the send button is shut until a phone number is filled (never clicked)
+- [x] `@critical` the homepage shows the showcases from the database (three with photos → open
+      the first popup and close it; fewer → „Вдъхнови се по повод“)
 - [x] **(you)** `@playwright/test` installed, `npx playwright install chromium` done
 - [ ] **A green run of all six.** The first run (1 Oct) had the live-DB spec unable to start:
       `supabase-js` needs a global `WebSocket` (Node 22+) and this machine is on Node 20. It now
