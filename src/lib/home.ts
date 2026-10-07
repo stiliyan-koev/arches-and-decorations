@@ -8,6 +8,14 @@
 // admin form (a client component) needs it too.
 export const CAPTION_MAX = 60;
 
+// Showcases („Украси“, see showcases.ts): the limits the admin forms show and
+// the server actions check, and how many cards the homepage needs. Here for
+// the same reason as CAPTION_MAX.
+export const SHOWCASE_TITLE_MAX = 80;
+export const SHOWCASE_BODY_MAX = 1500;
+export const SHOWCASE_MAX_PHOTOS = 12;
+export const HOME_SHOWCASE_COUNT = 3;
+
 export type HeroPhoto = {
   id: string;
   src: string | null; // full image URL, or null for a placeholder tile
