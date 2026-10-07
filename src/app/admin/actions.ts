@@ -4,7 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
-import { CAPTION_MAX } from "@/lib/home";
+import {
+  CAPTION_MAX,
+  SHOWCASE_BODY_MAX,
+  SHOWCASE_MAX_PHOTOS,
+  SHOWCASE_TITLE_MAX,
+} from "@/lib/home";
 import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
@@ -606,6 +611,219 @@ export async function removeHeroPhoto(id: string): Promise<ActionResult> {
   if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
 
   await removeTiles(supabase, deleted.map((photo) => photo.path));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Showcases ----------
+
+// A showcase („Украса“) is a title, a plain text and library photos shown
+// whole. There are no tiles, so these only touch rows, never files: deleting
+// a showcase or taking a photo out of it leaves the library photo as it is.
+
+const SHOWCASE_NOT_FOUND = "Украсата не е намерена.";
+
+// Creates (id null) or updates a showcase. A new one goes to the end of the
+// list. Returns the id, so the new-showcase form can open its edit page.
+export async function saveShowcase(
+  id: string | null,
+  input: { title: string; body: string },
+): Promise<ActionResult & { id?: string }> {
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (!title) return { ok: false, error: "Напишете заглавие." };
+  if (title.length > SHOWCASE_TITLE_MAX) {
+    return { ok: false, error: `Заглавието може да е до ${SHOWCASE_TITLE_MAX} знака.` };
+  }
+  if (body.length > SHOWCASE_BODY_MAX) {
+    return { ok: false, error: `Текстът може да е до ${SHOWCASE_BODY_MAX} знака.` };
+  }
+
+  const supabase = await createClient();
+
+  if (id) {
+    if (!UUID.test(id)) return { ok: false, error: SHOWCASE_NOT_FOUND };
+    const { data, error } = await supabase
+      .from("showcases")
+      .update({ title, body })
+      .eq("id", id)
+      .select("id");
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: SHOWCASE_NOT_FOUND };
+
+    revalidateCatalog();
+    return { ok: true, id };
+  }
+
+  const { data: lastRow } = await supabase
+    .from("showcases")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // The id is made here so the row needn't be read back (see addGalleryPhoto).
+  const newId = crypto.randomUUID();
+  const { error } = await supabase.from("showcases").insert({
+    id: newId,
+    title,
+    body,
+    sort: (lastRow?.sort ?? 0) + 1,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true, id: newId };
+}
+
+// Deletes the showcase and its photo links (on delete cascade). The library
+// photos stay.
+export async function deleteShowcase(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: SHOWCASE_NOT_FOUND };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("showcases")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: SHOWCASE_NOT_FOUND };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring showcases, the same way as swapHeroOrder.
+export async function swapShowcaseOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  if (!UUID.test(first.id) || !UUID.test(second.id)) {
+    return { ok: false, error: SHOWCASE_NOT_FOUND };
+  }
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("showcases").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("showcases").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: SHOWCASE_NOT_FOUND };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Adds library photos to the end of a showcase, in the order given. Photos
+// already in it are skipped. Going past SHOWCASE_MAX_PHOTOS is refused
+// outright rather than cut, so no photo is quietly left out.
+export async function addShowcasePhotos(
+  showcaseId: string,
+  photoIds: string[],
+): Promise<ActionResult> {
+  if (!UUID.test(showcaseId)) return { ok: false, error: SHOWCASE_NOT_FOUND };
+  const ids = cleanIds(photoIds);
+  if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+  if (ids.length > SHOWCASE_MAX_PHOTOS) {
+    return {
+      ok: false,
+      error: `Една украса може да има до ${SHOWCASE_MAX_PHOTOS} снимки.`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: showcase, error: showcaseError } = await supabase
+    .from("showcases")
+    .select("id, showcase_photos(photo_id, sort)")
+    .eq("id", showcaseId)
+    .maybeSingle();
+  if (showcaseError) return { ok: false, error: showcaseError.message };
+  if (!showcase) return { ok: false, error: SHOWCASE_NOT_FOUND };
+
+  const { data: photos, error: photosError } = await supabase
+    .from("photos")
+    .select("id")
+    .in("id", ids);
+  if (photosError) return { ok: false, error: photosError.message };
+  if (photos.length < ids.length) {
+    return { ok: false, error: "Някоя от снимките я няма в библиотеката." };
+  }
+
+  const current = showcase.showcase_photos;
+  const already = new Set(current.map((row) => row.photo_id));
+  const newIds = ids.filter((id) => !already.has(id));
+  if (newIds.length === 0) {
+    return { ok: false, error: "Избраните снимки вече са в украсата." };
+  }
+
+  if (current.length + newIds.length > SHOWCASE_MAX_PHOTOS) {
+    const left = Math.max(0, SHOWCASE_MAX_PHOTOS - current.length);
+    return {
+      ok: false,
+      error: `Една украса може да има до ${SHOWCASE_MAX_PHOTOS} снимки. Остават още ${left}.`,
+    };
+  }
+
+  const lastSort = Math.max(0, ...current.map((row) => row.sort));
+  const { error } = await supabase.from("showcase_photos").insert(
+    newIds.map((photo_id, index) => ({
+      showcase_id: showcaseId,
+      photo_id,
+      sort: lastSort + 1 + index,
+    })),
+  );
+  // Two tabs adding the same photo at once.
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Снимката вече е в украсата." };
+  }
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Takes one photo out of a showcase. The library photo stays.
+export async function removeShowcasePhoto(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("showcase_photos")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring photos of a showcase, the same way as swapHeroOrder.
+// The first photo is the cover, so this is also how she picks the cover.
+export async function swapShowcasePhotoOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  if (!UUID.test(first.id) || !UUID.test(second.id)) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("showcase_photos").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("showcase_photos").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
+  }
 
   revalidateCatalog();
   return { ok: true };

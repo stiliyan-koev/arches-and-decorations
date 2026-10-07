@@ -11,6 +11,8 @@ const ADMIN_PAGES = [
   "/admin/categories",
   "/admin/gallery",
   "/admin/home",
+  "/admin/showcases",
+  "/admin/showcases/new",
 ];
 
 test("admin pages send a visitor without a session to the login page", { tag: "@blocker" }, async ({ request }) => {
