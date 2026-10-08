@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import BasketLines from "@/components/basket/BasketLines";
-import { formatPrice } from "@/lib/format";
+import { formatTotal } from "@/lib/format";
 import { MAX_LINES, useBasket } from "@/lib/selection";
 import { basketView, type PlpProduct } from "@/lib/catalog-plp";
 
@@ -142,7 +142,7 @@ export default function MiniBasket({
                   className="font-serif text-[1.6rem] leading-none font-semibold tabular-nums"
                   aria-live="polite"
                 >
-                  {formatPrice(total)}
+                  {formatTotal(total, hasQuote)}
                 </span>
               </div>
               <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">

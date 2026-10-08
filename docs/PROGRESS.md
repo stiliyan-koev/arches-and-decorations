@@ -39,11 +39,10 @@ reading the rendered DOM: 47 real UUIDs, not the fallback's slug ids.
 - [x] SQL editor → run `schema.sql` — 7 categories, 18 products, RLS + RPCs live
 - [x] SQL editor → run `seed.sql`
 - [x] Storage → create bucket `catalog`, public read
-- [ ] **Authentication → Providers → Email → turn OFF "Allow new users to sign up"** —
-      verified `disable_signup: false` on 19 Sep 2026. Every admin RLS policy keys off
-      `auth.role() = 'authenticated'`, so while sign-ups are open *anyone* who registers
-      gets full read/write on the catalog and can read customer phone numbers.
-      **Blocking for deploy.**
+- [x] **Authentication → Providers → Email → turn OFF "Allow new users to sign up"** —
+      off (owner, 8 Oct 2026). Every admin RLS policy keys off
+      `auth.role() = 'authenticated'`, so this must stay off: with sign-ups open *anyone*
+      who registers gets full read/write on the catalog and can read customer phone numbers.
 - [ ] Authentication → Users → your admin user (tick **Auto Confirm User** —
       `mailer_autoconfirm` is false, so an unconfirmed user can never log in)
 - [ ] Authentication → Users → your wife's admin user
@@ -97,7 +96,8 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
       `parti` match once she creates tags with those names)
 - [x] Photo library (`/admin/photos`): one original per photo, which the carousel, the gallery,
       the products and the showcases use. `migration-photo-library.sql` run on the live DB.
-      On a fresh DB the order is: hero-photos → gallery → photo-library → showcases.
+      On a DB from before these tables, run them in this order: hero-photos → gallery →
+      photo-library → showcases. A fresh DB needs only `schema.sql`.
 - [ ] Re-run `migration-photo-library.sql` once after release 1.2.0 is live **(you)** — it
       links photos the old admin uploaded in the meantime
 - [x] Showcases („Украси“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),

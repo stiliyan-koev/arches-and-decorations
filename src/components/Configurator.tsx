@@ -511,6 +511,7 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
           <MobileSummaryBar
             itemCount={items.length}
             total={total}
+            hasQuoteItems={hasQuoteItems}
             ctaLabel={barCtaLabel}
             ctaDisabled={ctaDisabled}
             hint={step === 1 ? stepOneHint : null}
