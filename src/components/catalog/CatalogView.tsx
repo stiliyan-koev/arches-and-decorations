@@ -6,6 +6,7 @@ import Filters from "@/components/catalog/Filters";
 import FilterSheet from "@/components/catalog/FilterSheet";
 import ProductCard from "@/components/catalog/ProductCard";
 import OfferButton from "@/components/catalog/OfferButton";
+import FloatingOfferButton from "@/components/catalog/FloatingOfferButton";
 import MiniBasket from "@/components/basket/MiniBasket";
 import {
   activeFilterCount,
@@ -47,6 +48,10 @@ export default function CatalogView({
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [basketFull, setBasketFull] = useState(false);
   const openedFrom = useRef<HTMLElement | null>(null);
+  // Whether the „Вашата оферта“ pill is on screen. When it isn't, the floating
+  // basket button takes its place.
+  const pillRef = useRef<HTMLDivElement>(null);
+  const [pillInView, setPillInView] = useState(true);
 
   // Keep the URL in step with the view so it survives a reload and can be shared.
   // replaceState, not push — Back should leave the catalog, not undo nine filter
@@ -61,6 +66,19 @@ export default function CatalogView({
       window.history.replaceState(null, "", target);
     }
   }, [state]);
+
+  // The top margin is the sticky site header (two rows on phones): a pill
+  // tucked under it counts as out of view.
+  useEffect(() => {
+    const pill = pillRef.current;
+    if (!pill) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPillInView(entry.isIntersecting),
+      { rootMargin: "-110px 0px 0px 0px" },
+    );
+    observer.observe(pill);
+    return () => observer.disconnect();
+  }, []);
 
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
@@ -164,10 +182,12 @@ export default function CatalogView({
             личната среща.
           </p>
         </div>
-        <OfferButton
-          onClick={() => openBasket(null)}
-          products={data.products}
-        />
+        <div ref={pillRef}>
+          <OfferButton
+            onClick={() => openBasket(null)}
+            products={data.products}
+          />
+        </div>
       </div>
 
       {/* Mobile category pill row, sticky under the site header */}
@@ -329,6 +349,12 @@ export default function CatalogView({
           )}
         </div>
       </div>
+
+      <FloatingOfferButton
+        onClick={() => openBasket(null)}
+        products={data.products}
+        pillInView={pillInView}
+      />
 
       <MiniBasket
         open={basketOpen}
