@@ -1,4 +1,4 @@
-import { formatPrice } from "@/lib/format";
+import { formatTotal } from "@/lib/format";
 
 export type SummaryLine = {
   key: string;
@@ -75,7 +75,7 @@ export default function SummaryRail({
         className="my-0.5 mb-1.5 font-serif text-[2.3rem] leading-none font-semibold tabular-nums"
         aria-live="polite"
       >
-        {formatPrice(total)}
+        {formatTotal(total, hasQuoteItems)}
       </div>
       <p className="mb-3.5 text-[0.78rem] leading-relaxed text-muted">
         Цената е ориентировъчна. Крайната оферта уточняваме лично.

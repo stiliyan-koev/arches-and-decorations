@@ -299,8 +299,13 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
     .select("path")
     .eq("product_id", id);
 
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Продуктът не е намерен." };
 
   await removeTiles(supabase, (images ?? []).map((image) => image.path));
 
@@ -380,8 +385,13 @@ export async function deleteColor(id: string): Promise<ActionResult> {
     .select("path")
     .eq("color_id", id);
 
-  const { error } = await supabase.from("product_colors").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("product_colors")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Цветът не е намерен." };
 
   await removeTiles(supabase, (images ?? []).map((image) => image.path));
 

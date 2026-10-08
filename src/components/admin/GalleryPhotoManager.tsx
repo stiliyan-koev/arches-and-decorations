@@ -131,11 +131,11 @@ export default function GalleryPhotoManager({
   }
 
   // Photos picked from the library, one after another like an upload.
-  async function handlePicked(photos: PhotoRef[]) {
+  async function handlePicked(picked: PhotoRef[]) {
     setPicking(false);
     setError("");
-    for (const [index, photo] of photos.entries()) {
-      setBusy(`Добавяне ${index + 1} от ${photos.length}…`);
+    for (const [index, photo] of picked.entries()) {
+      setBusy(`Добавяне ${index + 1} от ${picked.length}…`);
       const blob = await downloadOriginal(photo.path);
       const result = blob
         ? await addToGallery(photo, blob, batchTags.map((tag) => tag.id))

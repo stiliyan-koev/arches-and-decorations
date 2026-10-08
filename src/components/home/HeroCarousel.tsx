@@ -23,8 +23,14 @@ function coverflowTransform(offset: number) {
 // going through React state.
 function applyCoverflow(strip: HTMLDivElement) {
   const center = strip.scrollLeft + strip.clientWidth / 2;
-  for (const slot of Array.from(strip.children) as HTMLElement[]) {
-    const offset = (center - slot.offsetLeft - slot.offsetWidth / 2) / slot.offsetWidth;
+  const slots = Array.from(strip.children) as HTMLElement[];
+  // Read every position before writing any style: a read right after a write
+  // makes the browser recalculate styles, once per slide on every frame.
+  const offsets = slots.map(
+    (slot) => (center - slot.offsetLeft - slot.offsetWidth / 2) / slot.offsetWidth,
+  );
+  for (const [index, slot] of slots.entries()) {
+    const offset = offsets[index];
     const photo = slot.firstElementChild as HTMLElement;
     photo.style.transform = coverflowTransform(offset);
     slot.style.zIndex = String(1 - Math.abs(Math.round(offset)));
