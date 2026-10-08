@@ -3,6 +3,7 @@
 -- homepage; managed from /admin/showcases. Run once in the Supabase SQL
 -- editor. Additive, safe to re-run. Run it BEFORE this code goes live:
 -- /admin/photos and the photo picker read showcase_photos.
+-- Needs migration-photo-library.sql first: showcase_photos references photos.
 -- No files of their own: a showcase shows its library photos whole
 -- (photos.path), and the card crops the first one with CSS.
 create table if not exists showcases (

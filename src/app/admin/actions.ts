@@ -483,6 +483,7 @@ export async function swapImageOrder(
 
 // Takes the photo off this product. The library photo stays.
 export async function deleteImage(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data: deleted, error } = await supabase
     .from("product_images")
@@ -560,6 +561,7 @@ export async function saveHeroCaption(
   id: string,
   caption: string,
 ): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("hero_photos")
@@ -580,6 +582,9 @@ export async function swapHeroOrder(
   first: { id: string; sort: number },
   second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  if (!UUID.test(first.id) || !UUID.test(second.id)) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
   const low = Math.min(first.sort, second.sort);
   const high = Math.max(low + 1, first.sort, second.sort);
 
@@ -601,6 +606,7 @@ export async function swapHeroOrder(
 
 // Takes the photo out of the carousel. The library photo stays.
 export async function removeHeroPhoto(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data: deleted, error } = await supabase
     .from("hero_photos")
@@ -995,9 +1001,6 @@ function cleanTagName(name: string) {
   return clean && slug ? { name: clean, slug } : null;
 }
 
-// Postgres "unique violation": a tag with this slug already exists.
-const DUPLICATE_TAG = "23505";
-
 // Returns the new tag, so the tag picker can put it on a photo straight away.
 export async function createGalleryTag(
   name: string,
@@ -1011,7 +1014,7 @@ export async function createGalleryTag(
     .insert(tag)
     .select("id, name, slug")
     .single();
-  if (error?.code === DUPLICATE_TAG) return { ok: false, error: "Вече има такъв етикет." };
+  if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
   if (error) return { ok: false, error: error.message };
 
   revalidateCatalog();
@@ -1031,7 +1034,7 @@ export async function renameGalleryTag(id: string, name: string): Promise<Action
     .update(tag)
     .eq("id", id)
     .select("id");
-  if (error?.code === DUPLICATE_TAG) return { ok: false, error: "Вече има такъв етикет." };
+  if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) return { ok: false, error: "Етикетът не е намерен." };
 

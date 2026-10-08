@@ -3,6 +3,8 @@
 -- with their own framing (tile + crop). Managed from /admin/photos.
 -- Run once in the Supabase SQL editor. Additive, safe to re-run: run it again
 -- after the deploy too, so photos the old admin uploaded meanwhile get linked.
+-- Needs migration-hero-photos.sql and migration-gallery.sql first: it alters
+-- their tables.
 -- Files stay where they are; new originals go in the `catalog` bucket under
 -- photos/, which storage-policies.sql already covers.
 create table if not exists photos (

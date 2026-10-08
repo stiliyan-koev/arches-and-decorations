@@ -168,7 +168,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         eventTime: activeMode === "service" ? event.time : "",
         startDate: activeMode === "rental" ? event.startDate : "",
         endDate: activeMode === "rental" ? event.endDate : "",
-        setup2hBefore: event.setup2hBefore,
+        setup2hBefore: activeMode === "service" && event.setup2hBefore,
         estimatedTotal: total,
         items: requestItems,
       });

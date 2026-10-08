@@ -88,14 +88,18 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
 - [x] Footer „Конфигуратор" link removed; `--color-muted` darkened to pass WCAG AA
 - [x] Hero carousel managed from `/admin/home`: upload (4:5 cropper), caption, ← → order,
       delete. Table `hero_photos`; files in `catalog` → `home/hero/`.
-- [ ] **Run `migration-hero-photos.sql`** in the SQL editor **(you)** — until then the
-      homepage shows the pastel placeholders and `/admin/home` says the table is missing
+- [x] `migration-hero-photos.sql` run on the live DB
 - [ ] Hero photos uploaded **(her)**
 - [ ] Occasion card photos in `public/home/` + paths in `src/lib/home.ts` **(you)**
 - [x] Catalog add-to-total logic (the new main flow): basket + mini-basket drawer on
       `/catalog`, order summary at `/request` (2 Oct 2026, see Step 3)
 - [x] `/gallery` filters by `?tag=` (the occasion cards' slugs `rozhden-den`, `krashtene`,
       `parti` match once she creates tags with those names)
+- [x] Photo library (`/admin/photos`): one original per photo, which the carousel, the gallery,
+      the products and the showcases use. `migration-photo-library.sql` run on the live DB.
+      On a fresh DB the order is: hero-photos → gallery → photo-library → showcases.
+- [ ] Re-run `migration-photo-library.sql` once after release 1.2.0 is live **(you)** — it
+      links photos the old admin uploaded in the meantime
 - [x] Showcases („Украси“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),
       `/admin/showcases` (create, edit, ‹ › order, delete; up to 12 library photos each, first
       = cover), and „Наши украси отблизо“ on `/`: three cards, each opening a popup with the text
@@ -211,8 +215,7 @@ SEO and deploy are still open.
       (`TagPicker`), per-photo tag chips, „Избери снимки“ to add/remove a tag on or delete
       many photos at once, a „Без етикет“ filter, „Изрежи“, delete. Tables
       `gallery_photos`, `gallery_tags`, `gallery_photo_tags`; files in `catalog` → `gallery/`
-- [ ] **Run `migration-gallery.sql`** in the SQL editor **(you)** — until then `/gallery` says
-      „Очаквайте скоро“ and `/admin/gallery` says the tables are missing
+- [x] `migration-gallery.sql` run on the live DB
 - [ ] Gallery photos uploaded **(her)**
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
 - [ ] Responsive pass on a real phone
