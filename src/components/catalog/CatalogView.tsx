@@ -319,7 +319,7 @@ export default function CatalogView({
                   Изчисти филтрите
                 </button>
                 <Link
-                  href="/#calc"
+                  href="/about"
                   className="inline-flex min-h-[44px] items-center rounded-full border border-balloon-pink bg-surface px-6 text-sm font-extrabold text-cta hover:bg-surface-2 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
                 >
                   Питайте за поръчка

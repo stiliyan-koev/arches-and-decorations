@@ -2,11 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { imageUrl } from "@/lib/images";
 import type { GalleryPhoto, GalleryTag } from "@/lib/gallery";
+import type { CropRect } from "@/lib/resize-image";
 
 type PhotoRow = {
   id: string;
+  photo_id: string | null;
   path: string;
-  full_path: string;
+  full_path: string | null;
+  crop: CropRect | null;
+  photo: { path: string } | null;
   gallery_photo_tags: { tag_id: string }[];
 };
 
@@ -41,7 +45,8 @@ export async function getGalleryPhotos(options: {
   limit: number;
 }): Promise<{ photos: GalleryPhoto[]; total: number; hasMore: boolean }> {
   const supabase = await createClient();
-  let columns = "id, path, full_path, gallery_photo_tags(tag_id)";
+  let columns =
+    "id, photo_id, path, full_path, crop, photo:photos(path), gallery_photo_tags(tag_id)";
   if (options.tagId) columns += ", only:gallery_photo_tags!inner(tag_id)";
   else if (options.untagged) columns += ", none:gallery_photo_tags(tag_id)";
 
@@ -59,14 +64,20 @@ export async function getGalleryPhotos(options: {
 
   const rows = data as unknown as PhotoRow[];
   return {
-    photos: rows.map((row) => ({
-      id: row.id,
-      tileUrl: imageUrl(row.path),
-      fullUrl: imageUrl(row.full_path),
-      tilePath: row.path,
-      fullPath: row.full_path,
-      tagIds: row.gallery_photo_tags.map((link) => link.tag_id),
-    })),
+    photos: rows.map((row) => {
+      // The whole photo is the library photo; full_path is the older copy.
+      const fullPath = row.photo?.path ?? row.full_path ?? row.path;
+      return {
+        id: row.id,
+        photoId: row.photo_id,
+        tileUrl: imageUrl(row.path),
+        fullUrl: imageUrl(fullPath),
+        tilePath: row.path,
+        fullPath,
+        crop: row.crop,
+        tagIds: row.gallery_photo_tags.map((link) => link.tag_id),
+      };
+    }),
     total: count ?? rows.length,
     hasMore: (count ?? 0) > rows.length,
   };

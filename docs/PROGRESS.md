@@ -39,11 +39,10 @@ reading the rendered DOM: 47 real UUIDs, not the fallback's slug ids.
 - [x] SQL editor → run `schema.sql` — 7 categories, 18 products, RLS + RPCs live
 - [x] SQL editor → run `seed.sql`
 - [x] Storage → create bucket `catalog`, public read
-- [ ] **Authentication → Providers → Email → turn OFF "Allow new users to sign up"** —
-      verified `disable_signup: false` on 19 Sep 2026. Every admin RLS policy keys off
-      `auth.role() = 'authenticated'`, so while sign-ups are open *anyone* who registers
-      gets full read/write on the catalog and can read customer phone numbers.
-      **Blocking for deploy.**
+- [x] **Authentication → Providers → Email → turn OFF "Allow new users to sign up"** —
+      off (owner, 8 Oct 2026). Every admin RLS policy keys off
+      `auth.role() = 'authenticated'`, so this must stay off: with sign-ups open *anyone*
+      who registers gets full read/write on the catalog and can read customer phone numbers.
 - [ ] Authentication → Users → your admin user (tick **Auto Confirm User** —
       `mailer_autoconfirm` is false, so an unconfirmed user can never log in)
 - [ ] Authentication → Users → your wife's admin user
@@ -88,14 +87,26 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
 - [x] Footer „Конфигуратор" link removed; `--color-muted` darkened to pass WCAG AA
 - [x] Hero carousel managed from `/admin/home`: upload (4:5 cropper), caption, ← → order,
       delete. Table `hero_photos`; files in `catalog` → `home/hero/`.
-- [ ] **Run `migration-hero-photos.sql`** in the SQL editor **(you)** — until then the
-      homepage shows the pastel placeholders and `/admin/home` says the table is missing
+- [x] `migration-hero-photos.sql` run on the live DB
 - [ ] Hero photos uploaded **(her)**
 - [ ] Occasion card photos in `public/home/` + paths in `src/lib/home.ts` **(you)**
 - [x] Catalog add-to-total logic (the new main flow): basket + mini-basket drawer on
       `/catalog`, order summary at `/request` (2 Oct 2026, see Step 3)
 - [x] `/gallery` filters by `?tag=` (the occasion cards' slugs `rozhden-den`, `krashtene`,
       `parti` match once she creates tags with those names)
+- [x] Photo library (`/admin/photos`): one original per photo, which the carousel, the gallery,
+      the products and the showcases use. `migration-photo-library.sql` run on the live DB.
+      On a DB from before these tables, run them in this order: hero-photos → gallery →
+      photo-library → showcases. A fresh DB needs only `schema.sql`.
+- [ ] Re-run `migration-photo-library.sql` once after release 1.2.0 is live **(you)** — it
+      links photos the old admin uploaded in the meantime
+- [x] Showcases („Украси“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),
+      `/admin/showcases` (create, edit, ‹ › order, delete; up to 12 library photos each, first
+      = cover), and „Наши украси отблизо“ on `/`: three cards, each opening a popup with the text
+      and every photo whole (✕ / Escape / backdrop / Back close it). Browser-checked on the live
+      DB (admin) and with a local preview (popup, phone + desktop).
+- [ ] Three showcases with photos created **(her)** — until then `/` shows „Вдъхнови се по повод“
+- [ ] Cleanup once three are live: delete `OccasionCards` + `OCCASIONS`
 
 ## Step 2 — Configurator ✅ (was the homepage; now `/configurator`)
 
@@ -204,8 +215,7 @@ SEO and deploy are still open.
       (`TagPicker`), per-photo tag chips, „Избери снимки“ to add/remove a tag on or delete
       many photos at once, a „Без етикет“ filter, „Изрежи“, delete. Tables
       `gallery_photos`, `gallery_tags`, `gallery_photo_tags`; files in `catalog` → `gallery/`
-- [ ] **Run `migration-gallery.sql`** in the SQL editor **(you)** — until then `/gallery` says
-      „Очаквайте скоро“ and `/admin/gallery` says the tables are missing
+- [x] `migration-gallery.sql` run on the live DB
 - [ ] Gallery photos uploaded **(her)**
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
 - [ ] Responsive pass on a real phone
@@ -229,6 +239,8 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       with the same total and a shut send button (never clicked)
 - [x] `@blocker` step 1 → step 2: the contact form opens with the date, city and estimate,
       and the send button is shut until a phone number is filled (never clicked)
+- [x] `@critical` the homepage shows the showcases from the database (three with photos → open
+      the first popup and close it; fewer → „Вдъхнови се по повод“)
 - [x] **(you)** `@playwright/test` installed, `npx playwright install chromium` done
 - [ ] **A green run of all six.** The first run (1 Oct) had the live-DB spec unable to start:
       `supabase-js` needs a global `WebSocket` (Node 22+) and this machine is on Node 20. It now

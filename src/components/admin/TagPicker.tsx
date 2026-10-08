@@ -11,6 +11,39 @@ import { createGalleryTag } from "@/app/admin/actions";
 // How many matches the list shows. She narrows it by typing, not scrolling.
 const MAX_MATCHES = 8;
 
+// How many letters she types before anything is suggested.
+const MIN_CHARS = 2;
+
+// Where `text` starts a word of `value`, or -1. Any character that is not a
+// letter or digit (space, "·", "-", "„") separates words, so "рож" and "елза"
+// both find "Рожден ден Елза", while "ден" doesn't find "Рожденден".
+// `text` must already be lower case.
+function wordStart(value: string, text: string) {
+  const lower = value.toLocaleLowerCase("bg");
+  for (let index = lower.indexOf(text); index !== -1; index = lower.indexOf(text, index + 1)) {
+    if (index === 0 || !/[\p{L}\p{N}]/u.test(lower[index - 1])) return index;
+  }
+  return -1;
+}
+
+// The tags whose name has a word starting with what she typed, or whose slug
+// does (so the Latin "hulk" also finds „Хълк“). Names that start with it come
+// first; otherwise the list keeps its order (by name).
+function findTags(tags: GalleryTag[], query: string) {
+  const text = query.trim().toLocaleLowerCase("bg");
+  const slug = slugify(query);
+  const found: { tag: GalleryTag; first: boolean }[] = [];
+  for (const tag of tags) {
+    const index = wordStart(tag.name, text);
+    if (index !== -1 || (slug && wordStart(tag.slug, slug) !== -1)) {
+      found.push({ tag, first: index === 0 });
+    }
+  }
+  return [...found.filter((item) => item.first), ...found.filter((item) => !item.first)].map(
+    (item) => item.tag,
+  );
+}
+
 type Props = {
   tags: GalleryTag[]; // every tag, so „Създай“ knows which names are taken
   excludeIds?: string[]; // tags not to offer here (e.g. the photo already has them)
@@ -19,6 +52,9 @@ type Props = {
   // Offer „Създай …“ when nothing matches. Off where a new tag makes no sense
   // (removing a tag from a selection).
   allowCreate?: boolean;
+  // Letters to type before anything is suggested. 0 lists every tag offered
+  // straight away: for a short list (the tags a selection already has).
+  minChars?: number;
   disabled?: boolean;
   // Open the list above the box, for a picker that sits at the bottom of the
   // screen (the selection bar).
@@ -27,14 +63,16 @@ type Props = {
 };
 
 // A tag picker that scales to hundreds of tags: a button that opens a search
-// box, a short list of matches as she types, and „Създай „…““ when the tag
-// doesn't exist yet. Arrow keys + Enter work, Escape closes.
+// box. From the second letter she types it suggests the tags with a word
+// starting with it, and „Създай „…““ when the tag doesn't exist yet. Arrow
+// keys + Enter work, Escape closes.
 export default function TagPicker({
   tags,
   excludeIds = [],
   label,
   onPick,
   allowCreate = true,
+  minChars = MIN_CHARS,
   disabled = false,
   openUp = false,
   onError,
@@ -46,19 +84,16 @@ export default function TagPicker({
   const [active, setActive] = useState(0);
   const [creating, setCreating] = useState(false);
 
-  // Match on the name, and on the slug so „hulk“ also finds „Хълк“.
-  const text = query.trim().toLowerCase();
   const slug = slugify(query);
   const offered = tags.filter((tag) => !excludeIds.includes(tag.id));
-  const matches = (
-    text
-      ? offered.filter(
-          (tag) => tag.name.toLowerCase().includes(text) || (slug && tag.slug.includes(slug)),
-        )
-      : offered
-  ).slice(0, MAX_MATCHES);
+  // Nothing is suggested (or created) until she has typed enough.
+  const typed = query.trim().length;
+  const tooShort = typed < minChars;
+  const matches = tooShort
+    ? []
+    : (typed === 0 ? offered : findTags(offered, query)).slice(0, MAX_MATCHES);
   const exists = tags.some((tag) => tag.slug === slug);
-  const canCreate = allowCreate && slug !== "" && !exists;
+  const canCreate = allowCreate && !tooShort && slug !== "" && !exists;
   // The options in order: the matches, then „Създай“ if offered.
   const optionCount = matches.length + (canCreate ? 1 : 0);
 
@@ -192,7 +227,11 @@ export default function TagPicker({
         )}
         {optionCount === 0 && (
           <li className="px-3 py-1.5 text-[0.8rem] text-muted">
-            {offered.length === 0 ? "Няма етикети." : "Няма такъв етикет."}
+            {offered.length === 0
+              ? "Няма етикети."
+              : tooShort
+                ? `Напишете поне ${minChars} букви.`
+                : "Няма такъв етикет."}
           </li>
         )}
       </ul>

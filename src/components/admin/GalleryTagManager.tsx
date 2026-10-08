@@ -9,8 +9,7 @@ import {
   deleteGalleryTag,
   renameGalleryTag,
 } from "@/app/admin/actions";
-
-const SAVE_FAILED = "Запазването се провали. Опитайте отново.";
+import { SAVE_FAILED } from "@/lib/upload-photo";
 
 const INPUT =
   "min-w-0 flex-1 rounded-item border border-border-strong bg-bg px-3 py-2 text-[0.9rem]";

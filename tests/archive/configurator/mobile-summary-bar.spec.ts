@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { formatPrice } from "../../src/lib/format";
-import { addFirstOption, PRICED, priceIn } from "./add-item";
+import { formatPrice } from "../../../src/lib/format";
+import { addFirstOption, PRICED, priceIn } from "../../smoke/add-item";
 
 // Most of her traffic comes from Instagram, on a phone. Below `lg` the summary
 // rail drops underneath the tile grid, so the running total scrolls out of
@@ -16,7 +16,7 @@ test.use({ viewport: { width: 390, height: 844 } });
 const BAR_CTA = "Напред →";
 
 test("the summary bar stays on screen on a phone", { tag: "@minor" }, async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/configurator");
 
   // Nothing chosen yet, so there is nothing to summarise.
   await expect(page.getByRole("button", { name: BAR_CTA })).toHaveCount(0);

@@ -1,8 +1,9 @@
-import { formatPrice } from "@/lib/format";
+import { formatTotal } from "@/lib/format";
 
 type Props = {
   itemCount: number;
   total: number;
+  hasQuoteItems: boolean;
   ctaLabel: string;
   ctaDisabled: boolean;
   hint: string | null;
@@ -17,6 +18,7 @@ type Props = {
 export default function MobileSummaryBar({
   itemCount,
   total,
+  hasQuoteItems,
   ctaLabel,
   ctaDisabled,
   hint,
@@ -28,7 +30,7 @@ export default function MobileSummaryBar({
           <p className="truncate text-sm text-muted">
             {itemCount} {itemCount === 1 ? "детайл" : "детайла"} ·{" "}
             <strong className="text-ink tabular-nums">
-              {formatPrice(total)}
+              {formatTotal(total, hasQuoteItems)}
             </strong>
           </p>
           {hint && (

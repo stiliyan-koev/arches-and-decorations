@@ -1,3 +1,5 @@
+import type { CropRect } from "@/lib/resize-image";
+
 // Gallery shapes and helpers that both the server reads (gallery-photos.ts)
 // and the client components need. No database code here, so a client
 // component can import it.
@@ -27,10 +29,12 @@ export type GalleryTag = {
 
 export type GalleryPhoto = {
   id: string;
+  photoId: string | null; // the library photo
   tileUrl: string; // the 4:5 tile, for grids
   fullUrl: string; // the whole photo, for the full-screen viewer
   tilePath: string; // storage paths, for the admin re-crop
   fullPath: string;
+  crop: CropRect | null; // last framing, in the whole photo's pixels
   tagIds: string[];
 };
 

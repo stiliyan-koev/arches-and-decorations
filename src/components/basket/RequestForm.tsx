@@ -65,7 +65,9 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   }>({ key: "", reserved: {} });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sentTotal, setSentTotal] = useState<number | null>(null);
+  const [sent, setSent] = useState<{ total: number; hasQuote: boolean } | null>(
+    null,
+  );
 
   // „Само под наем“ only makes sense when everything in the basket can be loaned
   // out on its own. A basket that stops qualifying falls back to service.
@@ -168,13 +170,13 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         eventTime: activeMode === "service" ? event.time : "",
         startDate: activeMode === "rental" ? event.startDate : "",
         endDate: activeMode === "rental" ? event.endDate : "",
-        setup2hBefore: event.setup2hBefore,
+        setup2hBefore: activeMode === "service" && event.setup2hBefore,
         estimatedTotal: total,
         items: requestItems,
       });
 
       if (result.ok) {
-        setSentTotal(total);
+        setSent({ total, hasQuote });
         selection.clear();
       } else {
         setError(result.error);
@@ -192,16 +194,22 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
     if (!ctaDisabled) void send();
   }
 
-  if (sentTotal !== null) {
+  if (sent !== null) {
     return (
       <div className="mx-auto max-w-xl rounded-card border border-border bg-surface p-8 text-center shadow-card">
         <p className="text-5xl">🎈</p>
         <h2 className="mt-4 font-serif text-2xl">Благодарим!</h2>
+        {/* With only „по запитване“ items the sum is 0, so it isn't named. */}
         <p className="mt-3 text-muted">
-          Получихме вашето запитване за{" "}
-          <strong className="text-ink">{formatPrice(sentTotal)}</strong>{" "}
-          ориентировъчно. Ще се свържем с вас по телефона, за да уговорим лична
-          среща.
+          Получихме вашето запитване
+          {sent.total > 0 && (
+            <>
+              {" "}за <strong className="text-ink">{formatPrice(sent.total)}</strong>{" "}
+              ориентировъчно
+              {sent.hasQuote && <> плюс артикулите „по запитване“</>}
+            </>
+          )}
+          . Ще се свържем с вас по телефона, за да уговорим лична среща.
         </p>
         <p className="mt-4 text-sm text-muted">
           Крайната сума и наличността за вашата дата уточняваме на срещата. Няма
@@ -327,6 +335,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
       <MobileSummaryBar
         itemCount={items.reduce((sum, item) => sum + item.qty, 0)}
         total={total}
+        hasQuoteItems={hasQuote}
         ctaLabel={submitting ? "Изпращане…" : "Изпрати"}
         ctaDisabled={ctaDisabled}
         hint={hint}
