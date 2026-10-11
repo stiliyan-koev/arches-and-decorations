@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
-import { imageUrl } from "@/lib/images";
+import { fullImagePath, imageUrl } from "@/lib/images";
 import PhotoViewer from "@/components/PhotoViewer";
 import PhotoCarousel from "@/components/PhotoCarousel";
+import Swatches from "@/components/Swatches";
 import { selection, useIsSelected } from "@/lib/selection";
-import type { PlpProduct } from "@/lib/catalog-plp";
+import { lineKey, type PlpProduct, type PlpSwatch } from "@/lib/catalog-plp";
 
 const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 
@@ -15,19 +17,34 @@ const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 // the shared basket. `priority` marks the first row so their photos (the LCP)
 // load eagerly. The button adds the product and opens the mini-basket; once it's
 // in, the button just reopens the mini-basket — removing happens there.
+//
+// A product with colours shows them as swatches. The chosen colour's photos
+// replace the card's photo (a colour without photos keeps it), and „Добави“
+// adds the product in that colour — another colour is another basket line.
 export default function ProductCard({
   product,
   priority = false,
+  filterColors,
   onAdd,
 }: {
   product: PlpProduct;
   priority?: boolean;
-  // addedSlug null = nothing new went in, just reopen; full = the basket was full.
-  onAdd: (addedSlug: string | null, full: boolean) => void;
+  filterColors: string[]; // the catalog's colour filter: the card starts on a matching colour
+  // addedKey (a lineKey) null = nothing new went in, just reopen; full = the basket was full.
+  onAdd: (addedKey: string | null, full: boolean) => void;
 }) {
-  const added = useIsSelected(product.slug);
-  const booked = product.isBooked;
+  // The colour the customer clicked; see chooseSwatch for the rest.
+  const [picked, setPicked] = useState<string | null>(null);
+  const swatch = chooseSwatch(product.swatches, picked, filterColors);
+  const color = swatch?.slug ?? null;
+
+  const added = useIsSelected(product.slug, color);
+  // A colour she has none of can't be added, even when other colours can.
+  const booked = product.isBooked || (swatch !== null && swatch.maxQty === 0);
   const quote = product.price === null;
+  // The colour, for the labels: "„Калъф за арка“ … — Червен".
+  const colorSuffix = swatch ? ` — ${swatch.name}` : "";
+  const photos = swatch?.images.length ? swatch.images : null;
   // Link to /product/[slug] once the product page exists (brief route is singular).
 
   const cardBorder = booked
@@ -45,10 +62,10 @@ export default function ProductCard({
         : "Добави";
 
   const buttonAria = booked
-    ? `„${product.name}“ е заето на тази дата`
+    ? `„${product.name}“ е заето на тази дата${colorSuffix}`
     : added
-      ? `„${product.name}“ е в офертата — отвори офертата`
-      : `Добави „${product.name}“ към офертата`;
+      ? `„${product.name}“ е в офертата — отвори офертата${colorSuffix}`
+      : `Добави „${product.name}“ към офертата${colorSuffix}`;
 
   const buttonStyle = booked
     ? "border-border bg-surface-2 text-muted cursor-not-allowed"
@@ -66,7 +83,33 @@ export default function ProductCard({
         className="relative flex aspect-[4/5] items-center justify-center focus-visible:outline focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-cta"
         style={{ background: product.tint }}
       >
-        {product.carousel.length > 0 ? (
+        {photos ? (
+          photos.length > 1 ? (
+            // Keyed by colour, so a new colour starts on its first photo.
+            <PhotoCarousel
+              key={color}
+              images={photos}
+              alt={`${product.name} – ${swatch?.name}`}
+              priority={priority}
+              sizes={CARD_SIZES}
+            />
+          ) : (
+            <>
+              <Image
+                src={imageUrl(photos[0].path)}
+                alt={`${product.name} – ${swatch?.name}`}
+                fill
+                priority={priority}
+                sizes={CARD_SIZES}
+                className="object-cover"
+              />
+              <PhotoViewer
+                src={imageUrl(fullImagePath(photos[0]))}
+                alt={`${product.name} – ${swatch?.name}`}
+              />
+            </>
+          )
+        ) : product.carousel.length > 0 ? (
           <PhotoCarousel
             images={product.carousel}
             alt={product.name}
@@ -87,10 +130,10 @@ export default function ProductCard({
             Снимка предстои
           </span>
         )}
-        {product.carousel.length === 0 && product.fullImagePath && (
+        {!photos && product.carousel.length === 0 && product.fullImagePath && (
           <PhotoViewer src={imageUrl(product.fullImagePath)} alt={product.name} />
         )}
-        {booked && (
+        {product.isBooked && (
           <span className="absolute top-2.5 left-2.5 rounded-full bg-ink px-2.5 py-1 text-[0.7rem] font-bold text-white">
             Заето на тази дата
           </span>
@@ -103,6 +146,16 @@ export default function ProductCard({
         </p>
         {product.spec && (
           <p className="line-clamp-1 text-[0.78rem] leading-snug text-muted">{product.spec}</p>
+        )}
+        {swatch && (
+          <div className="pt-2">
+            <Swatches
+              swatches={product.swatches}
+              selected={color}
+              onSelect={setPicked}
+              label={`Цвят – ${product.name}`}
+            />
+          </div>
         )}
 
         <div className="mt-auto flex items-center gap-2.5 pt-2">
@@ -122,8 +175,8 @@ export default function ProductCard({
             aria-label={buttonAria}
             onClick={() => {
               if (added) return onAdd(null, false);
-              const accepted = selection.add(product.slug);
-              onAdd(accepted ? product.slug : null, !accepted);
+              const accepted = selection.add(product.slug, color);
+              onAdd(accepted ? lineKey(product.slug, color) : null, !accepted);
             }}
             className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
           >
@@ -136,5 +189,22 @@ export default function ProductCard({
         </div>
       </div>
     </article>
+  );
+}
+
+// Which colour the card shows: the one the customer clicked, else the first one
+// the catalog's colour filter asks for, else the first she has any of, else the
+// first. Null when the product has no colours.
+function chooseSwatch(
+  swatches: PlpSwatch[],
+  picked: string | null,
+  filterColors: string[],
+): PlpSwatch | null {
+  return (
+    swatches.find((swatch) => swatch.slug === picked) ??
+    swatches.find((swatch) => filterColors.includes(swatch.slug)) ??
+    swatches.find((swatch) => swatch.maxQty > 0) ??
+    swatches[0] ??
+    null
   );
 }

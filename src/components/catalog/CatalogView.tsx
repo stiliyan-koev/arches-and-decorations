@@ -6,7 +6,9 @@ import Filters from "@/components/catalog/Filters";
 import FilterSheet from "@/components/catalog/FilterSheet";
 import ProductCard from "@/components/catalog/ProductCard";
 import OfferButton from "@/components/catalog/OfferButton";
+import FloatingOfferButton from "@/components/catalog/FloatingOfferButton";
 import MiniBasket from "@/components/basket/MiniBasket";
+import { ChevronDownIcon } from "@/components/home/Icons";
 import {
   activeFilterCount,
   buildQuery,
@@ -40,13 +42,18 @@ export default function CatalogView({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
-  // The mini-basket drawer. `lastAdded` names the product whose „Добави“ opened
-  // it (null when opened from the pill); `basketFull` is set when an add was
-  // refused; `openedFrom` gets focus back on close.
+  // The mini-basket drawer. `lastAdded` is the line key of the product (and
+  // colour) whose „Добави“ opened it (null when opened from the pill);
+  // `basketFull` is set when an add was refused; `openedFrom` gets focus back
+  // on close.
   const [basketOpen, setBasketOpen] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [basketFull, setBasketFull] = useState(false);
   const openedFrom = useRef<HTMLElement | null>(null);
+  // Whether the „Вашата оферта“ pill is on screen. When it isn't, the floating
+  // basket button takes its place.
+  const pillRef = useRef<HTMLDivElement>(null);
+  const [pillInView, setPillInView] = useState(true);
 
   // Keep the URL in step with the view so it survives a reload and can be shared.
   // replaceState, not push — Back should leave the catalog, not undo nine filter
@@ -61,6 +68,19 @@ export default function CatalogView({
       window.history.replaceState(null, "", target);
     }
   }, [state]);
+
+  // The top margin is the sticky site header (two rows on phones): a pill
+  // tucked under it counts as out of view.
+  useEffect(() => {
+    const pill = pillRef.current;
+    if (!pill) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPillInView(entry.isIntersecting),
+      { rootMargin: "-110px 0px 0px 0px" },
+    );
+    observer.observe(pill);
+    return () => observer.disconnect();
+  }, []);
 
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
@@ -79,9 +99,9 @@ export default function CatalogView({
   // Reset the facets but keep the chosen sort (matches the reference).
   const clearFilters = () => setState((s) => ({ ...EMPTY_STATE, sort: s.sort }));
 
-  function openBasket(addedSlug: string | null, full = false) {
+  function openBasket(addedKey: string | null, full = false) {
     openedFrom.current = document.activeElement as HTMLElement | null;
-    setLastAdded(addedSlug);
+    setLastAdded(addedKey);
     setBasketFull(full);
     setBasketOpen(true);
   }
@@ -125,19 +145,26 @@ export default function CatalogView({
 
   const countWord = visible.length === 1 ? "продукт" : "продукта";
 
+  // The browser's own arrow ignores the padding and hugs the rounded edge, so
+  // it is hidden (appearance-none) and our chevron sits 1rem in, like the text.
   const sortSelect = (
-    <select
-      aria-label="Подреди по"
-      value={state.sort}
-      onChange={(e) => setSort(e.target.value as SortKey)}
-      className="min-h-[44px] rounded-full border border-border-strong bg-surface px-4 text-sm font-semibold focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
-    >
-      {SORTS.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <span className="relative inline-flex">
+      <select
+        aria-label="Подреди по"
+        value={state.sort}
+        onChange={(e) => setSort(e.target.value as SortKey)}
+        className="min-h-[44px] appearance-none rounded-full border border-border-strong bg-surface pr-10 pl-4 text-sm font-semibold focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+      >
+        {SORTS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2">
+        <ChevronDownIcon size={16} />
+      </span>
+    </span>
   );
 
   return (
@@ -164,10 +191,12 @@ export default function CatalogView({
             личната среща.
           </p>
         </div>
-        <OfferButton
-          onClick={() => openBasket(null)}
-          products={data.products}
-        />
+        <div ref={pillRef}>
+          <OfferButton
+            onClick={() => openBasket(null)}
+            products={data.products}
+          />
+        </div>
       </div>
 
       {/* Mobile category pill row, sticky under the site header */}
@@ -278,6 +307,7 @@ export default function CatalogView({
                     key={product.slug}
                     product={product}
                     priority={index < 3}
+                    filterColors={state.colors}
                     onAdd={openBasket}
                   />
                 ))}
@@ -329,6 +359,12 @@ export default function CatalogView({
           )}
         </div>
       </div>
+
+      <FloatingOfferButton
+        onClick={() => openBasket(null)}
+        products={data.products}
+        pillInView={pillInView}
+      />
 
       <MiniBasket
         open={basketOpen}

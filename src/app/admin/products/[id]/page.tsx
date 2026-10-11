@@ -26,8 +26,8 @@ export default async function EditProductPage({
       .select(
         `id, category_id, slug, name, description, base_price, pricing_type,
          quantity, track_availability, rentable, service_only, active, sort,
-         carousel, carousel_in_configurator, carousel_in_catalog,
-         product_colors ( id, color_slug, color_name, hex, sort ),
+         carousel, carousel_in_configurator, carousel_in_catalog, has_colors,
+         product_colors ( id, color_slug, color_name, hex, quantity, sort ),
          product_images ( id, color_id, photo_id, path, full_path, crop, in_carousel, sort,
                           photo:photos ( path, has_original ) )`,
       )
@@ -41,6 +41,8 @@ export default async function EditProductPage({
   if (!product) notFound();
 
   const colors = [...product.product_colors].sort((a, b) => a.sort - b.sort);
+  // With „Има варианти по цвят“ off the colours are kept but hidden, here too.
+  const shownColors = product.has_colors ? colors : [];
   // The whole photo is the library photo; see getCatalog.
   const images: ProductImage[] = [...product.product_images]
     .sort((a, b) => a.sort - b.sort)
@@ -64,12 +66,22 @@ export default async function EditProductPage({
       <h1 className="mt-3 mb-6 text-2xl">{product.name}</h1>
 
       <div className="space-y-5">
-        <ProductForm product={product} categories={categoriesResult.data ?? []} />
-        <ColorManager productId={product.id} colors={colors} />
+        <ProductForm
+          product={product}
+          categories={categoriesResult.data ?? []}
+          colorCount={colors.length}
+        />
+        {product.has_colors && (
+          <ColorManager
+            productId={product.id}
+            colors={colors}
+            trackAvailability={product.track_availability}
+          />
+        )}
         <PhotoManager
           productId={product.id}
           productSlug={product.slug}
-          colors={colors}
+          colors={shownColors}
           images={mainImages}
         />
         <CarouselManager

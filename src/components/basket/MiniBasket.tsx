@@ -11,7 +11,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   products: PlpProduct[];
-  lastAdded: string | null; // slug of the product just added, for the confirmation line
+  lastAdded: string | null; // line key of the product (and colour) just added, for the confirmation line
   full: boolean; // an add was refused because the basket already holds MAX_LINES products
 };
 
@@ -29,7 +29,7 @@ export default function MiniBasket({
   const closeRef = useRef<HTMLButtonElement>(null);
   const { items, total, hasQuote } = basketView(lines, products);
   const added = lastAdded
-    ? items.find((item) => item.product.slug === lastAdded)
+    ? items.find((item) => item.key === lastAdded)
     : undefined;
 
   // Escape to close, and lock the page behind the drawer while it's open.
@@ -100,6 +100,7 @@ export default function MiniBasket({
               ✓
             </span>
             Добавено: „{added.product.name}“
+            {added.swatch && ` — ${added.swatch.name}`}
           </p>
         )}
 

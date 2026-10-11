@@ -56,3 +56,11 @@ export function ChevronRightIcon({ size }: Props) {
     </Icon>
   );
 }
+
+export function ChevronDownIcon({ size }: Props) {
+  return (
+    <Icon size={size}>
+      <path d="M6 9l6 6 6-6" />
+    </Icon>
+  );
+}

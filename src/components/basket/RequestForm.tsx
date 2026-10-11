@@ -19,7 +19,7 @@ import SummaryRail, {
 } from "@/components/configurator/SummaryRail";
 import MobileSummaryBar from "@/components/configurator/MobileSummaryBar";
 import {
-  getReservedQuantities,
+  getRequestAvailability,
   submitRequest,
   type RequestItem,
 } from "@/app/actions";
@@ -59,10 +59,13 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
     phone: "",
     note: "",
   });
+  // What confirmed bookings already hold on the chosen dates: per product, and
+  // per colour for products with colours (each colour has its own stock).
   const [availability, setAvailability] = useState<{
     key: string;
-    reserved: Record<string, number>;
-  }>({ key: "", reserved: {} });
+    byProduct: Record<string, number>;
+    byColor: Record<string, number>;
+  }>({ key: "", byProduct: {}, byColor: {} });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<{ total: number; hasQuote: boolean } | null>(
@@ -73,6 +76,8 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   // out on its own. A basket that stops qualifying falls back to service.
   const notRentable = items.filter((item) => !item.product.rentable);
   const canRent = items.length > 0 && notRentable.length === 0;
+  // Once per product, even when it's in the basket in two colours.
+  const notRentableNames = [...new Set(notRentable.map((item) => item.product.name))];
   const activeMode: Mode = canRent ? mode : "service";
   // Forget a rental choice once the basket can't rent, so it doesn't come back
   // on its own when the basket qualifies again. Guarded, so it runs once.
@@ -85,21 +90,23 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   const datesReady = Boolean(from && to && to >= from);
   const returnBeforePickup = Boolean(from && to && to < from);
   const rangeKey = datesReady ? `${from}:${to}` : "";
-  const reserved = availability.key === rangeKey ? availability.reserved : {};
-  const checking = datesReady && availability.key !== rangeKey;
+  const fresh = availability.key === rangeKey;
+  const reservedByProduct = fresh ? availability.byProduct : {};
+  const reservedByColor = fresh ? availability.byColor : {};
+  const checking = datesReady && !fresh;
 
   useEffect(() => {
     if (!rangeKey) return;
     let cancelled = false;
 
-    getReservedQuantities(from, to)
-      .then((map) => {
-        if (!cancelled) setAvailability({ key: rangeKey, reserved: map });
+    getRequestAvailability(from, to)
+      .then(({ byProduct, byColor }) => {
+        if (!cancelled) setAvailability({ key: rangeKey, byProduct, byColor });
       })
       .catch(() => {
         // An unreachable database reads as "nothing booked" — she confirms every
         // request by hand anyway, so a stale count annoys at worst.
-        if (!cancelled) setAvailability({ key: rangeKey, reserved: {} });
+        if (!cancelled) setAvailability({ key: rangeKey, byProduct: {}, byColor: {} });
       });
 
     return () => {
@@ -108,26 +115,50 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   }, [rangeKey, from, to]);
 
   // A warning, not a block: a line asking for more than is free on those dates.
+  // A line in a colour is checked twice: against that colour's own stock, and,
+  // with the product's other lines, against the whole product — bookings saved
+  // without a colour (all from before colours) hold pieces of the product too.
   const notes: Record<string, string> = {};
   if (datesReady && !checking) {
+    const askedByProduct = new Map<string, number>();
     for (const { product, qty } of items) {
-      if (product.stock === null) continue;
-      const free = Math.max(0, product.stock - (reserved[product.id] ?? 0));
-      if (qty > free) {
-        notes[product.slug] =
+      askedByProduct.set(product.id, (askedByProduct.get(product.id) ?? 0) + qty);
+    }
+
+    for (const { key, product, swatch, qty } of items) {
+      if (product.stock === null) continue; // a consumable never runs out
+
+      if (swatch && swatch.stock !== null) {
+        const colorFree = Math.max(0, swatch.stock - (reservedByColor[swatch.id] ?? 0));
+        if (qty > colorFree) {
+          notes[key] =
+            colorFree === 0
+              ? "Заето за тези дати — ще потърсим заместител."
+              : `Само ${colorFree} бр. свободни в този цвят за тези дати.`;
+          continue;
+        }
+      }
+
+      const free = Math.max(0, product.stock - (reservedByProduct[product.id] ?? 0));
+      if ((askedByProduct.get(product.id) ?? 0) > free) {
+        notes[key] =
           free === 0
             ? "Заето за тези дати — ще потърсим заместител."
-            : `Само ${free} бр. свободни за тези дати.`;
+            : swatch
+              ? `Само ${free} бр. свободни за тези дати, всички цветове заедно.`
+              : `Само ${free} бр. свободни за тези дати.`;
       }
     }
   }
 
-  const summaryLines: SummaryLine[] = items.map(({ product, qty, lineTotal }) => ({
-    key: product.slug,
-    name: product.name,
-    sub: qty > 1 ? `${qty} бр.` : "",
-    value: lineTotal === null ? QUOTE_LABEL : formatPrice(lineTotal),
-  }));
+  const summaryLines: SummaryLine[] = items.map(
+    ({ key, product, swatch, qty, lineTotal }) => ({
+      key,
+      name: product.name,
+      sub: [swatch?.name, qty > 1 ? `${qty} бр.` : ""].filter(Boolean).join(" · "),
+      value: lineTotal === null ? QUOTE_LABEL : formatPrice(lineTotal),
+    }),
+  );
 
   const hint =
     items.length === 0
@@ -149,9 +180,9 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
     setError(null);
 
     const requestItems: RequestItem[] = items.map(
-      ({ product, qty, lineTotal }) => ({
+      ({ product, swatch, qty, lineTotal }) => ({
         productId: product.id,
-        colorId: null,
+        colorId: swatch?.id ?? null,
         qty,
         linePrice: lineTotal,
         customText: null,
@@ -285,8 +316,8 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
           {!canRent && (
             <p className="mt-2 text-[0.8rem] text-muted">
               Само под наем не може, защото{" "}
-              {notRentable.map((item) => `„${item.product.name}“`).join(", ")}{" "}
-              {notRentable.length === 1 ? "се предлага" : "се предлагат"} само
+              {notRentableNames.map((name) => `„${name}“`).join(", ")}{" "}
+              {notRentableNames.length === 1 ? "се предлага" : "се предлагат"} само
               с монтаж.
             </p>
           )}

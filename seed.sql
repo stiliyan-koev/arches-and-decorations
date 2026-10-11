@@ -47,28 +47,32 @@ insert into products (slug, category_id, name, base_price, pricing_type, quantit
 
 -- ---------- Colors / swatches ----------
 -- Arch covers (the canonical swatch example)
-insert into product_colors (product_id, color_slug, color_name, hex, sort) values
-  ((select id from products where slug='arch-cover'), 'white',       'Бял',                '#FFFFFF', 1),
-  ((select id from products where slug='arch-cover'), 'red',         'Червен',             '#D33333', 2),
-  ((select id from products where slug='arch-cover'), 'yellow',      'Жълт',               '#F2C200', 3),
-  ((select id from products where slug='arch-cover'), 'blue',        'Син',                '#2E6FD6', 4),
-  ((select id from products where slug='arch-cover'), 'pink',        'Розов',              '#E68AB8', 5),
-  ((select id from products where slug='arch-cover'), 'elsa-castle', 'Замък на Елза',       null,     6),  -- pattern → show image tile
-  ((select id from products where slug='arch-cover'), 'blue-check',  'Син на квадратчета',  null,     7);  -- pattern → show image tile
+insert into product_colors (product_id, color_slug, color_name, hex, quantity, sort) values
+  ((select id from products where slug='arch-cover'), 'white',       'Бял',                '#FFFFFF',  1, 1),
+  ((select id from products where slug='arch-cover'), 'red',         'Червен',             '#D33333',  1, 2),
+  ((select id from products where slug='arch-cover'), 'yellow',      'Жълт',               '#F2C200',  1, 3),
+  ((select id from products where slug='arch-cover'), 'blue',        'Син',                '#2E6FD6',  1, 4),
+  ((select id from products where slug='arch-cover'), 'pink',        'Розов',              '#E68AB8',  1, 5),
+  ((select id from products where slug='arch-cover'), 'elsa-castle', 'Замък на Елза',       null,      1, 6),  -- pattern → show image tile
+  ((select id from products where slug='arch-cover'), 'blue-check',  'Син на квадратчета',  null,      1, 7);  -- pattern → show image tile
 
 -- Balloons (a few colors to start)
-insert into product_colors (product_id, color_slug, color_name, hex, sort) values
-  ((select id from products where slug='balloons'), 'white', 'Бял',    '#FFFFFF', 1),
-  ((select id from products where slug='balloons'), 'red',   'Червен', '#D33333', 2),
-  ((select id from products where slug='balloons'), 'blue',  'Син',    '#2E6FD6', 3),
-  ((select id from products where slug='balloons'), 'pink',  'Розов',  '#E68AB8', 4),
-  ((select id from products where slug='balloons'), 'gold',  'Златен', '#D4A24E', 5),
-  ((select id from products where slug='balloons'), 'pastel','Пастел', '#F2D9E6', 6);
+insert into product_colors (product_id, color_slug, color_name, hex, quantity, sort) values
+  ((select id from products where slug='balloons'), 'white', 'Бял',    '#FFFFFF',  1, 1),
+  ((select id from products where slug='balloons'), 'red',   'Червен', '#D33333',  1, 2),
+  ((select id from products where slug='balloons'), 'blue',  'Син',    '#2E6FD6',  1, 3),
+  ((select id from products where slug='balloons'), 'pink',  'Розов',  '#E68AB8',  1, 4),
+  ((select id from products where slug='balloons'), 'gold',  'Златен', '#D4A24E',  1, 5),
+  ((select id from products where slug='balloons'), 'pastel','Пастел', '#F2D9E6',  1, 6);
 
 -- Easel variants
-insert into product_colors (product_id, color_slug, color_name, hex, sort) values
-  ((select id from products where slug='easel'), 'wood',  'Дървен',  '#B08A5B', 1),
-  ((select id from products where slug='easel'), 'metal', 'Метален', '#9AA0A6', 2);
+insert into product_colors (product_id, color_slug, color_name, hex, quantity, sort) values
+  ((select id from products where slug='easel'), 'wood',  'Дървен',  '#B08A5B',  1, 1),
+  ((select id from products where slug='easel'), 'metal', 'Метален', '#9AA0A6',  1, 2);
+
+-- The three products above show their colours as swatches, each colour with
+-- its own count (product_colors.quantity).
+update products set has_colors = true where slug in ('arch-cover', 'balloons', 'easel');
 
 -- product_images: left empty — upload photos to the `catalog` bucket and insert rows
 -- following the naming in catalog-and-images.md, e.g. products/arch-cover/red--01.webp
