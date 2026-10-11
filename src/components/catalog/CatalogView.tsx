@@ -8,6 +8,7 @@ import ProductCard from "@/components/catalog/ProductCard";
 import OfferButton from "@/components/catalog/OfferButton";
 import FloatingOfferButton from "@/components/catalog/FloatingOfferButton";
 import MiniBasket from "@/components/basket/MiniBasket";
+import { ChevronDownIcon } from "@/components/home/Icons";
 import {
   activeFilterCount,
   buildQuery,
@@ -143,19 +144,26 @@ export default function CatalogView({
 
   const countWord = visible.length === 1 ? "продукт" : "продукта";
 
+  // The browser's own arrow ignores the padding and hugs the rounded edge, so
+  // it is hidden (appearance-none) and our chevron sits 1rem in, like the text.
   const sortSelect = (
-    <select
-      aria-label="Подреди по"
-      value={state.sort}
-      onChange={(e) => setSort(e.target.value as SortKey)}
-      className="min-h-[44px] rounded-full border border-border-strong bg-surface px-4 text-sm font-semibold focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
-    >
-      {SORTS.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <span className="relative inline-flex">
+      <select
+        aria-label="Подреди по"
+        value={state.sort}
+        onChange={(e) => setSort(e.target.value as SortKey)}
+        className="min-h-[44px] appearance-none rounded-full border border-border-strong bg-surface pr-10 pl-4 text-sm font-semibold focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+      >
+        {SORTS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2">
+        <ChevronDownIcon size={16} />
+      </span>
+    </span>
   );
 
   return (
