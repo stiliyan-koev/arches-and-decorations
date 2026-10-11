@@ -11,6 +11,7 @@ import {
   deleteImage,
   swapImageOrder,
   replaceImage,
+  setImageColor,
 } from "@/app/admin/actions";
 import {
   BAD_FORMAT,
@@ -92,6 +93,9 @@ export default function PhotoManager({
   const [picked, setPicked] = useState<Picked | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  // Colours only matter while the product has some (and „Има варианти по цвят“
+  // is on — the page passes none otherwise). Carousel photos never have one.
+  const withColors = !carousel && colors.length > 0;
 
   // products/{slug}/ plus the colour prefix, if the photo belongs to a colour,
   // or "carousel--" for carousel photos.
@@ -118,7 +122,7 @@ export default function PhotoManager({
 
   function handleFiles(files: FileList) {
     setError("");
-    const id = carousel ? null : colorId || null;
+    const id = withColors ? colorId || null : null;
     setQueue({
       files: Array.from(files),
       colorId: id,
@@ -236,7 +240,7 @@ export default function PhotoManager({
       setError("Снимката не може да се зареди.");
       return;
     }
-    const id = carousel ? null : colorId || null;
+    const id = withColors ? colorId || null : null;
     setPicked({ photo, blob, colorId: id, index: nextSort(images) });
   }
 
@@ -336,6 +340,22 @@ export default function PhotoManager({
     router.refresh();
   }
 
+  // Moves a photo she already has to another colour (or to all of them).
+  async function handleColor(image: ProductImage, id: string) {
+    setError("");
+    setBusy("Запазване…");
+    let result: SaveResult;
+    try {
+      result = await setImageColor(image.id, productId, id || null);
+    } catch {
+      result = { ok: false, error: SAVE_FAILED };
+    }
+    setBusy("");
+
+    if (!result.ok) setError(result.error ?? SAVE_FAILED);
+    router.refresh();
+  }
+
   // Swaps a photo with its neighbour; only those two photos are saved.
   async function handleMove(from: number, to: number) {
     const first = images[Math.min(from, to)];
@@ -360,7 +380,7 @@ export default function PhotoManager({
   }
 
   function colorLabel(id: string | null) {
-    if (!id) return "Всички цветове";
+    if (!id || !withColors) return "Всички цветове";
     return colors.find((color) => color.id === id)?.color_name ?? "—";
   }
 
@@ -388,7 +408,7 @@ export default function PhotoManager({
       )}
 
       <div className={`${carousel ? "" : "mt-4 "}flex flex-wrap items-end gap-3`}>
-        {!carousel && (
+        {withColors && (
           <label className="flex flex-col gap-1.5">
             <span className="text-[0.78rem] font-extrabold tracking-[0.08em] text-muted uppercase">
               За кой цвят е снимката
@@ -499,10 +519,21 @@ export default function PhotoManager({
                   )}
                 </div>
                 <div className="flex items-center gap-2 p-2">
-                  {!carousel && (
-                    <span className="mr-auto truncate text-[0.75rem] font-bold text-muted">
-                      {colorLabel(image.color_id)}
-                    </span>
+                  {withColors && (
+                    <select
+                      aria-label="Цвят на снимката"
+                      value={image.color_id ?? ""}
+                      disabled={locked}
+                      onChange={(event) => handleColor(image, event.target.value)}
+                      className="mr-auto min-w-0 flex-1 truncate rounded-item border border-border-strong bg-bg px-1.5 py-1 text-[0.75rem] font-bold text-ink disabled:opacity-50"
+                    >
+                      <option value="">Всички цветове</option>
+                      {colors.map((color) => (
+                        <option key={color.id} value={color.id}>
+                          {color.color_name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                   <button
                     type="button"

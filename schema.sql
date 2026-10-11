@@ -43,16 +43,20 @@ create table products (
   carousel                 boolean not null default false,
   carousel_in_configurator boolean not null default true,
   carousel_in_catalog      boolean not null default true,
+  -- Colour variations: the colours below show as swatches on the catalog card,
+  -- each with its own stock. Off = the colours stay but are hidden everywhere.
+  has_colors               boolean not null default false,
   created_at         timestamptz default now()
 );
 
--- Colors / variants -> render as swatches on the PDP
+-- Colors / variants -> render as swatches on the catalog card
 create table product_colors (
   id         uuid primary key default gen_random_uuid(),
   product_id uuid not null references products(id) on delete cascade,
   color_slug text not null,            -- 'white','red','elsa-castle',...
   color_name text not null,            -- BG display
   hex        text,                     -- swatch fill; null for pattern swatches
+  quantity   int  not null default 1 check (quantity >= 0), -- how many of this colour she owns
   sort       int  not null default 0,
   unique (product_id, color_slug)
 );
@@ -73,7 +77,7 @@ create index photos_created_at on photos (created_at desc);
 create table product_images (
   id         uuid primary key default gen_random_uuid(),
   product_id uuid not null references products(id) on delete cascade,
-  color_id   uuid references product_colors(id) on delete cascade,
+  color_id   uuid references product_colors(id) on delete set null, -- deleting a colour keeps its photos
   photo_id   uuid references photos(id) on delete cascade, -- the library photo this tile is cut from
   path       text not null,            -- storage path of the 4:5 tile, see catalog-and-images.md
   full_path  text,                     -- copy of the library photo's path (until migration-photo-library-cleanup.sql)
@@ -244,10 +248,33 @@ language sql stable security definer set search_path = public as $$
   group by bi.product_id;
 $$;
 
+-- Same sum per colour, for products with colours: each colour has its own
+-- stock (product_colors.quantity). The request page calls it next to
+-- reserved_qty_all.
+create or replace function reserved_qty_by_color(p_from date, p_to date)
+returns table (color_id uuid, reserved int)
+language sql stable security definer set search_path = public as $$
+  select bi.color_id, sum(bi.qty)::int
+  from booking_items bi
+  join bookings b on b.id = bi.booking_id
+  where bi.color_id is not null
+    and b.status = 'confirmed'
+    and coalesce(b.start_date, b.event_date) is not null
+    and coalesce(b.end_date, b.start_date, b.event_date) >= coalesce(b.start_date, b.event_date)
+    and daterange(
+          coalesce(b.start_date, b.event_date),
+          coalesce(b.end_date, b.start_date, b.event_date),
+          '[]'
+        ) && daterange(p_from, p_to, '[]')
+  group by bi.color_id;
+$$;
+
 grant execute on function reserved_qty(uuid, date, date) to anon, authenticated;
 grant execute on function reserved_qty_all(date, date)   to anon, authenticated;
+grant execute on function reserved_qty_by_color(date, date) to anon, authenticated;
 
 -- available = products.quantity - reserved_qty(...). track_availability=false items are always available.
+-- A product with colours: available per colour = product_colors.quantity - reserved_qty_by_color(...).
 
 -- ---------- Row Level Security (starter policies — review before prod) ----------
 -- Public can READ the catalog; the contact form can INSERT a booking request;

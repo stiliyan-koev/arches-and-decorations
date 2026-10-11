@@ -14,7 +14,9 @@ type ProductListRow = {
   quantity: number;
   active: boolean;
   sort: number;
+  has_colors: boolean;
   product_images: { path: string; sort: number; in_carousel: boolean }[];
+  product_colors: { id: string; color_name: string; hex: string | null; quantity: number; sort: number }[];
 };
 
 export default async function AdminProductsPage() {
@@ -26,7 +28,8 @@ export default async function AdminProductsPage() {
       .from("products")
       .select(
         `id, name, slug, category_id, base_price, pricing_type, quantity,
-         active, sort, product_images ( path, sort, in_carousel )`,
+         active, sort, has_colors, product_images ( path, sort, in_carousel ),
+         product_colors ( id, color_name, hex, quantity, sort )`,
       )
       .order("sort"),
   ]);
@@ -82,6 +85,13 @@ export default async function AdminProductsPage() {
               );
               const cover =
                 sorted.find((image) => !image.in_carousel) ?? sorted[0];
+              // Hidden colours (switch off) don't count, like on the site.
+              const colors = product.has_colors
+                ? [...product.product_colors].sort((a, b) => a.sort - b.sort)
+                : [];
+              const quantity = colors.length
+                ? colors.reduce((sum, color) => sum + color.quantity, 0)
+                : product.quantity;
 
               return (
                 <li key={product.id}>
@@ -110,6 +120,28 @@ export default async function AdminProductsPage() {
                       <p className="truncate text-[0.8rem] text-muted">
                         {product.slug} · {product.product_images.length} снимки
                       </p>
+                      {colors.length > 0 && (
+                        <p className="mt-1 flex items-center gap-1">
+                          {colors.map((color) => (
+                            <span
+                              key={color.id}
+                              title={color.color_name}
+                              className="h-3.5 w-3.5 shrink-0 rounded-full border border-border-strong"
+                              style={
+                                color.hex
+                                  ? { backgroundColor: color.hex }
+                                  : {
+                                      backgroundImage:
+                                        "repeating-linear-gradient(45deg, #ddd 0 3px, #fff 3px 6px)",
+                                    }
+                              }
+                            />
+                          ))}
+                          <span className="ml-1 text-[0.75rem] text-muted">
+                            {colors.length === 1 ? "1 цвят" : `${colors.length} цвята`}
+                          </span>
+                        </p>
+                      )}
                     </div>
 
                     <span className="hidden w-24 text-[0.85rem] font-bold sm:block">
@@ -119,7 +151,7 @@ export default async function AdminProductsPage() {
                     </span>
 
                     <span className="hidden w-16 text-[0.85rem] text-muted md:block">
-                      бр. {product.quantity}
+                      бр. {quantity}
                     </span>
 
                     {!product.active && (

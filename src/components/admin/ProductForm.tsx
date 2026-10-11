@@ -39,6 +39,7 @@ export default function ProductForm({ product, categories }: Props) {
   const [serviceOnly, setServiceOnly] = useState(product?.service_only ?? false);
   const [active, setActive] = useState(product?.active ?? true);
   const [sort, setSort] = useState(String(product?.sort ?? 0));
+  const [hasColors, setHasColors] = useState(product?.has_colors ?? false);
 
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -73,6 +74,7 @@ export default function ProductForm({ product, categories }: Props) {
       service_only: serviceOnly,
       active,
       sort: Number(sort) || 0,
+      has_colors: hasColors,
     });
 
     setBusy(false);
@@ -194,16 +196,21 @@ export default function ProductForm({ product, categories }: Props) {
           />
         </label>
 
+        {/* With colours, every colour has its own count (panel „Цветове“)
+            and the product is their sum, so this number isn't used. */}
         <label>
-          <span className={LABEL}>Брой, с които разполагаме</span>
+          <span className={LABEL}>
+            {hasColors ? "Брой (води се по цветове)" : "Брой, с които разполагаме"}
+          </span>
           <input
             type="number"
             min="0"
             step="1"
             inputMode="numeric"
+            disabled={hasColors}
             value={quantity}
             onChange={(event) => setQuantity(event.target.value)}
-            className={`mt-1.5 ${FIELD}`}
+            className={`mt-1.5 ${FIELD} disabled:opacity-50`}
           />
         </label>
 
@@ -259,7 +266,24 @@ export default function ProductForm({ product, categories }: Props) {
           />
           Само с монтаж от нас
         </label>
+
+        <label className="flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={hasColors}
+            onChange={(event) => setHasColors(event.target.checked)}
+          />
+          Има варианти по цвят
+        </label>
       </div>
+
+      {hasColors && (
+        <p className="mt-2 text-[0.85rem] text-muted">
+          Цветовете и бройките им се добавят в панела „Цветове“ след
+          запазване. В каталога се показват като кръгчета, а снимките се
+          свързват с цвят в „Снимки“.
+        </p>
+      )}
 
       {error && (
         <p className="mt-4 rounded-item bg-booked/10 px-3 py-2 text-[0.85rem] font-bold text-booked">

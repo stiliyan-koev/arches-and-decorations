@@ -39,6 +39,8 @@ const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength
 
 const SEND_FAILED = "Нещо се обърка при изпращането. Моля, опитайте отново.";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 function isTextUpTo(value: unknown, maxLength: number) {
   return typeof value === "string" && value.length <= maxLength;
 }
@@ -66,6 +68,30 @@ export async function getReservedQuantities(
   const reserved: Record<string, number> = {};
   for (const row of data as { product_id: string; reserved: number }[]) {
     reserved[row.product_id] = row.reserved;
+  }
+  return reserved;
+}
+
+// The same per colour, for products with colours: each colour has its own
+// stock (product_colors.quantity), so the request page checks a colour line
+// against this. Same fallback: anything that goes wrong returns {}.
+export async function getReservedColorQuantities(
+  from: string,
+  to: string,
+): Promise<Record<string, number>> {
+  if (!isSupabaseConfigured() || !from || !to) return {};
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("reserved_qty_by_color", {
+    p_from: from,
+    p_to: to,
+  });
+
+  if (error || !data) return {};
+
+  const reserved: Record<string, number> = {};
+  for (const row of data as { color_id: string; reserved: number }[]) {
+    reserved[row.color_id] = row.reserved;
   }
   return reserved;
 }
@@ -103,6 +129,10 @@ export async function submitRequest(
   for (const item of payload.items) {
     const qty = item?.qty;
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
+      return { ok: false, error: SEND_FAILED };
+    }
+    // A colour is a product_colors id, or nothing. Missing counts as nothing.
+    if (item.colorId != null && !(typeof item.colorId === "string" && UUID.test(item.colorId))) {
       return { ok: false, error: SEND_FAILED };
     }
     // Missing (undefined) counts as "no text", same as null.
@@ -168,7 +198,7 @@ export async function submitRequest(
     payload.items.map((item) => ({
       booking_id: bookingId,
       product_id: item.productId,
-      color_id: item.colorId,
+      color_id: item.colorId ?? null,
       custom_text: item.customText?.trim() || null,
       qty: item.qty,
       line_price: item.linePrice,
