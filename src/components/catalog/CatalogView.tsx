@@ -42,9 +42,10 @@ export default function CatalogView({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
-  // The mini-basket drawer. `lastAdded` names the product whose „Добави“ opened
-  // it (null when opened from the pill); `basketFull` is set when an add was
-  // refused; `openedFrom` gets focus back on close.
+  // The mini-basket drawer. `lastAdded` is the line key of the product (and
+  // colour) whose „Добави“ opened it (null when opened from the pill);
+  // `basketFull` is set when an add was refused; `openedFrom` gets focus back
+  // on close.
   const [basketOpen, setBasketOpen] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [basketFull, setBasketFull] = useState(false);
@@ -98,9 +99,9 @@ export default function CatalogView({
   // Reset the facets but keep the chosen sort (matches the reference).
   const clearFilters = () => setState((s) => ({ ...EMPTY_STATE, sort: s.sort }));
 
-  function openBasket(addedSlug: string | null, full = false) {
+  function openBasket(addedKey: string | null, full = false) {
     openedFrom.current = document.activeElement as HTMLElement | null;
-    setLastAdded(addedSlug);
+    setLastAdded(addedKey);
     setBasketFull(full);
     setBasketOpen(true);
   }
@@ -306,6 +307,7 @@ export default function CatalogView({
                     key={product.slug}
                     product={product}
                     priority={index < 3}
+                    filterColors={state.colors}
                     onAdd={openBasket}
                   />
                 ))}

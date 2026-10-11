@@ -224,6 +224,7 @@ export type ProductInput = {
   service_only: boolean;
   active: boolean;
   sort: number;
+  has_colors: boolean;
 };
 
 export async function saveProduct(
@@ -251,6 +252,7 @@ export async function saveProduct(
     service_only: input.service_only,
     active: input.active,
     sort: input.sort,
+    has_colors: input.has_colors,
   };
 
   if (input.id) {
@@ -349,19 +351,43 @@ export type ColorInput = {
   color_slug: string;
   color_name: string;
   hex: string | null;
+  quantity: number; // how many of this colour she owns
 };
+
+// The most of one colour she can say she owns; anything above is a typo.
+const MAX_COLOR_QUANTITY = 999;
+
+function isColorQuantity(quantity: number) {
+  return Number.isInteger(quantity) && quantity >= 0 && quantity <= MAX_COLOR_QUANTITY;
+}
 
 export async function addColor(input: ColorInput): Promise<ActionResult> {
   if (!input.color_name.trim() || !input.color_slug.trim()) {
     return { ok: false, error: "Име и slug на цвета са задължителни." };
   }
+  if (!isColorQuantity(input.quantity)) {
+    return { ok: false, error: "Броят трябва да е цяло число от 0 до 999." };
+  }
 
   const supabase = await createClient();
+
+  // A new colour goes after the ones she already has: the first colour is
+  // the one the catalog card starts on.
+  const { data: last } = await supabase
+    .from("product_colors")
+    .select("sort")
+    .eq("product_id", input.product_id)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { error } = await supabase.from("product_colors").insert({
     product_id: input.product_id,
     color_slug: input.color_slug.trim(),
     color_name: input.color_name.trim(),
     hex: input.hex,
+    quantity: input.quantity,
+    sort: (last?.sort ?? 0) + 1,
   });
 
   if (error) {
@@ -375,15 +401,41 @@ export async function addColor(input: ColorInput): Promise<ActionResult> {
   return { ok: true };
 }
 
+// Saves the moment she changes the number, like the carousel ticks.
+export async function setColorQuantity(
+  id: string,
+  quantity: number,
+): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Цветът не е намерен." };
+  if (!isColorQuantity(quantity)) {
+    return { ok: false, error: "Броят трябва да е цяло число от 0 до 999." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_colors")
+    .update({ quantity })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Цветът не е намерен." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Deleting a colour never costs a photo: its photos stay on the product and
+// move to "Всички цветове". Detached here first, so this works even before
+// migration-product-colors.sql switches the foreign key to `on delete set null`.
 export async function deleteColor(id: string): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Цветът не е намерен." };
   const supabase = await createClient();
 
-  // product_images.color_id cascades, so the rows go — but again, not the
-  // tiles. The library photos stay in the library.
-  const { data: images } = await supabase
+  const { error: detachError } = await supabase
     .from("product_images")
-    .select("path")
+    .update({ color_id: null })
     .eq("color_id", id);
+  if (detachError) return { ok: false, error: detachError.message };
 
   const { data: deleted, error } = await supabase
     .from("product_colors")
@@ -392,8 +444,6 @@ export async function deleteColor(id: string): Promise<ActionResult> {
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (deleted.length === 0) return { ok: false, error: "Цветът не е намерен." };
-
-  await removeTiles(supabase, (images ?? []).map((image) => image.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -486,6 +536,49 @@ export async function swapImageOrder(
       return { ok: false, error: "Снимката не е намерена." };
     }
   }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Moves a photo of this product to another colour, or to "Всички цветове"
+// (null). Only main photos: carousel photos belong to the whole product. The
+// tile keeps its file name; names are random, so the old colour in it means
+// nothing.
+export async function setImageColor(
+  imageId: string,
+  productId: string,
+  colorId: string | null,
+): Promise<ActionResult> {
+  if (!UUID.test(imageId) || !UUID.test(productId)) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+  if (colorId !== null && !UUID.test(colorId)) {
+    return { ok: false, error: "Цветът не е намерен." };
+  }
+
+  const supabase = await createClient();
+
+  // The colour has to be one of this product's own.
+  if (colorId) {
+    const { data: color } = await supabase
+      .from("product_colors")
+      .select("id")
+      .eq("id", colorId)
+      .eq("product_id", productId)
+      .maybeSingle();
+    if (!color) return { ok: false, error: "Цветът не е намерен." };
+  }
+
+  const { data, error } = await supabase
+    .from("product_images")
+    .update({ color_id: colorId })
+    .eq("id", imageId)
+    .eq("product_id", productId)
+    .eq("in_carousel", false)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
 
   revalidateCatalog();
   return { ok: true };

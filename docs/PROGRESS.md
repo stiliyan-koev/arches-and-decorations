@@ -165,13 +165,14 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       Over-stock for the chosen dates is a warning, not a block. Verified in the browser
       2 Oct 2026, **never submitted** (live DB). The hidden `/configurator` is untouched and
       does not share the basket.
-- [ ] Colour choice per basket line — today the customer writes it in the note.
+- [x] Colour choice per basket line — swatches on the card, one line per colour, saved to
+      `booking_items.color_id` (Oct 2026). Needs `migration-product-colors.sql` (below).
 - [ ] Date / „Скрий заетите" availability filter on the PLP — **deliberately hidden**
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO
       sits in `src/components/catalog/Filters.tsx`; wire it when step 5 lands.
 - [ ] `/product/[slug]` — PDP (the card image + name already link here)
-- [ ] Colour swatches that swap the photo (per `catalog-and-images.md`)
+- [x] Colour swatches that swap the photo — on the catalog card (per `catalog-and-images.md`)
 - [ ] Image carousel when a product has more than one photo
 - [x] `/configurator` as its own page (moved there by homepage v2; hidden backup)
 
@@ -208,6 +209,7 @@ SEO and deploy are still open.
 - [x] Crop photos to 4:5 on upload, and re-crop existing ones („Изрежи“)
 - [x] Keep the whole photo next to the cropped tile (`full_path`); re-crop starts from it. Tighter 4:5 catalog cards
 - [x] Manage colours/swatches per product
+- [x] „Има варианти по цвят“ switch, a count per colour, re-tag a photo's colour, colours in the list
 - [x] `/gallery` — past work, filter chips per tag (only tags with photos), 4:5 grid,
       24 per page + „Покажи още“, full-screen viewer with ‹ › / arrow keys / swipe
 - [x] `/admin/gallery` — tags (add/rename/delete), batch upload with tags (tile cut from the
@@ -259,6 +261,13 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       the money columns as EUR and switches „Балони" to `picker = 'text'`: instead of a
       dropdown, the customer describes the theme in a text box, which is saved to
       `booking_items.custom_text`. Until it runs, balloons keep the old dropdown.
+- [ ] **Run `migration-product-colors.sql`** in the SQL editor **(you)** — BLOCKING, before
+      the colour swatches go live: the catalog reads `products.has_colors` and
+      `product_colors.quantity`, and without them it falls back to the hardcoded catalog.
+      It turns colours on for every product that already has some, and gives each colour
+      the product's old count. **Then set the real count per colour** in admin (e.g.
+      Калъф за арка). Матални квадратни масички has one colour (Бял): untick
+      „Има варианти по цвят“ there if one swatch looks odd.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the

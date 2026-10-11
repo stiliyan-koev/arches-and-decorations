@@ -7,11 +7,16 @@ import { useSyncExternalStore } from "react";
 // the /request page read and write the SAME list.
 //
 // Products are keyed by slug (stable, human-readable, and enough to resolve back
-// to a product on either page). We persist to localStorage so the basket
-// survives the full-page navigation from /catalog to /request — React state
-// alone would be lost on every such hop.
+// to a product on either page), plus the colour's slug for a product with
+// colours: the same product in two colours is two lines. We persist to
+// localStorage so the basket survives the full-page navigation from /catalog to
+// /request — React state alone would be lost on every such hop.
 
-export type BasketLine = { slug: string; qty: number };
+export type BasketLine = {
+  slug: string;
+  color: string | null; // colour slug; null = the product has no colours
+  qty: number;
+};
 
 const KEY = "oferta.v1";
 
@@ -26,7 +31,7 @@ const listeners = new Set<() => void>();
 // Read once, lazily, the first time the store is used in the browser. Wrapped in
 // try/catch because localStorage can throw (private mode, blocked cookies).
 // Older visitors have a plain list of slugs stored under the same key; each of
-// those becomes a line with qty 1.
+// those becomes a line with qty 1. Lines saved before colours have no colour.
 function hydrate() {
   if (hydrated) return;
   hydrated = true;
@@ -36,14 +41,15 @@ function hydrate() {
     if (!Array.isArray(parsed)) return;
     for (const entry of parsed) {
       if (typeof entry === "string") {
-        lines.push({ slug: entry, qty: 1 });
+        lines.push({ slug: entry, color: null, qty: 1 });
       } else if (
         entry &&
         typeof entry.slug === "string" &&
         Number.isInteger(entry.qty) &&
         entry.qty > 0
       ) {
-        lines.push({ slug: entry.slug, qty: entry.qty });
+        const color = typeof entry.color === "string" ? entry.color : null;
+        lines.push({ slug: entry.slug, color, qty: entry.qty });
       }
     }
   } catch {
@@ -90,28 +96,36 @@ function getServerSnapshot() {
   return EMPTY;
 }
 
+// Whether a stored line is this product in this colour.
+function isLine(line: BasketLine, slug: string, color: string | null) {
+  return line.slug === slug && line.color === color;
+}
+
 export const selection = {
-  has(slug: string) {
+  has(slug: string, color: string | null) {
     hydrate();
-    return lines.some((line) => line.slug === slug);
+    return lines.some((line) => isLine(line, slug, color));
   },
-  // Adds one of the product; a product already in the basket is left as it is,
-  // and a full basket (MAX_LINES) takes nothing more. Returns whether it added.
-  add(slug: string) {
-    if (this.has(slug)) return false;
+  // Adds one of the product in that colour; a line already in the basket is
+  // left as it is, and a full basket (MAX_LINES) takes nothing more. Returns
+  // whether it added.
+  add(slug: string, color: string | null) {
+    if (this.has(slug, color)) return false;
     if (lines.length >= MAX_LINES) return false;
-    commit([...lines, { slug, qty: 1 }]);
+    commit([...lines, { slug, color, qty: 1 }]);
     return true;
   },
   // Zero or less removes the line.
-  setQty(slug: string, qty: number) {
-    if (!this.has(slug)) return;
-    if (qty <= 0) return this.remove(slug);
-    commit(lines.map((line) => (line.slug === slug ? { slug, qty } : line)));
+  setQty(slug: string, color: string | null, qty: number) {
+    if (!this.has(slug, color)) return;
+    if (qty <= 0) return this.remove(slug, color);
+    commit(
+      lines.map((line) => (isLine(line, slug, color) ? { ...line, qty } : line)),
+    );
   },
-  remove(slug: string) {
-    if (!this.has(slug)) return;
-    commit(lines.filter((line) => line.slug !== slug));
+  remove(slug: string, color: string | null) {
+    if (!this.has(slug, color)) return;
+    commit(lines.filter((line) => !isLine(line, slug, color)));
   },
   clear() {
     hydrate();
@@ -125,12 +139,13 @@ export function useBasket() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-// Whether one product is in the basket — what a catalog card needs. A boolean is
-// a stable snapshot, so adding one card re-renders only that card, not all of them.
-export function useIsSelected(slug: string) {
+// Whether one product, in one colour, is in the basket — what a catalog card
+// needs. A boolean is a stable snapshot, so adding one card re-renders only that
+// card, not all of them.
+export function useIsSelected(slug: string, color: string | null) {
   return useSyncExternalStore(
     subscribe,
-    () => getSnapshot().some((line) => line.slug === slug),
+    () => getSnapshot().some((line) => isLine(line, slug, color)),
     () => false,
   );
 }
