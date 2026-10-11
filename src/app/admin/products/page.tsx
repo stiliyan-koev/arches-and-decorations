@@ -3,6 +3,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { imageUrl } from "@/lib/images";
 import { formatPrice, QUOTE_LABEL } from "@/lib/format";
+import { PATTERN_FILL } from "@/components/Swatches";
 
 type ProductListRow = {
   id: string;
@@ -12,6 +13,7 @@ type ProductListRow = {
   base_price: number | null;
   pricing_type: "fixed" | "custom_quote";
   quantity: number;
+  track_availability: boolean;
   active: boolean;
   sort: number;
   has_colors: boolean;
@@ -28,7 +30,8 @@ export default async function AdminProductsPage() {
       .from("products")
       .select(
         `id, name, slug, category_id, base_price, pricing_type, quantity,
-         active, sort, has_colors, product_images ( path, sort, in_carousel ),
+         track_availability, active, sort, has_colors,
+         product_images ( path, sort, in_carousel ),
          product_colors ( id, color_name, hex, quantity, sort )`,
       )
       .order("sort"),
@@ -85,13 +88,16 @@ export default async function AdminProductsPage() {
               );
               const cover =
                 sorted.find((image) => !image.in_carousel) ?? sorted[0];
-              // Hidden colours (switch off) don't count, like on the site.
+              // Hidden colours (switch off) don't count, like on the site. A
+              // tracked product's stock is its colours' counts added up; a
+              // consumable (balloons) has no counts to add.
               const colors = product.has_colors
                 ? [...product.product_colors].sort((a, b) => a.sort - b.sort)
                 : [];
-              const quantity = colors.length
-                ? colors.reduce((sum, color) => sum + color.quantity, 0)
-                : product.quantity;
+              const quantity =
+                colors.length && product.track_availability
+                  ? colors.reduce((sum, color) => sum + color.quantity, 0)
+                  : product.quantity;
 
               return (
                 <li key={product.id}>
@@ -127,14 +133,7 @@ export default async function AdminProductsPage() {
                               key={color.id}
                               title={color.color_name}
                               className="h-3.5 w-3.5 shrink-0 rounded-full border border-border-strong"
-                              style={
-                                color.hex
-                                  ? { backgroundColor: color.hex }
-                                  : {
-                                      backgroundImage:
-                                        "repeating-linear-gradient(45deg, #ddd 0 3px, #fff 3px 6px)",
-                                    }
-                              }
+                              style={{ background: color.hex ?? PATTERN_FILL }}
                             />
                           ))}
                           <span className="ml-1 text-[0.75rem] text-muted">

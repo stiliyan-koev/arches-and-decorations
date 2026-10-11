@@ -1,8 +1,8 @@
 import type { PlpSwatch } from "@/lib/catalog-plp";
 
 // Pattern swatches (hex is null, e.g. "Замък на Елза") have no flat colour, so
-// they share one generic pattern fill.
-const PATTERN_FILL =
+// they share one generic pattern fill — here, in the basket and in the admin.
+export const PATTERN_FILL =
   "repeating-linear-gradient(45deg, #9BD3E6 0 6px, #FFFFFF 6px 12px)";
 
 type Props = {

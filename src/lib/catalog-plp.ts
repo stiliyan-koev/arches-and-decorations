@@ -172,7 +172,7 @@ export type BasketItem = {
   key: string; // lineKey(slug, color) — one line of the basket
   product: PlpProduct;
   color: string | null; // the colour slug as stored — what the basket store is called with
-  swatch: PlpSwatch | null; // that colour, or null if the product has none (any more)
+  swatch: PlpSwatch | null; // that colour; null = a line without a colour
   qty: number;
   maxQty: number; // the colour's limit when there is a colour, else the product's
   lineTotal: number | null; // null = "по запитване"
@@ -184,11 +184,13 @@ export type BasketView = {
   hasQuote: boolean;
 };
 
-// Joins the stored basket lines ({slug, color, qty}) with the catalog. A slug
-// that is no longer in the catalog is dropped, and qty is clamped to what may be
-// asked for. A colour that is gone (deleted, or colours switched off) leaves the
-// line in, just without a colour. "По запитване" lines add nothing to the total
-// — same rule as the configurator.
+// Joins the stored basket lines ({slug, color, qty}) with the catalog. A product
+// that is no longer in the catalog is dropped, and so is a colour that is gone
+// (deleted, or the product's colours switched off) — kept, it would turn into a
+// second line of the same product without a colour. A line saved without a
+// colour (from before colours) stays as it is. qty is clamped to what may be
+// asked for. "По запитване" lines add nothing to the total — same rule as the
+// configurator.
 export function basketView(
   lines: BasketLine[],
   products: PlpProduct[],
@@ -203,6 +205,7 @@ export function basketView(
     if (!product) continue;
     const swatch =
       product.swatches.find((option) => option.slug === line.color) ?? null;
+    if (line.color !== null && !swatch) continue;
     const maxQty = swatch ? swatch.maxQty : product.maxQty;
     const qty = Math.max(1, Math.min(line.qty, maxQty || 1));
     const lineTotal = product.price === null ? null : product.price * qty;

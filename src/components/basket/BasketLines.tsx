@@ -5,13 +5,10 @@ import { formatPrice } from "@/lib/format";
 import { imageUrl } from "@/lib/images";
 import { selection } from "@/lib/selection";
 import type { BasketItem } from "@/lib/catalog-plp";
+import { PATTERN_FILL } from "@/components/Swatches";
 
 const STEP_BUTTON =
   "grid h-8 w-8 place-items-center rounded-full border border-border-strong bg-surface text-base leading-none font-extrabold text-ink transition-colors hover:border-cta hover:text-cta disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-strong disabled:hover:text-ink focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta";
-
-// Same generic fill as the catalog swatches, for a pattern colour.
-const PATTERN_FILL =
-  "repeating-linear-gradient(45deg, #9BD3E6 0 4px, #FFFFFF 4px 8px)";
 
 // The basket's lines, shared by the mini-basket drawer and the /request page.
 // Each line edits the store directly: −/+ change the quantity, „Премахни“ drops

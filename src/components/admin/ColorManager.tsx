@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/slug";
 import { addColor, deleteColor, setColorQuantity } from "@/app/admin/actions";
+import { PATTERN_FILL } from "@/components/Swatches";
 import type { ProductColor } from "@/lib/types";
 
 type Props = {
@@ -17,19 +18,12 @@ const COUNT_FIELD =
   "w-20 rounded-item border border-border-strong bg-bg px-3 py-2 tabular-nums";
 
 // The little round fill next to a colour's name. A pattern (no hex) gets
-// stripes, like on the site.
+// the same stripes as on the site.
 function Dot({ color }: { color: ProductColor }) {
   return (
     <span
       className="h-5 w-5 shrink-0 rounded-full border border-border-strong"
-      style={
-        color.hex
-          ? { backgroundColor: color.hex }
-          : {
-              backgroundImage:
-                "repeating-linear-gradient(45deg, #ddd 0 4px, #fff 4px 8px)",
-            }
-      }
+      style={{ background: color.hex ?? PATTERN_FILL }}
     />
   );
 }

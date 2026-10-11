@@ -45,27 +45,35 @@ function isTextUpTo(value: unknown, maxLength: number) {
   return typeof value === "string" && value.length <= maxLength;
 }
 
-// How many of each product are already spoken for between two dates. The
-// configurator subtracts this from products.quantity to decide what a tile can
-// still offer. Anything that goes wrong returns {} — an empty map means "assume
-// nothing is booked", which matches how the site behaves before the database
-// exists. She confirms every request by hand anyway, so a stale read here
-// annoys a customer at worst; it can't double-book her.
-export async function getReservedQuantities(
-  from: string,
-  to: string,
-): Promise<Record<string, number>> {
-  if (!isSupabaseConfigured() || !from || !to) return {};
+// The longest date range the availability reads accept — a long rental, with
+// room to spare. These are public endpoints, so a hand-built call can't read
+// totals across years; anything else reads as "nothing booked".
+const MAX_RANGE_DAYS = 62;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-  const supabase = await createClient();
+// Two yyyy-mm-dd dates, in order, at most MAX_RANGE_DAYS apart.
+function isDateRange(from: unknown, to: unknown) {
+  if (typeof from !== "string" || typeof to !== "string") return false;
+  if (!ISO_DATE.test(from) || !ISO_DATE.test(to) || from > to) return false;
+  const days = (Date.parse(to) - Date.parse(from)) / DAY_MS;
+  return Number.isFinite(days) && days <= MAX_RANGE_DAYS;
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+// How many of each product confirmed bookings already hold between two dates.
+// Anything that goes wrong returns {} — "assume nothing is booked", which
+// matches how the site behaves before the database exists. She confirms every
+// request by hand anyway, so a stale read here annoys a customer at worst; it
+// can't double-book her.
+async function reservedByProduct(supabase: Supabase, from: string, to: string) {
+  const reserved: Record<string, number> = {};
   const { data, error } = await supabase.rpc("reserved_qty_all", {
     p_from: from,
     p_to: to,
   });
-
-  if (error || !data) return {};
-
-  const reserved: Record<string, number> = {};
+  if (error || !data) return reserved;
   for (const row of data as { product_id: string; reserved: number }[]) {
     reserved[row.product_id] = row.reserved;
   }
@@ -73,27 +81,47 @@ export async function getReservedQuantities(
 }
 
 // The same per colour, for products with colours: each colour has its own
-// stock (product_colors.quantity), so the request page checks a colour line
-// against this. Same fallback: anything that goes wrong returns {}.
-export async function getReservedColorQuantities(
-  from: string,
-  to: string,
-): Promise<Record<string, number>> {
-  if (!isSupabaseConfigured() || !from || !to) return {};
-
-  const supabase = await createClient();
+// stock (product_colors.quantity). Same fallback.
+async function reservedByColor(supabase: Supabase, from: string, to: string) {
+  const reserved: Record<string, number> = {};
   const { data, error } = await supabase.rpc("reserved_qty_by_color", {
     p_from: from,
     p_to: to,
   });
-
-  if (error || !data) return {};
-
-  const reserved: Record<string, number> = {};
+  if (error || !data) return reserved;
   for (const row of data as { color_id: string; reserved: number }[]) {
     reserved[row.color_id] = row.reserved;
   }
   return reserved;
+}
+
+// Per product, for the configurator: it subtracts this from products.quantity
+// to decide what a tile can still offer.
+export async function getReservedQuantities(
+  from: string,
+  to: string,
+): Promise<Record<string, number>> {
+  if (!isSupabaseConfigured() || !isDateRange(from, to)) return {};
+  const supabase = await createClient();
+  return reservedByProduct(supabase, from, to);
+}
+
+// Per product and per colour, for the request page's over-stock warnings. One
+// action for both: a page's Server Actions are sent one at a time, so two
+// actions would be two round trips. Here the two reads run side by side.
+export async function getRequestAvailability(
+  from: string,
+  to: string,
+): Promise<{ byProduct: Record<string, number>; byColor: Record<string, number> }> {
+  if (!isSupabaseConfigured() || !isDateRange(from, to)) {
+    return { byProduct: {}, byColor: {} };
+  }
+  const supabase = await createClient();
+  const [byProduct, byColor] = await Promise.all([
+    reservedByProduct(supabase, from, to),
+    reservedByColor(supabase, from, to),
+  ]);
+  return { byProduct, byColor };
 }
 
 export async function submitRequest(
@@ -159,6 +187,30 @@ export async function submitRequest(
   }
 
   const supabase = await createClient();
+
+  // A colour has to be one of its own product's colours. Otherwise a hand-built
+  // call could file a product in another product's colour — and once she
+  // confirms it, take stock off the wrong colour.
+  const colorIds = [
+    ...new Set(
+      payload.items
+        .map((item) => item.colorId)
+        .filter((id): id is string => id != null),
+    ),
+  ];
+  if (colorIds.length > 0) {
+    const { data: colors, error: colorsError } = await supabase
+      .from("product_colors")
+      .select("id, product_id")
+      .in("id", colorIds);
+    if (colorsError || !colors) return { ok: false, error: SEND_FAILED };
+
+    const productOf = new Map(colors.map((color) => [color.id, color.product_id]));
+    const mismatch = payload.items.some(
+      (item) => item.colorId != null && productOf.get(item.colorId) !== item.productId,
+    );
+    if (mismatch) return { ok: false, error: SEND_FAILED };
+  }
 
   // We generate the id ourselves instead of reading it back: row level security
   // lets the public INSERT a booking but never SELECT one, so .select() after

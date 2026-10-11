@@ -19,8 +19,7 @@ import SummaryRail, {
 } from "@/components/configurator/SummaryRail";
 import MobileSummaryBar from "@/components/configurator/MobileSummaryBar";
 import {
-  getReservedColorQuantities,
-  getReservedQuantities,
+  getRequestAvailability,
   submitRequest,
   type RequestItem,
 } from "@/app/actions";
@@ -64,9 +63,9 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   // per colour for products with colours (each colour has its own stock).
   const [availability, setAvailability] = useState<{
     key: string;
-    reserved: Record<string, number>;
-    reservedColors: Record<string, number>;
-  }>({ key: "", reserved: {}, reservedColors: {} });
+    byProduct: Record<string, number>;
+    byColor: Record<string, number>;
+  }>({ key: "", byProduct: {}, byColor: {} });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<{ total: number; hasQuote: boolean } | null>(
@@ -92,26 +91,22 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   const returnBeforePickup = Boolean(from && to && to < from);
   const rangeKey = datesReady ? `${from}:${to}` : "";
   const fresh = availability.key === rangeKey;
-  const reserved = fresh ? availability.reserved : {};
-  const reservedColors = fresh ? availability.reservedColors : {};
-  const checking = datesReady && availability.key !== rangeKey;
+  const reservedByProduct = fresh ? availability.byProduct : {};
+  const reservedByColor = fresh ? availability.byColor : {};
+  const checking = datesReady && !fresh;
 
   useEffect(() => {
     if (!rangeKey) return;
     let cancelled = false;
 
-    Promise.all([getReservedQuantities(from, to), getReservedColorQuantities(from, to)])
-      .then(([products, colors]) => {
-        if (!cancelled) {
-          setAvailability({ key: rangeKey, reserved: products, reservedColors: colors });
-        }
+    getRequestAvailability(from, to)
+      .then(({ byProduct, byColor }) => {
+        if (!cancelled) setAvailability({ key: rangeKey, byProduct, byColor });
       })
       .catch(() => {
         // An unreachable database reads as "nothing booked" — she confirms every
         // request by hand anyway, so a stale count annoys at worst.
-        if (!cancelled) {
-          setAvailability({ key: rangeKey, reserved: {}, reservedColors: {} });
-        }
+        if (!cancelled) setAvailability({ key: rangeKey, byProduct: {}, byColor: {} });
       });
 
     return () => {
@@ -120,21 +115,38 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   }, [rangeKey, from, to]);
 
   // A warning, not a block: a line asking for more than is free on those dates.
-  // A line in a colour counts against that colour's own stock.
+  // A line in a colour is checked twice: against that colour's own stock, and,
+  // with the product's other lines, against the whole product — bookings saved
+  // without a colour (all from before colours) hold pieces of the product too.
   const notes: Record<string, string> = {};
   if (datesReady && !checking) {
+    const askedByProduct = new Map<string, number>();
+    for (const { product, qty } of items) {
+      askedByProduct.set(product.id, (askedByProduct.get(product.id) ?? 0) + qty);
+    }
+
     for (const { key, product, swatch, qty } of items) {
-      const stock = swatch ? swatch.stock : product.stock;
-      if (stock === null) continue;
-      const held = swatch
-        ? (reservedColors[swatch.id] ?? 0)
-        : (reserved[product.id] ?? 0);
-      const free = Math.max(0, stock - held);
-      if (qty > free) {
+      if (product.stock === null) continue; // a consumable never runs out
+
+      if (swatch && swatch.stock !== null) {
+        const colorFree = Math.max(0, swatch.stock - (reservedByColor[swatch.id] ?? 0));
+        if (qty > colorFree) {
+          notes[key] =
+            colorFree === 0
+              ? "Заето за тези дати — ще потърсим заместител."
+              : `Само ${colorFree} бр. свободни в този цвят за тези дати.`;
+          continue;
+        }
+      }
+
+      const free = Math.max(0, product.stock - (reservedByProduct[product.id] ?? 0));
+      if ((askedByProduct.get(product.id) ?? 0) > free) {
         notes[key] =
           free === 0
             ? "Заето за тези дати — ще потърсим заместител."
-            : `Само ${free} бр. свободни за тези дати.`;
+            : swatch
+              ? `Само ${free} бр. свободни за тези дати, всички цветове заедно.`
+              : `Само ${free} бр. свободни за тези дати.`;
       }
     }
   }

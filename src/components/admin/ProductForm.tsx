@@ -9,6 +9,7 @@ import type { CategorySummary, ProductRow } from "@/lib/types";
 type Props = {
   product: ProductRow | null; // null = creating a new one
   categories: CategorySummary[];
+  colorCount?: number; // how many colours the product has; the new-product page has none
 };
 
 const FIELD =
@@ -16,7 +17,7 @@ const FIELD =
 const LABEL =
   "block text-[0.78rem] font-extrabold tracking-[0.08em] text-muted uppercase";
 
-export default function ProductForm({ product, categories }: Props) {
+export default function ProductForm({ product, categories, colorCount = 0 }: Props) {
   const router = useRouter();
   const isNew = !product;
 
@@ -40,6 +41,7 @@ export default function ProductForm({ product, categories }: Props) {
   const [active, setActive] = useState(product?.active ?? true);
   const [sort, setSort] = useState(String(product?.sort ?? 0));
   const [hasColors, setHasColors] = useState(product?.has_colors ?? false);
+  const countByColor = hasColors && colorCount > 0;
 
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -196,18 +198,19 @@ export default function ProductForm({ product, categories }: Props) {
           />
         </label>
 
-        {/* With colours, every colour has its own count (panel „Цветове“)
-            and the product is their sum, so this number isn't used. */}
+        {/* Once the product has colours, every colour has its own count
+            (panel „Цветове“) and the product is their sum, so this number
+            isn't used. Until the first colour is added, it still is. */}
         <label>
           <span className={LABEL}>
-            {hasColors ? "Брой (води се по цветове)" : "Брой, с които разполагаме"}
+            {countByColor ? "Брой (води се по цветове)" : "Брой, с които разполагаме"}
           </span>
           <input
             type="number"
             min="0"
             step="1"
             inputMode="numeric"
-            disabled={hasColors}
+            disabled={countByColor}
             value={quantity}
             onChange={(event) => setQuantity(event.target.value)}
             className={`mt-1.5 ${FIELD} disabled:opacity-50`}

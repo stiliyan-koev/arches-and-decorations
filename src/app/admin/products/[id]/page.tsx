@@ -66,7 +66,11 @@ export default async function EditProductPage({
       <h1 className="mt-3 mb-6 text-2xl">{product.name}</h1>
 
       <div className="space-y-5">
-        <ProductForm product={product} categories={categoriesResult.data ?? []} />
+        <ProductForm
+          product={product}
+          categories={categoriesResult.data ?? []}
+          colorCount={colors.length}
+        />
         {product.has_colors && (
           <ColorManager
             productId={product.id}
