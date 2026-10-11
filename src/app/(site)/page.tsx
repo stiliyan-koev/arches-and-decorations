@@ -47,13 +47,26 @@ export default async function HomePage() {
             >
               украса
             </span>{" "}
-            {/* "тук" is the call to action itself: an underlined link inside the heading. */}
+            {/* "тук" is the call to action itself: a pill button inside the heading.
+                Sizes are in em so it scales with the heading on mobile and desktop. */}
             <Link
               href="/catalog"
               aria-label="Изчисли своята украса — към каталога"
-              className="text-cta underline decoration-[0.08em] underline-offset-[0.15em] transition-colors hover:text-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+              className="inline-flex items-center gap-[0.25em] rounded-full bg-cta py-[0.12em] pr-[0.45em] pl-[0.6em] align-[0.04em] text-[0.85em] text-white shadow-[0_6px_18px_rgb(201_58_114/0.35)] transition-[background-color,translate,box-shadow] hover:-translate-y-0.5 hover:bg-cta-strong hover:shadow-[0_10px_24px_rgb(201_58_114/0.4)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               тук
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-[0.8em] w-[0.8em]"
+              >
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
             </Link>
           </h1>
           <p className="mt-3.5 max-w-[620px] text-[17px] text-muted md:mt-[18px] md:text-xl">
