@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { CONTACTS } from "@/lib/contacts";
-import { FacebookIcon, TikTokIcon } from "@/components/SocialIcons";
+import {
+  FacebookIcon,
+  MessengerIcon,
+  TikTokIcon,
+  ViberIcon,
+} from "@/components/SocialIcons";
 
 export default function SiteFooter() {
   return (
@@ -22,10 +27,26 @@ export default function SiteFooter() {
           <ul className="flex flex-col gap-2.5 font-semibold">
             <li>
               <a
-                href={`mailto:${CONTACTS.email}`}
+                href={CONTACTS.phoneHref}
                 className="opacity-85 hover:opacity-100"
               >
-                ✉️ {CONTACTS.email}
+                📞 {CONTACTS.phone}
+              </a>
+            </li>
+            <li>
+              <a
+                href={CONTACTS.messengerHref}
+                className="inline-flex items-center gap-2 opacity-85 hover:opacity-100"
+              >
+                <MessengerIcon /> Messenger
+              </a>
+            </li>
+            <li>
+              <a
+                href={CONTACTS.viberHref}
+                className="inline-flex items-center gap-2 opacity-85 hover:opacity-100"
+              >
+                <ViberIcon /> Viber
               </a>
             </li>
             <li>

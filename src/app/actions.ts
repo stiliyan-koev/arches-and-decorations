@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
+import { sendOwnerEmail } from "@/lib/mail";
 
 export type RequestItem = {
   productId: string;
@@ -265,4 +267,123 @@ export async function submitRequest(
   }
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// The contact form on /about. No database: the message is an email to the
+// owner and nothing else, so if the email doesn't go out the customer is told
+// to use Messenger, Viber or the phone — all three are next to the form.
+
+export type ContactPayload = {
+  name: string;
+  phone: string;
+  email: string; // optional — only so she can write back
+  message: string;
+  // Honeypot. No visitor sees this field, so no visitor fills it; bots do.
+  website: string;
+};
+
+export type ContactResult = { ok: true } | { ok: false; error: string };
+
+const WRITE_TO_US =
+  "Нещо се обърка при изпращането. Моля, пишете ни по Messenger или Viber, или ни се обадете.";
+
+// Only a single plain address goes into the reply header — a list or anything
+// with spaces in it stays in the body text instead of the header.
+const PLAIN_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+
+// Throttling the send. This action is public and every accepted call spends
+// the owner's Resend quota, so there's a cap per caller and a cap overall.
+// Best-effort only: each serverless instance keeps its own Map, so this stops
+// a runaway loop or a casual script, not a determined attacker.
+const PER_IP_WINDOW_MS = 10 * 60 * 1000;
+const PER_IP_SENDS = 3;
+const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
+const GLOBAL_SENDS = 60;
+
+const recentSends = new Map<string, number[]>();
+
+// Netlify sets x-nf-client-connection-ip; x-forwarded-for is the fallback and
+// its first entry is the client. Callers we can't place share one bucket, so
+// a missing IP doesn't become a way around the limit.
+async function callerIp() {
+  const headerList = await headers();
+  const netlifyIp = headerList.get("x-nf-client-connection-ip")?.trim();
+  if (netlifyIp) return netlifyIp;
+  const forwarded = headerList.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || "unknown";
+}
+
+// true when this send is within both caps — and then counts it. Drops expired
+// timestamps on every call, so the Map never holds more than the last hour.
+function allowSend(ip: string) {
+  const now = Date.now();
+  let total = 0;
+  for (const [key, times] of recentSends) {
+    const fresh = times.filter((at) => now - at < GLOBAL_WINDOW_MS);
+    if (fresh.length) recentSends.set(key, fresh);
+    else recentSends.delete(key);
+    total += fresh.length;
+  }
+  if (total >= GLOBAL_SENDS) return false;
+
+  const mine = recentSends.get(ip) ?? [];
+  const inWindow = mine.filter((at) => now - at < PER_IP_WINDOW_MS);
+  if (inWindow.length >= PER_IP_SENDS) return false;
+
+  recentSends.set(ip, [...mine, now]);
+  return true;
+}
+
+export async function submitContactMessage(
+  payload: ContactPayload,
+): Promise<ContactResult> {
+  // Same shape as the form sends, or it's a hand-built call.
+  if (!payload || typeof payload !== "object") {
+    return { ok: false, error: SEND_FAILED };
+  }
+  if (
+    !isTextUpTo(payload.name, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.phone, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.email, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.message, MAX_NOTE) ||
+    typeof payload.website !== "string"
+  ) {
+    return { ok: false, error: SEND_FAILED };
+  }
+
+  // A filled honeypot is a bot. Say it went fine and send nothing.
+  if (payload.website.trim()) return { ok: true };
+
+  const name = payload.name.trim();
+  const phone = payload.phone.trim();
+  const email = payload.email.trim();
+  const message = payload.message.trim();
+
+  if (!name) return { ok: false, error: "Моля, попълнете името си." };
+  if (!phone) return { ok: false, error: "Моля, попълнете телефон." };
+  if (!message) return { ok: false, error: "Моля, напишете съобщение." };
+
+  // Counted only here, where a send is actually about to happen: a bot that
+  // tripped the honeypot above never reaches this line, so it costs nothing.
+  if (!allowSend(await callerIp())) return { ok: false, error: WRITE_TO_US };
+
+  const sent = await sendOwnerEmail(
+    // Whitespace collapsed: the name goes into a mail header, and a newline in
+    // a header would split it.
+    `Запитване от сайта — ${name.replace(/\s+/g, " ")}`,
+    [
+      `Име: ${name}`,
+      `Телефон: ${phone}`,
+      `Имейл: ${email || "(не е посочен)"}`,
+      "",
+      message,
+    ].join("\n"),
+    // Reply goes to the customer when they left one plain address. Anything
+    // else stays in the body text above, where even a typo'd address still
+    // reaches her; without this, Resend leaves the sender as the reply address.
+    PLAIN_EMAIL.test(email) ? email : undefined,
+  );
+
+  return sent ? { ok: true } : { ok: false, error: WRITE_TO_US };
 }
