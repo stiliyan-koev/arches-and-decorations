@@ -56,9 +56,16 @@ type Queue = {
 // An existing photo being re-cropped, its whole photo already downloaded.
 type Recrop = { image: ProductImage; blob: Blob };
 
-// A photo picked from the library, downloaded, waiting to be cropped. The
-// colour and sort value are fixed when she picks it, like a queue's.
-type Picked = { photo: PhotoRef; blob: Blob; colorId: string | null; index: number };
+// Photos picked from the library, cropped one at a time like a queue's files.
+// Only the first one is downloaded (`blob`); the next is fetched when its turn
+// comes. The colour and sort value are fixed when she picks them.
+type Picked = {
+  photos: PhotoRef[];
+  blob: Blob;
+  colorId: string | null;
+  index: number;
+  done: number;
+};
 
 // The sort value for the next photo: one past the highest one already on
 // this product. Tile names are random now, so they say nothing about order.
@@ -229,27 +236,63 @@ export default function PhotoManager({
     nextInQueue(current, true);
   }
 
-  // A photo from the library: download it, then the same cropper as a new file.
-  async function handlePick(photo: PhotoRef) {
+  // Photos from the library: each one downloaded, then the same cropper as a
+  // new file.
+  function handlePick(photos: PhotoRef[]) {
     setPicking(false);
     setError("");
+    if (photos.length === 0) return;
+    const id = withColors ? colorId || null : null;
+    openPicked({ photos, colorId: id, index: nextSort(images), done: 0 });
+  }
+
+  // Downloads the first photo in line and opens the cropper on it.
+  async function openPicked(next: Omit<Picked, "blob">) {
     setBusy("Зареждане на снимката…");
-    const blob = await downloadOriginal(photo.path);
+    const blob = await downloadOriginal(next.photos[0].path);
     setBusy("");
     if (!blob) {
-      setError("Снимката не може да се зареди.");
+      finishPicked("Снимката не може да се зареди.");
       return;
     }
-    const id = withColors ? colorId || null : null;
-    setPicked({ photo, blob, colorId: id, index: nextSort(images) });
+    setPicked({ ...next, blob });
+  }
+
+  // Refreshes even after a failure, so the ones that made it show.
+  function finishPicked(message = "") {
+    setPicked(null);
+    if (message) setError(message);
+    router.refresh();
+  }
+
+  function nextPicked(current: Picked, saved: boolean) {
+    const photos = current.photos.slice(1);
+    if (photos.length === 0) {
+      finishPicked();
+      return;
+    }
+    openPicked({
+      photos,
+      colorId: current.colorId,
+      index: saved ? current.index + 1 : current.index,
+      done: current.done + 1,
+    });
   }
 
   async function handlePickedCropped(current: Picked, choice: CropResult) {
     setBusy("Запазване…");
-    await saveNew(current.photo, current.blob, choice, current.colorId, current.index, 1);
+    const ok = await saveNew(
+      current.photos[0],
+      current.blob,
+      choice,
+      current.colorId,
+      current.index,
+      1,
+    );
     setBusy("");
-    setPicked(null);
-    router.refresh();
+    // On a failure, stop here, like the upload queue.
+    if (!ok) finishPicked();
+    else nextPicked(current, true);
   }
 
   // Downloads the whole photo, not the tile, so a re-crop can widen the frame
@@ -387,6 +430,7 @@ export default function PhotoManager({
   const locked =
     Boolean(busy) || Boolean(queue) || Boolean(recrop) || picking || Boolean(picked);
   const queueTotal = queue ? queue.done + queue.files.length : 0;
+  const pickedTotal = picked ? picked.done + picked.photos.length : 0;
 
   return (
     // In carousel mode this sits inside the carousel panel, which has its own
@@ -578,23 +622,27 @@ export default function PhotoManager({
         <PhotoPicker
           title={carousel ? "Добави в карусела на продукта" : "Добави снимка на продукта"}
           filter="all"
+          multiple
           onCancel={() => setPicking(false)}
-          onPick={([photo]) => (photo ? handlePick(photo) : setPicking(false))}
+          onPick={handlePick}
         />
       )}
 
       {picked && !busy && (
         <ImageCropper
-          key={picked.photo.id}
+          key={picked.photos[0].id}
           source={picked.blob}
-          title="Изрежете снимката"
-          cancelLabel="Отказ"
+          title={
+            pickedTotal > 1
+              ? `Изрежете снимката (${picked.done + 1} от ${pickedTotal})`
+              : "Изрежете снимката"
+          }
+          cancelLabel={pickedTotal > 1 ? "Пропусни" : "Отказ"}
           onConfirm={(choice) => handlePickedCropped(picked, choice)}
-          onCancel={() => setPicked(null)}
-          onLoadError={() => {
-            setPicked(null);
-            setError("Снимката не може да се отвори за изрязване.");
-          }}
+          onCancel={() => nextPicked(picked, false)}
+          onLoadError={() =>
+            finishPicked("Снимката не може да се отвори за изрязване.")
+          }
         />
       )}
 
