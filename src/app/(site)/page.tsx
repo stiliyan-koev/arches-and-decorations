@@ -9,7 +9,7 @@ import { getHomeShowcases } from "@/lib/showcases";
 import { HOME_SHOWCASE_COUNT } from "@/lib/home";
 
 export const metadata: Metadata = {
-  title: { absolute: "Балони и арки — празнични украси във Варна" },
+  title: { absolute: "Хубавото балонче — празнични украси във Варна" },
   description:
     "Балонни украси и арки за рождени дни, кръщенета и партита във Варна. Разгледай каталога и виж ориентировъчна цена.",
 };

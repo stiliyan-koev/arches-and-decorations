@@ -8,13 +8,16 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+// Named after the public pages they feed, in the order a visitor meets them.
+// „Категории“ and „Снимки“ have no page of their own on the site — they sit
+// next to „Каталог“, which is what they feed.
 const NAV = [
-  { href: "/admin/photos", label: "Снимки" },
-  { href: "/admin/products", label: "Продукти" },
+  { href: "/admin/home", label: "Начало" },
+  { href: "/admin/products", label: "Каталог" },
   { href: "/admin/categories", label: "Категории" },
-  { href: "/admin/home", label: "Начална страница" },
-  { href: "/admin/showcases", label: "Украси" },
+  { href: "/admin/photos", label: "Снимки" },
   { href: "/admin/gallery", label: "Галерия" },
+  { href: "/admin/showcases", label: "Вдъхнови се" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

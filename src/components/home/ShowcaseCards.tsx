@@ -19,7 +19,7 @@ function paragraphs(body: string) {
     .filter(Boolean);
 }
 
-// "Наши украси отблизо": three finished decorations from /admin/showcases.
+// „Вдъхнови се“: three finished decorations from /admin/showcases.
 // Each card opens a popup with its text and every photo, whole. Same place
 // and layout as OccasionCards, which the homepage shows instead until three
 // showcases have photos. Desktop: a 3-column grid. Phones: a swipe row.
@@ -32,7 +32,7 @@ export default function ShowcaseCards({ showcases }: { showcases: HomeShowcase[]
             Украси
           </span>
           <h2 className="mt-2 text-[26px] md:mt-2.5 md:text-[40px]">
-            Наши украси отблизо
+            Вдъхнови се
           </h2>
         </div>
         <Link

@@ -16,7 +16,7 @@ export default async function AdminShowcasesPage() {
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl">Украси</h1>
+        <h1 className="text-2xl">Вдъхнови се</h1>
         {showcases && (
           <Link
             href="/admin/showcases/new"
@@ -27,9 +27,9 @@ export default async function AdminShowcasesPage() {
         )}
       </div>
       <p className="mt-1 mb-6 text-[0.9rem] text-muted">
-        Готови украси отблизо: заглавие, кратък текст и снимки. Първите три със
-        снимки са картите на началната страница; при клик се отварят с всички
-        снимки.
+        Секцията „Вдъхнови се“ на началната страница: заглавие, кратък текст и
+        снимки. Първите три със снимки са картите там; при клик се отварят с
+        всички снимки.
       </p>
 
       {showcases ? (
