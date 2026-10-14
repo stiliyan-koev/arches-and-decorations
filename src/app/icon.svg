@@ -1,0 +1,19 @@
+<!-- Tab icon: a pink balloon, in the site's own pinks (the balloon-pink and
+     cta tokens in globals.css). Kept to a few bold shapes so it still reads
+     at 16px. Next picks this up from app/ automatically. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="balloon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f9b9ce" />
+      <stop offset="1" stop-color="#e8769f" />
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="16" cy="13" rx="9.5" ry="11.5" fill="url(#balloon)" />
+  <ellipse cx="12.2" cy="8.6" rx="2.4" ry="3.6" fill="#ffffff" opacity="0.45"
+           transform="rotate(-25 12.2 8.6)" />
+
+  <path d="M13.6 23.6 L18.4 23.6 L16 27 Z" fill="#c93a72" />
+  <path d="M16 27 C18.4 28.6 13.6 29.4 16 31.2" fill="none" stroke="#c93a72"
+        stroke-width="1.6" stroke-linecap="round" />
+</svg>

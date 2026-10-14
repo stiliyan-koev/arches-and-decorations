@@ -36,7 +36,9 @@ test("homepage shows the showcases from the database", { tag: "@critical" }, asy
     return;
   }
 
-  await expect(page.getByRole("heading", { level: 2, name: "Наши украси отблизо" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Вдъхнови се", exact: true }),
+  ).toBeVisible();
 
   const first = showcases[0];
   await page.getByRole("button", { name: first.title, exact: true }).click();
