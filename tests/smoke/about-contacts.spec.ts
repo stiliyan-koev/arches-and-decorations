@@ -39,8 +39,11 @@ test("about page has the contact form", { tag: "@minor" }, async ({ page }) => {
   await expect(form.getByRole("button", { name: "Изпрати съобщение" })).toBeEnabled();
 });
 
-// Nothing on the public site advertises an email address yet.
+// Nothing on the public site advertises an email address yet — not as a link
+// and not as plain text. The form is what stands in for it.
 test("no email address is published", { tag: "@minor" }, async ({ page }) => {
   await page.goto("/about");
   await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0);
+  const text = await page.locator("body").innerText();
+  expect(text).not.toMatch(/[^\s@]+@[^\s@]+\.[a-z]{2,}/i);
 });

@@ -1,3 +1,5 @@
+import "server-only";
+
 // Sending the /about contact form to the owner. Resend's REST API straight
 // over fetch — one POST doesn't need an npm package.
 //
@@ -38,14 +40,15 @@ export async function sendOwnerEmail(
         text,
         ...(replyTo ? { reply_to: replyTo } : {}),
       }),
+      // Resend hanging must not hang the form. The catch below turns a timeout
+      // into a plain false, same as any other network trouble.
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!response.ok) {
-      console.error(
-        "Resend refused the message:",
-        response.status,
-        await response.text(),
-      );
+      // Status only: Resend echoes the message back in its error body, and
+      // that body would put the visitor's own words in the server log.
+      console.error("Resend refused the message:", response.status);
       return false;
     }
     return true;

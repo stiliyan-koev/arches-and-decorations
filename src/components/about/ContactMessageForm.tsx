@@ -71,7 +71,8 @@ export default function ContactMessageForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-card border border-border bg-surface p-6 shadow-card"
+      // relative, so the off-screen honeypot below has a positioned ancestor
+      className="relative rounded-card border border-border bg-surface p-6 shadow-card"
     >
       <h3 className="text-xl font-semibold text-ink">Пишете ни</h3>
       <p className="mt-2 text-sm text-muted">
@@ -143,11 +144,13 @@ export default function ContactMessageForm() {
         />
       </div>
 
-      {/* Honeypot: off-screen rather than display:none, which some bots skip. */}
+      {/* Honeypot: off-screen rather than display:none, which some bots skip.
+          Deliberately not named „Website“ — password managers autofill URL-ish
+          fields, and that would silently drop a real lead as a bot. */}
       <div className="absolute left-[-9999px]" aria-hidden="true">
-        <label htmlFor="contact-website">Website</label>
+        <label htmlFor="contact-ref-code">Код</label>
         <input
-          id="contact-website"
+          id="contact-ref-code"
           type="text"
           tabIndex={-1}
           autoComplete="off"
