@@ -36,7 +36,7 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
 
   if (error || !data?.length) {
     // Without this line a missing table reads as "no products yet" on the page.
-    console.error("getCatalog: using the hardcoded catalog", error);
+    console.error("getCatalog: using the hardcoded catalog", error ?? "no rows");
     return FALLBACK_GROUPS;
   }
 

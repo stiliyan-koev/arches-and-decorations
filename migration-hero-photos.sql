@@ -14,5 +14,4 @@ alter table hero_photos enable row level security;
 drop policy if exists "public read hero_photos" on hero_photos;
 create policy "public read hero_photos" on hero_photos for select using (true);
 
-drop policy if exists "admin all hero_photos" on hero_photos;
-create policy "admin all hero_photos" on hero_photos for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Admin write policies live in migration-admin-policies.sql, keyed off the `admins` table.

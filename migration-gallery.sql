@@ -36,9 +36,4 @@ create policy "public read gallery_tags" on gallery_tags for select using (true)
 drop policy if exists "public read gallery_photo_tags" on gallery_photo_tags;
 create policy "public read gallery_photo_tags" on gallery_photo_tags for select using (true);
 
-drop policy if exists "admin all gallery_photos" on gallery_photos;
-create policy "admin all gallery_photos" on gallery_photos for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-drop policy if exists "admin all gallery_tags" on gallery_tags;
-create policy "admin all gallery_tags" on gallery_tags for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-drop policy if exists "admin all gallery_photo_tags" on gallery_photo_tags;
-create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Admin write policies live in migration-admin-policies.sql, keyed off the `admins` table.

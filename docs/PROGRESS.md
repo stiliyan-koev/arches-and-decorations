@@ -254,12 +254,27 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 ## Housekeeping
 
 - [ ] **Run `migration-admin-policies.sql`** in the SQL editor **(you)** — BLOCKING before
-      this release goes live. Every `admin all …` policy today says
-      `auth.role() = 'authenticated'`, which is *any* account of the project; the migration
-      adds an `admins` table and keys the policies off that instead. **In the same SQL editor
-      session, right after it, run `insert into admins (user_id) select id from auth.users;`**
-      (or insert your two uids by hand). The table starts empty, and until it holds your uid
-      every save in /admin fails with "new row violates row-level security policy".
+      this release goes live, and **run it after the other migrations**: it re-creates
+      policies on their tables, and a missing table aborts the script, which makes the SQL
+      editor roll the whole run back — nothing changes while the file looks like it ran.
+      Every `admin all …` policy today says `auth.role() = 'authenticated'`, which is *any*
+      account of the project; the migration adds an `admins` table, keys the policies off
+      that instead, and does the same for the three write policies on the `catalog` storage
+      bucket (today any account can overwrite or delete every image). **In the same SQL
+      editor session, right after it:** open Authentication → Users in the dashboard and look
+      at who is actually there — sign-up has been open on a live project, so the list can
+      hold strangers and leftover test accounts, and promoting all of them would hand out
+      exactly the access this migration removes. Insert your two uids by hand,
+      `insert into admins (user_id) values ('…'),('…');`, and switch public sign-up off in
+      the same sitting (Authentication → Sign In / Providers). The table starts empty, and
+      until it holds your uid every save in /admin fails with "new row violates row-level
+      security policy" — and because `bookings` / `booking_items` have no public read policy,
+      only the admin one, **/admin/requests shows an empty list even when requests exist**,
+      with no error to explain it. **The code is coupled to this file**: `requireAdmin()` in
+      `src/app/admin/actions.ts` now calls the `is_admin()` rpc, so on a database where this
+      migration has not run the function does not exist, the call errors and every admin
+      action is denied (fails closed). It must run before, or together with, the deploy of
+      this release, or /admin denies everything.
 - [ ] **Run `storage-policies.sql`** in the SQL editor **(you)** — BLOCKING for uploads.
       `storage.objects` has its own RLS, separate from the table policies in `schema.sql`.
       Until this runs, every upload fails with "new row violates row-level security policy"
@@ -271,13 +286,14 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 - [ ] **Run `migration-product-colors.sql`** in the SQL editor **(you)** — BLOCKING, before
       the colour swatches go live: the catalog reads `products.has_colors` and
       `product_colors.quantity`, and without them it falls back to the hardcoded catalog.
-      It turns colours on for every product that already has some, and gives every colour
-      a count of 1. Not the product's old count: a product's quantity is now the **sum** of
-      its colours, so 6 owned copied into 7 colours would read as 42 free. **Set the real
-      count per colour in admin before you switch „Има варианти по цвят“ on for a product**
-      (e.g. Калъф за арка) — understating stock is safe, overstating double-books.
-      Матални квадратни масички has one colour (Бял): untick
-      „Има варианти по цвят“ there if one swatch looks odd.
+      It does **not** turn colours on for anything: `has_colors` stays `false` on every
+      product, and every colour starts with a count of 1. Order of work in admin, per
+      product: **set the real count per colour first, then tick „Има варианти по цвят“.**
+      A product's quantity is now the **sum** of its colours, so „Калъф за арка“ (6 owned,
+      7 colours) left at 1 per colour would read as 7 free, and 6 copied into each colour
+      would read as 42 — understating stock is safe, overstating double-books.
+      Матални квадратни масички has one colour (Бял): leave „Има варианти по цвят“ unticked
+      there if one swatch looks odd.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the

@@ -294,7 +294,7 @@ create table if not exists admins (
 -- itself may not read. It only ever returns true or false. Granted to anon
 -- too, because a public SELECT evaluates every policy on the table.
 create or replace function is_admin() returns boolean
-language sql security definer set search_path = public as $$
+language sql stable security definer set search_path = public as $$
   select exists (select 1 from admins where user_id = auth.uid());
 $$;
 
@@ -339,17 +339,17 @@ create policy "public create booking"       on bookings       for insert with ch
 create policy "public create booking_items" on booking_items  for insert with check (true);
 
 -- Admin (a user listed in `admins`): full access
-create policy "admin all categories"     on categories     for all using (is_admin()) with check (is_admin());
-create policy "admin all products"        on products        for all using (is_admin()) with check (is_admin());
-create policy "admin all product_colors" on product_colors for all using (is_admin()) with check (is_admin());
-create policy "admin all photos"         on photos         for all using (is_admin()) with check (is_admin());
-create policy "admin all product_images" on product_images for all using (is_admin()) with check (is_admin());
-create policy "admin all bookings"        on bookings        for all using (is_admin()) with check (is_admin());
-create policy "admin all booking_items"  on booking_items  for all using (is_admin()) with check (is_admin());
-create policy "admin all blackout"        on blackout_dates for all using (is_admin()) with check (is_admin());
-create policy "admin all hero_photos"    on hero_photos    for all using (is_admin()) with check (is_admin());
-create policy "admin all showcases"       on showcases       for all using (is_admin()) with check (is_admin());
-create policy "admin all showcase_photos" on showcase_photos for all using (is_admin()) with check (is_admin());
-create policy "admin all gallery_photos"     on gallery_photos     for all using (is_admin()) with check (is_admin());
-create policy "admin all gallery_tags"       on gallery_tags       for all using (is_admin()) with check (is_admin());
-create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using (is_admin()) with check (is_admin());
+create policy "admin all categories"     on categories     for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all products"        on products        for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all product_colors" on product_colors for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all photos"         on photos         for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all product_images" on product_images for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all bookings"        on bookings        for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all booking_items"  on booking_items  for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all blackout"        on blackout_dates for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all hero_photos"    on hero_photos    for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all showcases"       on showcases       for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all showcase_photos" on showcase_photos for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all gallery_photos"     on gallery_photos     for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all gallery_tags"       on gallery_tags       for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using ((select is_admin())) with check ((select is_admin()));

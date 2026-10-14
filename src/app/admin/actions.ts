@@ -15,23 +15,26 @@ import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
 import type { PhotoRef } from "@/lib/photo-library";
 
-// Two layers guard every write here. First, the action itself asks Supabase
-// who is logged in (requireAdmin below). Second, the database decides who may
-// actually write: the "admin all …" policies only allow users listed in the
-// `admins` table (migration-admin-policies.sql). There is no service key
-// anywhere in this app.
+// Two layers guard every write here. First, the action itself asks the
+// database whether the caller is one of the owner's accounts (requireAdmin
+// below). Second, the database decides who may actually write: the
+// "admin all …" policies only allow users listed in the `admins` table
+// (migration-admin-policies.sql). There is no service key anywhere in this app.
 
 const BUCKET = "catalog";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-// Server actions are reachable by their id from any URL, not just /admin,
-// so each one checks for a session itself. Which user may write is decided
-// in the database, by the "admin all …" policies.
+// Server actions are reachable by their id from any URL, not just /admin, so
+// each one checks the caller itself — and it checks WHO, not merely whether
+// someone is logged in: is_admin() (migration-admin-policies.sql) returns true
+// only for the uids in the `admins` table. Fails closed, so an error counts as
+// "no" — including the function not existing because that migration has not
+// run, in which case every admin action is denied.
 async function requireAdmin() {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user ? null : { ok: false as const, error: "Нямате достъп." };
+  const { data, error } = await supabase.rpc("is_admin");
+  return data === true && !error ? null : { ok: false as const, error: "Нямате достъп." };
 }
 
 // Photo paths come from the browser, so only accept ones inside the product

@@ -30,11 +30,8 @@ alter table showcase_photos enable row level security;
 drop policy if exists "public read showcases" on showcases;
 create policy "public read showcases" on showcases for select using (true);
 
-drop policy if exists "admin all showcases" on showcases;
-create policy "admin all showcases" on showcases for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Admin write policies live in migration-admin-policies.sql, keyed off the `admins` table.
 
 drop policy if exists "public read showcase_photos" on showcase_photos;
 create policy "public read showcase_photos" on showcase_photos for select using (true);
 
-drop policy if exists "admin all showcase_photos" on showcase_photos;
-create policy "admin all showcase_photos" on showcase_photos for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
