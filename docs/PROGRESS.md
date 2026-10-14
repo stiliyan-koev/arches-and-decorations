@@ -100,9 +100,9 @@ The configurator is no longer the homepage — the catalog is the main flow. Des
       photo-library → showcases. A fresh DB needs only `schema.sql`.
 - [ ] Re-run `migration-photo-library.sql` once after release 1.2.0 is live **(you)** — it
       links photos the old admin uploaded in the meantime
-- [x] Showcases („Украси“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),
+- [x] Showcases („Вдъхнови се“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),
       `/admin/showcases` (create, edit, ‹ › order, delete; up to 12 library photos each, first
-      = cover), and „Наши украси отблизо“ on `/`: three cards, each opening a popup with the text
+      = cover), and „Вдъхнови се“ on `/`: three cards, each opening a popup with the text
       and every photo whole (✕ / Escape / backdrop / Back close it). Browser-checked on the live
       DB (admin) and with a local preview (popup, phone + desktop).
 - [ ] Three showcases with photos created **(her)** — until then `/` shows „Вдъхнови се по повод“

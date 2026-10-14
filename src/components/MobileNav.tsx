@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -14,13 +14,22 @@ type NavItem = { href: string; label: string };
 export default function MobileNav({ items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const burgerRef = useRef<HTMLButtonElement>(null);
+
+  // Close and put focus back on the burger. Without this, the node that had
+  // focus unmounts with the sheet and focus falls to <body>. Link clicks
+  // navigate away, so they close without the focus hop.
+  const closeSheet = useCallback(() => {
+    setOpen(false);
+    burgerRef.current?.focus();
+  }, []);
 
   // Escape to close, and lock the page behind the sheet while it's open.
   useEffect(() => {
     if (!open) return;
 
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeSheet();
     }
     document.addEventListener("keydown", onKey);
 
@@ -31,11 +40,15 @@ export default function MobileNav({ items }: { items: NavItem[] }) {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open]);
+  }, [open, closeSheet]);
 
+  // md:hidden on the sheet too: it is portalled to <body>, so the wrapper's
+  // md:hidden does not reach it. Crossing the breakpoint while open (a phone
+  // rotated to landscape) would otherwise leave the sheet up next to the
+  // desktop nav.
   const sheet = (
     <div
-      className="fixed inset-0 z-50"
+      className="fixed inset-0 z-50 md:hidden"
       role="dialog"
       aria-modal="true"
       aria-label="Меню"
@@ -44,7 +57,7 @@ export default function MobileNav({ items }: { items: NavItem[] }) {
         type="button"
         aria-label="Затвори менюто"
         tabIndex={-1}
-        onClick={() => setOpen(false)}
+        onClick={closeSheet}
         className="absolute inset-0 bg-ink/40"
       />
 
@@ -55,7 +68,7 @@ export default function MobileNav({ items }: { items: NavItem[] }) {
             type="button"
             autoFocus
             aria-label="Затвори"
-            onClick={() => setOpen(false)}
+            onClick={closeSheet}
             className="grid h-10 w-10 place-items-center rounded-full border border-border bg-surface text-ink focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
           >
             ✕
@@ -91,6 +104,7 @@ export default function MobileNav({ items }: { items: NavItem[] }) {
     <div className="ml-auto md:hidden">
       <button
         type="button"
+        ref={burgerRef}
         aria-label="Меню"
         aria-expanded={open}
         onClick={() => setOpen(true)}
