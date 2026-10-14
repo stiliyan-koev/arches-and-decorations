@@ -26,11 +26,13 @@ begin
   ) then
     alter table product_colors add column quantity int not null default 1;
     alter table product_colors add constraint product_colors_quantity_check check (quantity >= 0);
-    -- Until she types the real numbers, every colour gets the product's count,
-    -- so no colour looks scarcer than the product did before.
-    update product_colors set quantity = p.quantity
-    from products p
-    where p.id = product_colors.product_id;
+    -- One of each colour to start with, the same as seed.sql uses. NOT the
+    -- product's own count: the catalog now makes a product's quantity the SUM
+    -- of its colours, so copying 6 into 7 colours would report 42 in stock and
+    -- the site would happily take 42 bookings. Set the real count per colour
+    -- in admin BEFORE switching „Има варианти по цвят“ on for a product —
+    -- understating stock is safe, overstating double-books.
+    update product_colors set quantity = 1;
   end if;
 end $$;
 

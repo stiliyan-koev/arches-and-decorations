@@ -105,7 +105,8 @@ export async function getPublicGallery(tagSlug: string | null, limit: number) {
       limit,
     });
     return { tags, activeTag, photos, total, hasMore };
-  } catch {
+  } catch (error) {
+    console.error("getPublicGallery: showing an empty gallery", error);
     return empty;
   }
 }

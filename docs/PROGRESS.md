@@ -253,6 +253,13 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 
 ## Housekeeping
 
+- [ ] **Run `migration-admin-policies.sql`** in the SQL editor **(you)** — BLOCKING before
+      this release goes live. Every `admin all …` policy today says
+      `auth.role() = 'authenticated'`, which is *any* account of the project; the migration
+      adds an `admins` table and keys the policies off that instead. **In the same SQL editor
+      session, right after it, run `insert into admins (user_id) select id from auth.users;`**
+      (or insert your two uids by hand). The table starts empty, and until it holds your uid
+      every save in /admin fails with "new row violates row-level security policy".
 - [ ] **Run `storage-policies.sql`** in the SQL editor **(you)** — BLOCKING for uploads.
       `storage.objects` has its own RLS, separate from the table policies in `schema.sql`.
       Until this runs, every upload fails with "new row violates row-level security policy"
@@ -264,9 +271,12 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 - [ ] **Run `migration-product-colors.sql`** in the SQL editor **(you)** — BLOCKING, before
       the colour swatches go live: the catalog reads `products.has_colors` and
       `product_colors.quantity`, and without them it falls back to the hardcoded catalog.
-      It turns colours on for every product that already has some, and gives each colour
-      the product's old count. **Then set the real count per colour** in admin (e.g.
-      Калъф за арка). Матални квадратни масички has one colour (Бял): untick
+      It turns colours on for every product that already has some, and gives every colour
+      a count of 1. Not the product's old count: a product's quantity is now the **sum** of
+      its colours, so 6 owned copied into 7 colours would read as 42 free. **Set the real
+      count per colour in admin before you switch „Има варианти по цвят“ on for a product**
+      (e.g. Калъф за арка) — understating stock is safe, overstating double-books.
+      Матални квадратни масички has one colour (Бял): untick
       „Има варианти по цвят“ there if one swatch looks odd.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).

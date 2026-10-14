@@ -38,7 +38,8 @@ export async function getHeroPhotos(): Promise<HeroPhoto[]> {
   let rows: HeroPhotoRow[];
   try {
     rows = await getHeroPhotoRows();
-  } catch {
+  } catch (error) {
+    console.error("getHeroPhotos: using the placeholder tiles", error);
     return HERO_PLACEHOLDERS;
   }
   if (rows.length === 0) return HERO_PLACEHOLDERS;
