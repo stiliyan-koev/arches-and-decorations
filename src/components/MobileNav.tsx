@@ -42,6 +42,23 @@ export default function MobileNav({ items }: { items: NavItem[] }) {
     };
   }, [open, closeSheet]);
 
+  // Close the sheet once the viewport reaches md (768px, Tailwind's default
+  // breakpoint - this project does not override it). The sheet and the burger
+  // are both md:hidden, so leaving `open` true there would keep the scroll
+  // lock on with nothing on screen to release it. setOpen, not closeSheet:
+  // focusing a display:none burger is pointless.
+  useEffect(() => {
+    if (!open) return;
+
+    const desktop = window.matchMedia("(min-width: 768px)");
+    function onChange(event: MediaQueryListEvent) {
+      if (event.matches) setOpen(false);
+    }
+    desktop.addEventListener("change", onChange);
+
+    return () => desktop.removeEventListener("change", onChange);
+  }, [open]);
+
   // md:hidden on the sheet too: it is portalled to <body>, so the wrapper's
   // md:hidden does not reach it. Crossing the breakpoint while open (a phone
   // rotated to landscape) would otherwise leave the sheet up next to the
