@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { CONTACTS } from "@/lib/contacts";
-import { FacebookIcon, TikTokIcon } from "@/components/SocialIcons";
+import {
+  FacebookIcon,
+  MessengerIcon,
+  TikTokIcon,
+  ViberIcon,
+} from "@/components/SocialIcons";
+import ContactMessageForm from "@/components/about/ContactMessageForm";
 
 export const metadata: Metadata = {
   title: "За нас",
   description:
-    "Кои сме ние и как работим — балонни декорации и арки под наем във Варна. Контакти и как да ни намерите.",
+    "Кои сме ние и как работим — балонни декорации и арки под наем във Варна. Пишете ни по Messenger, Viber или през формата за контакт.",
 };
 
 export default function AboutPage() {
@@ -49,19 +55,45 @@ export default function AboutPage() {
         </div>
 
         <aside className="h-fit rounded-card border border-border bg-surface p-6 shadow-card">
-          <h2 className="text-xl font-semibold text-ink">
-            Свържете се с нас
-          </h2>
+          <h2 className="text-xl font-semibold text-ink">Свържете се с нас</h2>
+          <p className="mt-2 text-sm text-muted">
+            Най-бързо отговаряме на съобщение по{" "}
+            <strong className="font-semibold text-ink">Messenger</strong> или{" "}
+            <strong className="font-semibold text-ink">Viber</strong> — това са
+            предпочитаните начини.
+          </p>
+
+          <div className="mt-4 flex flex-col gap-2.5">
+            <a
+              href={CONTACTS.messengerHref}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-cta px-5 font-extrabold text-white transition-colors hover:bg-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+            >
+              <MessengerIcon className="size-[18px]" /> Пишете по Messenger
+            </a>
+            <a
+              href={CONTACTS.viberHref}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-border-strong bg-bg px-5 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+            >
+              <ViberIcon className="size-[18px]" /> Пишете по Viber
+            </a>
+          </div>
+
           <dl className="mt-5 space-y-4 text-sm">
             <div>
-              <dt className="text-muted">Имейл</dt>
+              <dt className="text-muted">Телефон</dt>
               <dd className="mt-1">
                 <a
-                  href={`mailto:${CONTACTS.email}`}
-                  className="text-ink hover:text-cta"
+                  href={CONTACTS.phoneHref}
+                  className="text-base font-bold text-ink hover:text-cta"
                 >
-                  {CONTACTS.email}
+                  {CONTACTS.phone}
                 </a>
+              </dd>
+              {/* The Viber button above opens a chat with this same number, but
+                  only on a device with Viber — so the number stays a plain
+                  tel: link that works everywhere. */}
+              <dd className="mt-1 text-xs text-muted">
+                Същият номер е и във Viber.
               </dd>
             </div>
             <div>
@@ -93,6 +125,10 @@ export default function AboutPage() {
           </dl>
         </aside>
       </div>
+
+      <section className="mx-auto mt-12 max-w-xl">
+        <ContactMessageForm />
+      </section>
     </div>
   );
 }

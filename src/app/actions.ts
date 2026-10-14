@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
+import { sendOwnerEmail } from "@/lib/mail";
 
 export type RequestItem = {
   productId: string;
@@ -265,4 +266,66 @@ export async function submitRequest(
   }
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// The contact form on /about. No database: the message is an email to the
+// owner and nothing else, so if the email doesn't go out the customer is told
+// to use Messenger, Viber or the phone — all three are next to the form.
+
+export type ContactPayload = {
+  name: string;
+  phone: string;
+  email: string; // optional — only so she can write back
+  message: string;
+  // Honeypot. No visitor sees this field, so no visitor fills it; bots do.
+  website: string;
+};
+
+export type ContactResult = { ok: true } | { ok: false; error: string };
+
+const WRITE_TO_US =
+  "Нещо се обърка при изпращането. Моля, пишете ни по Messenger или Viber, или ни се обадете.";
+
+export async function submitContactMessage(
+  payload: ContactPayload,
+): Promise<ContactResult> {
+  // Same shape as the form sends, or it's a hand-built call.
+  if (
+    !isTextUpTo(payload.name, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.phone, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.email, MAX_SHORT_TEXT) ||
+    !isTextUpTo(payload.message, MAX_NOTE) ||
+    typeof payload.website !== "string"
+  ) {
+    return { ok: false, error: SEND_FAILED };
+  }
+
+  // A filled honeypot is a bot. Say it went fine and send nothing.
+  if (payload.website.trim()) return { ok: true };
+
+  const name = payload.name.trim();
+  const phone = payload.phone.trim();
+  const email = payload.email.trim();
+  const message = payload.message.trim();
+
+  if (!name) return { ok: false, error: "Моля, попълнете името си." };
+  if (!phone) return { ok: false, error: "Моля, попълнете телефон." };
+  if (!message) return { ok: false, error: "Моля, напишете съобщение." };
+
+  const sent = await sendOwnerEmail(
+    `Запитване от сайта — ${name}`,
+    [
+      `Име: ${name}`,
+      `Телефон: ${phone}`,
+      `Имейл: ${email || "(не е посочен)"}`,
+      "",
+      message,
+    ].join("\n"),
+    // Reply goes to the customer when they left an address; otherwise Resend
+    // leaves the sender as the reply address.
+    email || undefined,
+  );
+
+  return sent ? { ok: true } : { ok: false, error: WRITE_TO_US };
 }
