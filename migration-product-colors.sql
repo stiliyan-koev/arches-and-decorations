@@ -6,31 +6,35 @@
 -- back to the hardcoded catalog. No RLS change: the row-level policies already
 -- cover every column, and the new function is granted below.
 
--- The two columns and their one-time backfill sit in one block, so the
--- backfill only runs when the columns are new and never undoes her edits.
+-- The two columns in one block, so each one is added only when it is missing.
+-- Neither gets a backfill: `has_colors` stays at its `false` default, so this
+-- file switches nothing to colour mode on its own.
 do $$
 begin
   if not exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'products' and column_name = 'has_colors'
   ) then
+    -- `false` for every product, old ones included. A product shows swatches
+    -- only once „Има варианти по цвят“ is ticked for it in admin, and that
+    -- comes AFTER its per-colour counts are right (see the note below).
     alter table products add column has_colors boolean not null default false;
-    -- Products that already have colours keep showing them.
-    update products set has_colors = true
-    where exists (select 1 from product_colors c where c.product_id = products.id);
   end if;
 
   if not exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'product_colors' and column_name = 'quantity'
   ) then
+    -- `default 1` writes one of each colour into every existing row already,
+    -- so no update statement is needed here. One, the same as seed.sql uses,
+    -- and NOT the product's own count: the catalog now makes a product's
+    -- quantity the SUM of its colours, so copying 6 into 7 colours would
+    -- report 42 in stock and the site would happily take 42 bookings.
+    -- Order of work in admin, per product: set the real count per colour
+    -- FIRST, then tick „Има варианти по цвят“ — understating stock is safe,
+    -- overstating double-books.
     alter table product_colors add column quantity int not null default 1;
     alter table product_colors add constraint product_colors_quantity_check check (quantity >= 0);
-    -- Until she types the real numbers, every colour gets the product's count,
-    -- so no colour looks scarcer than the product did before.
-    update product_colors set quantity = p.quantity
-    from products p
-    where p.id = product_colors.product_id;
   end if;
 end $$;
 

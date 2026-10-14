@@ -6,10 +6,13 @@
 -- upload fails with "new row violates row-level security policy" even though
 -- the user is logged in.
 --
--- ASSUMPTION: "authenticated" = admin. That only holds while public sign-up is
--- OFF (Supabase: Authentication -> Sign In / Providers -> "Allow new users to
--- sign up"). It is ON by default. If it stays on, anyone can create an account
--- and write to this bucket (and to every table schema.sql gives "admin all").
+-- The write policies ask is_admin() (created by migration-admin-policies.sql,
+-- which carries the same three policies, so either file closes this hole).
+-- "authenticated" is NOT treated as "admin": public sign-up is on by default,
+-- and without the identity check any account of this project could overwrite
+-- or delete every image on the site. If you run this file on a database where
+-- migration-admin-policies.sql has not run yet, is_admin() does not exist and
+-- these three statements fail — run that migration first.
 
 -- Anyone may read: the bucket is public and the site links straight to it.
 -- The dashboard's "Public bucket" toggle usually creates this one already.
@@ -18,22 +21,24 @@ create policy "catalog public read"
   on storage.objects for select
   using (bucket_id = 'catalog');
 
--- Only a logged-in admin may add, replace or remove files.
+-- Only an admin (a user listed in `admins`) may add, replace or remove files.
+-- `(select is_admin())` as a scalar subquery: evaluated once per statement
+-- instead of once per row.
 drop policy if exists "catalog admin insert" on storage.objects;
 create policy "catalog admin insert"
   on storage.objects for insert
   to authenticated
-  with check (bucket_id = 'catalog');
+  with check (bucket_id = 'catalog' and (select is_admin()));
 
 drop policy if exists "catalog admin update" on storage.objects;
 create policy "catalog admin update"
   on storage.objects for update
   to authenticated
-  using (bucket_id = 'catalog')
-  with check (bucket_id = 'catalog');
+  using (bucket_id = 'catalog' and (select is_admin()))
+  with check (bucket_id = 'catalog' and (select is_admin()));
 
 drop policy if exists "catalog admin delete" on storage.objects;
 create policy "catalog admin delete"
   on storage.objects for delete
   to authenticated
-  using (bucket_id = 'catalog');
+  using (bucket_id = 'catalog' and (select is_admin()));

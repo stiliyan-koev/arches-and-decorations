@@ -34,7 +34,11 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     .order("sort")
     .order("sort", { referencedTable: "products" });
 
-  if (error || !data?.length) return FALLBACK_GROUPS;
+  if (error || !data?.length) {
+    // Without this line a missing table reads as "no products yet" on the page.
+    console.error("getCatalog: using the hardcoded catalog", error ?? "no rows");
+    return FALLBACK_GROUPS;
+  }
 
   const groups: CatalogGroup[] = data.map((category) => ({
     id: category.id,

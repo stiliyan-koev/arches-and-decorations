@@ -79,7 +79,8 @@ export async function getHomeShowcases(): Promise<HomeShowcase[]> {
   let rows: ShowcaseRow[];
   try {
     rows = await getShowcaseRows();
-  } catch {
+  } catch (error) {
+    console.error("getHomeShowcases: showing the occasion cards instead", error);
     return [];
   }
 

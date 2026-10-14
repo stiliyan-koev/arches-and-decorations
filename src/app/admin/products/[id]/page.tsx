@@ -71,13 +71,11 @@ export default async function EditProductPage({
           categories={categoriesResult.data ?? []}
           colorCount={colors.length}
         />
-        {product.has_colors && (
-          <ColorManager
-            productId={product.id}
-            colors={colors}
-            trackAvailability={product.track_availability}
-          />
-        )}
+        <ColorManager
+          productId={product.id}
+          colors={colors}
+          trackAvailability={product.track_availability}
+        />
         <PhotoManager
           productId={product.id}
           productSlug={product.slug}

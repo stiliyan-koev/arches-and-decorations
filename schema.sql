@@ -276,6 +276,44 @@ grant execute on function reserved_qty_by_color(date, date) to anon, authenticat
 -- available = products.quantity - reserved_qty(...). track_availability=false items are always available.
 -- A product with colours: available per colour = product_colors.quantity - reserved_qty_by_color(...).
 
+-- ---------- Who the admin is ----------
+-- One row per admin user. The "admin all …" policies below key off this table,
+-- not off "is this request logged in at all": any Supabase account of the
+-- project is logged in, and sign-ups are open by default.
+--
+-- !!! After running this file, IN THE SAME SQL EDITOR SESSION:
+-- !!!   1. Open Authentication → Users in the dashboard and look at who is
+-- !!!      actually there. Public sign-up is on by default, so the list can
+-- !!!      hold strangers and leftover test accounts. Do NOT promote the
+-- !!!      whole list.
+-- !!!   2. Insert the two owner uids by hand, copied from that page:
+-- !!!
+-- !!!        insert into admins (user_id) values
+-- !!!          ('paste-the-first-uid-here'),
+-- !!!          ('paste-the-second-uid-here');
+-- !!!
+-- !!!   3. Switch public sign-up OFF in the same sitting: Authentication →
+-- !!!      Sign In / Providers → "Allow new users to sign up".
+-- !!!
+-- !!! The table starts empty, and an empty table means nobody can write
+-- !!! anything in /admin. `bookings` / `booking_items` have no public read
+-- !!! policy either, so /admin/requests then shows an EMPTY list rather than
+-- !!! an error.
+create table if not exists admins (
+  user_id uuid primary key references auth.users on delete cascade
+);
+
+-- Is the caller one of the owner's accounts? `security definer` for the same
+-- reason as reserved_qty above: the policies have to read a table the caller
+-- itself may not read. It only ever returns true or false. Granted to anon
+-- too, because a public SELECT evaluates every policy on the table.
+create or replace function is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from admins where user_id = auth.uid());
+$$;
+
+grant execute on function is_admin() to anon, authenticated;
+
 -- ---------- Row Level Security (starter policies — review before prod) ----------
 -- Public can READ the catalog; the contact form can INSERT a booking request;
 -- everything else requires an authenticated admin.
@@ -294,6 +332,8 @@ alter table showcase_photos enable row level security;
 alter table gallery_photos     enable row level security;
 alter table gallery_tags       enable row level security;
 alter table gallery_photo_tags enable row level security;
+alter table admins             enable row level security;
+-- No policy on `admins` on purpose: nothing reads it through the API.
 
 -- Public read of the catalog
 create policy "public read categories"     on categories     for select using (true);
@@ -312,18 +352,18 @@ create policy "public read gallery_photo_tags" on gallery_photo_tags for select 
 create policy "public create booking"       on bookings       for insert with check (status = 'requested');
 create policy "public create booking_items" on booking_items  for insert with check (true);
 
--- Authenticated admin: full access
-create policy "admin all categories"     on categories     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all products"        on products        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all product_colors" on product_colors for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all photos"         on photos         for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all product_images" on product_images for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all bookings"        on bookings        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all booking_items"  on booking_items  for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all blackout"        on blackout_dates for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all hero_photos"    on hero_photos    for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all showcases"       on showcases       for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all showcase_photos" on showcase_photos for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all gallery_photos"     on gallery_photos     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all gallery_tags"       on gallery_tags       for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Admin (a user listed in `admins`): full access
+create policy "admin all categories"     on categories     for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all products"        on products        for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all product_colors" on product_colors for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all photos"         on photos         for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all product_images" on product_images for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all bookings"        on bookings        for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all booking_items"  on booking_items  for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all blackout"        on blackout_dates for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all hero_photos"    on hero_photos    for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all showcases"       on showcases       for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all showcase_photos" on showcase_photos for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all gallery_photos"     on gallery_photos     for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all gallery_tags"       on gallery_tags       for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using ((select is_admin())) with check ((select is_admin()));

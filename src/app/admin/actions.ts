@@ -15,13 +15,27 @@ import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
 import type { PhotoRef } from "@/lib/photo-library";
 
-// Every write here runs through the logged-in user's cookies, so RLS sees
-// `authenticated` and the "admin all …" policies in schema.sql apply. There is
-// no service key anywhere in this app.
+// Two layers guard every write here. First, the action itself asks the
+// database whether the caller is one of the owner's accounts (requireAdmin
+// below). Second, the database decides who may actually write: the
+// "admin all …" policies only allow users listed in the `admins` table
+// (migration-admin-policies.sql). There is no service key anywhere in this app.
 
 const BUCKET = "catalog";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+// Server actions are reachable by their id from any URL, not just /admin, so
+// each one checks the caller itself — and it checks WHO, not merely whether
+// someone is logged in: is_admin() (migration-admin-policies.sql) returns true
+// only for the uids in the `admins` table. Fails closed, so an error counts as
+// "no" — including the function not existing because that migration has not
+// run, in which case every admin action is denied.
+async function requireAdmin() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("is_admin");
+  return data === true && !error ? null : { ok: false as const, error: "Нямате достъп." };
+}
 
 // Photo paths come from the browser, so only accept ones inside the product
 // photos folder.
@@ -173,6 +187,9 @@ export type CategoryInput = {
 };
 
 export async function saveCategory(input: CategoryInput): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
@@ -200,6 +217,9 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
 }
 
 export async function deleteCategory(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
   const { error } = await supabase.from("categories").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -230,6 +250,9 @@ export type ProductInput = {
 export async function saveProduct(
   input: ProductInput,
 ): Promise<ActionResult & { id?: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
@@ -292,6 +315,9 @@ export async function saveProduct(
 }
 
 export async function deleteProduct(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
 
   // Storage isn't touched by the cascade, so note the tiles first and remove
@@ -325,6 +351,9 @@ export async function saveCarouselSettings(
     carousel_in_catalog: boolean;
   },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products")
@@ -362,6 +391,9 @@ function isColorQuantity(quantity: number) {
 }
 
 export async function addColor(input: ColorInput): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!input.color_name.trim() || !input.color_slug.trim()) {
     return { ok: false, error: "Име и slug на цвета са задължителни." };
   }
@@ -406,6 +438,9 @@ export async function setColorQuantity(
   id: string,
   quantity: number,
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Цветът не е намерен." };
   if (!isColorQuantity(quantity)) {
     return { ok: false, error: "Броят трябва да е цяло число от 0 до 999." };
@@ -428,6 +463,9 @@ export async function setColorQuantity(
 // move to "Всички цветове". Detached here first, so this works even before
 // migration-product-colors.sql switches the foreign key to `on delete set null`.
 export async function deleteColor(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Цветът не е намерен." };
   const supabase = await createClient();
 
@@ -464,6 +502,9 @@ export async function attachImage(input: {
   crop: CropRect | null;
   sort: number;
 }): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const crop = cleanCrop(input.crop);
   if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
@@ -499,6 +540,9 @@ export async function replaceImage(
   id: string,
   input: { path: string; crop: CropRect | null },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   return replaceTile("product_images", isProductPhotoPath, id, input);
 }
 
@@ -510,6 +554,9 @@ export async function swapImageOrder(
   first: { id: string; sort: number },
   second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   // Photos can share a sort value (new uploads use the file number), so a
   // plain swap could change nothing. Give the two distinct values instead.
   const low = Math.min(first.sort, second.sort);
@@ -550,6 +597,9 @@ export async function setImageColor(
   productId: string,
   colorId: string | null,
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(imageId) || !UUID.test(productId)) {
     return { ok: false, error: "Снимката не е намерена." };
   }
@@ -586,6 +636,9 @@ export async function setImageColor(
 
 // Takes the photo off this product. The library photo stays.
 export async function deleteImage(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data: deleted, error } = await supabase
@@ -618,6 +671,9 @@ export async function addHeroPhoto(input: {
   path: string;
   crop: CropRect | null;
 }): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const crop = cleanCrop(input.crop);
   if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
@@ -657,6 +713,9 @@ export async function replaceHeroTile(
   id: string,
   input: { path: string; crop: CropRect | null },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   return replaceTile("hero_photos", isHeroPhotoPath, id, input);
 }
 
@@ -664,6 +723,9 @@ export async function saveHeroCaption(
   id: string,
   caption: string,
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -685,6 +747,9 @@ export async function swapHeroOrder(
   first: { id: string; sort: number },
   second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(first.id) || !UUID.test(second.id)) {
     return { ok: false, error: "Снимката не е намерена." };
   }
@@ -709,6 +774,9 @@ export async function swapHeroOrder(
 
 // Takes the photo out of the carousel. The library photo stays.
 export async function removeHeroPhoto(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data: deleted, error } = await supabase
@@ -739,6 +807,9 @@ export async function saveShowcase(
   id: string | null,
   input: { title: string; body: string },
 ): Promise<ActionResult & { id?: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const title = input.title.trim();
   const body = input.body.trim();
   if (!title) return { ok: false, error: "Напишете заглавие." };
@@ -789,6 +860,9 @@ export async function saveShowcase(
 // Deletes the showcase and its photo links (on delete cascade). The library
 // photos stay.
 export async function deleteShowcase(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: SHOWCASE_NOT_FOUND };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -808,6 +882,9 @@ export async function swapShowcaseOrder(
   first: { id: string; sort: number },
   second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(first.id) || !UUID.test(second.id)) {
     return { ok: false, error: SHOWCASE_NOT_FOUND };
   }
@@ -835,6 +912,9 @@ export async function addShowcasePhotos(
   showcaseId: string,
   photoIds: string[],
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(showcaseId)) return { ok: false, error: SHOWCASE_NOT_FOUND };
   const ids = cleanIds(photoIds);
   if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
@@ -898,6 +978,9 @@ export async function addShowcasePhotos(
 
 // Takes one photo out of a showcase. The library photo stays.
 export async function removeShowcasePhoto(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -918,6 +1001,9 @@ export async function swapShowcasePhotoOrder(
   first: { id: string; sort: number },
   second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(first.id) || !UUID.test(second.id)) {
     return { ok: false, error: "Снимката не е намерена." };
   }
@@ -956,6 +1042,9 @@ export async function addGalleryPhoto(input: {
   crop: CropRect | null;
   tagIds: string[];
 }): Promise<ActionResult | { ok: false; error: string; keepFiles: true }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const crop = cleanCrop(input.crop);
   if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
@@ -1025,6 +1114,9 @@ export async function addTagToGalleryPhotos(
   photoIds: string[],
   tagId: string,
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const ids = cleanPhotoIds(photoIds);
   if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0 || !UUID.test(tagId)) {
@@ -1049,6 +1141,9 @@ export async function removeTagFromGalleryPhotos(
   photoIds: string[],
   tagId: string,
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const ids = cleanPhotoIds(photoIds);
   if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0 || !UUID.test(tagId)) {
@@ -1072,12 +1167,18 @@ export async function replaceGalleryTile(
   id: string,
   input: { path: string; crop: CropRect | null },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   return replaceTile("gallery_photos", isGalleryTilePath, id, input);
 }
 
 // Takes the photos out of the gallery, with their tags (on delete cascade).
 // The library photos stay. Used for one photo and for a selection alike.
 export async function removeFromGallery(photoIds: string[]): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const ids = cleanPhotoIds(photoIds);
   if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
@@ -1108,6 +1209,9 @@ function cleanTagName(name: string) {
 export async function createGalleryTag(
   name: string,
 ): Promise<{ ok: true; tag: GalleryTag } | { ok: false; error: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const tag = cleanTagName(name);
   if (!tag) return { ok: false, error: "Напишете име на етикета." };
 
@@ -1127,6 +1231,9 @@ export async function createGalleryTag(
 // Renaming changes the slug too, so an old /gallery?tag=… link falls back to
 // all photos rather than pointing at a name that no longer exists.
 export async function renameGalleryTag(id: string, name: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const tag = cleanTagName(name);
   if (!tag) return { ok: false, error: "Напишете име на етикета." };
@@ -1147,6 +1254,9 @@ export async function renameGalleryTag(id: string, name: string): Promise<Action
 
 // The photos stay; they only lose this tag (on delete cascade).
 export async function deleteGalleryTag(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -1168,6 +1278,9 @@ export async function deleteGalleryTag(id: string): Promise<ActionResult> {
 export async function addPhoto(
   path: string,
 ): Promise<{ ok: true; photo: PhotoRef } | { ok: false; error: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!isLibraryPhotoPath(path)) {
     return { ok: false, error: "Невалиден път до снимката." };
   }
@@ -1186,6 +1299,9 @@ export async function addPhoto(
 // cascade), with every file — the original and each place's tile. The paths
 // come from the rows, never from the browser.
 export async function deletePhotos(photoIds: string[]): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const ids = cleanPhotoIds(photoIds);
   if (!ids) return { ok: false, error: TOO_MANY };
   if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };

@@ -21,8 +21,7 @@ alter table photos enable row level security;
 drop policy if exists "public read photos" on photos;
 create policy "public read photos" on photos for select using (true);
 
-drop policy if exists "admin all photos" on photos;
-create policy "admin all photos" on photos for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+-- Admin write policies live in migration-admin-policies.sql, keyed off the `admins` table.
 
 -- Each place points at its library photo. A photo is in the carousel and in
 -- the gallery at most once; products can share one as often as they like.

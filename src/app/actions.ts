@@ -161,6 +161,12 @@ export async function submitRequest(
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
       return { ok: false, error: SEND_FAILED };
     }
+    // A product's id. A slug instead means the catalog fell back to
+    // FALLBACK_GROUPS, and the booking row would be written before the items
+    // insert died on the uuid column.
+    if (typeof item.productId !== "string" || !UUID.test(item.productId)) {
+      return { ok: false, error: SEND_FAILED };
+    }
     // A colour is a product_colors id, or nothing. Missing counts as nothing.
     if (item.colorId != null && !(typeof item.colorId === "string" && UUID.test(item.colorId))) {
       return { ok: false, error: SEND_FAILED };
