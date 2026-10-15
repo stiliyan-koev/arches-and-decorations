@@ -67,26 +67,14 @@ export default async function HomePage() {
               >
                 {/* A hand tapping. It is squeezed horizontally so the fist stays
                     narrow, and shifted down to leave room for the rays above the
-                    fingertip. vector-effect is not inherited, so each path carries
-                    non-scaling-stroke itself — that way the uneven scale does not
-                    thin the lines and the hand matches the rays below. */}
-                <g transform="translate(2 2.8) scale(0.7 0.85)" strokeWidth={2.2}>
-                  <path
-                    vectorEffect="non-scaling-stroke"
-                    d="M10 9.5V4a2 2 0 0 0-4 0v10"
-                  />
-                  <path
-                    vectorEffect="non-scaling-stroke"
-                    d="M14 10V9a2 2 0 0 0-4 0v1"
-                  />
-                  <path
-                    vectorEffect="non-scaling-stroke"
-                    d="M18 11v-1a2 2 0 0 0-4 0"
-                  />
-                  <path
-                    vectorEffect="non-scaling-stroke"
-                    d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"
-                  />
+                    fingertip. The uneven scale also thins the stroke, so the group
+                    asks for 2.8 and ends up drawing about as thick as the 2.2 of
+                    the rays below — and both grow with the icon. */}
+                <g transform="translate(2 2.8) scale(0.7 0.85)" strokeWidth={2.8}>
+                  <path d="M10 9.5V4a2 2 0 0 0-4 0v10" />
+                  <path d="M14 10V9a2 2 0 0 0-4 0v1" />
+                  <path d="M18 11v-1a2 2 0 0 0-4 0" />
+                  <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
                 </g>
                 {/* Four rays fanning out from the fingertip, as on a tap icon. */}
                 <path
