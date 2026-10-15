@@ -63,9 +63,27 @@ export default async function HomePage() {
                 strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="h-[0.8em] w-[0.8em]"
+                className="h-[0.9em] w-[0.9em] -rotate-45"
               >
-                <path d="M5 12h14M13 6l6 6-6 6" />
+                {/* A hand tapping. It is squeezed horizontally so the fist stays
+                    narrow, and shifted down to leave room for the rays above the
+                    fingertip; non-scaling-stroke keeps the lines even despite the
+                    uneven scale. */}
+                <g
+                  transform="translate(2 2.8) scale(0.7 0.85)"
+                  strokeWidth={2.2}
+                  vectorEffect="non-scaling-stroke"
+                >
+                  <path d="M10 9.5V4a2 2 0 0 0-4 0v10" />
+                  <path d="M14 10V9a2 2 0 0 0-4 0v1" />
+                  <path d="M18 11v-1a2 2 0 0 0-4 0" />
+                  <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
+                </g>
+                {/* Four rays fanning out from the fingertip, as on a tap icon. */}
+                <path
+                  strokeWidth={2.2}
+                  d="M7.6 2.3V0.6M6 2.9 4.8 1.7M9.2 2.9 10.4 1.7M5.4 3.6 3.7 2.9"
+                />
               </svg>
             </Link>
           </h1>
