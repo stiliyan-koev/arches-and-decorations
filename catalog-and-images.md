@@ -54,13 +54,15 @@ products/{product-slug}/{NN}.webp                    # color-agnostic / base ima
 products/{product-slug}/{color-slug}--{NN}.webp      # color-specific image
 products/{product-slug}/full/{color-slug--}{NN}.webp # the whole photo behind a tile, same name
 products/{product-slug}/carousel--{NN}.webp          # carousel photo (tile); its full photo is under full/ too
-gallery/{theme-slug}/{NN}.webp                        # past-work gallery, grouped by theme
+home/hero/{uuid}.webp                                # homepage carousel photo (already 4:5), row in hero_photos
+gallery/{uuid}.webp                                  # past-work gallery tile (4:5), row in gallery_photos
+gallery/full/{uuid}.webp                             # the whole photo behind it, same uuid; tags in gallery_photo_tags
 ```
 
 Rules:
 - lowercase, ASCII, `webp`, two-digit index `01`, `02`, …
 - `--` separates the color segment from the index (slugs may contain single `-`)
-- Examples: `products/arch-cover/red--01.webp`, `products/arch-cover/elsa-castle--01.webp`, `products/figure-elsa/01.webp`, `gallery/frozen-theme/03.webp`
+- Examples: `products/arch-cover/red--01.webp`, `products/arch-cover/elsa-castle--01.webp`, `products/figure-elsa/01.webp`
 
 ### Tile vs full
 Each product photo is two files:
@@ -80,7 +82,13 @@ always `color_id = null`). Same 4:5 cropper and tile/full pair as every other ph
 - Order = `sort`, set with the ← → buttons in admin. When shown, the carousel **replaces** the single main photo in
   that place (catalog card, configurator popup preview). A chosen add-on colour's photo still wins in the popup.
 
-## Swatch → image logic (PDP)
-1. Load `product_images` for the product.
-2. When a swatch (a `product_colors` row) is selected, show images whose `color_id` matches; if that color has none, fall back to the base images (`color_id null`).
-3. 1 image → single frame; >1 → carousel. Swatch fill = `product_colors.hex` (render a pattern tile when `hex` is null).
+## Swatch → image logic (catalog card)
+There is no product page; the swatches live on the catalog card.
+1. `products.has_colors` („Има варианти по цвят“) is the switch. Off = the colours are kept but shown nowhere.
+2. Each colour (`product_colors`) has its own stock, `quantity`; the product's stock is their sum. One basket line per colour.
+3. The card starts on the first colour (or the first one the colour filter asks for, or the first in stock).
+4. When a swatch is selected, show the main photos whose `color_id` matches it: 1 → single frame, >1 → carousel.
+   If that colour has none, keep the card's own photo: an untagged one (`color_id null`), else the first.
+5. In admin, a photo's colour is picked on upload („За кой цвят е снимката“) or changed later with the select under it.
+   Carousel photos never have a colour. Deleting a colour keeps its photos: they move to „Всички цветове“.
+6. Swatch fill = `product_colors.hex` (a generic pattern fill when `hex` is null).

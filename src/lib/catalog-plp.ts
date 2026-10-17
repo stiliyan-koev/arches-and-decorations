@@ -4,12 +4,26 @@
 
 import type { CatalogGroup, ProductImage } from "@/lib/types";
 import { carouselImages, fullImagePath } from "@/lib/images";
+import type { BasketLine } from "@/lib/selection";
 
 // ---------------------------------------------------------------- flat product
+
+// One colour of a product, as a swatch on its card. Each colour has its own
+// stock, and the photos she tagged with it replace the card's photo.
+export type PlpSwatch = {
+  id: string; // product_colors.id — what a booking_items row's color_id points at
+  slug: string; // stored in the basket next to the product slug
+  name: string;
+  hex: string | null; // null = pattern (e.g. "Замък на Елза")
+  stock: number | null; // how many of this colour she owns; null = consumable
+  maxQty: number; // the most one request may ask for in this colour
+  images: ProductImage[]; // her photos of this colour, in order; [] = keep the product's photo
+};
 
 // The catalog renders a flat list, so we flatten getCatalog()'s nested groups
 // into one array of the fields a card and the filters actually use.
 export type PlpProduct = {
+  id: string; // what a booking_items row points at
   slug: string;
   name: string;
   spec: string; // description from the DB; "" when none yet
@@ -17,8 +31,11 @@ export type PlpProduct = {
   categoryName: string;
   price: number | null; // null = "по запитване" (custom_quote or no base_price)
   rentable: boolean;
+  stock: number | null; // how many she owns; null = consumable, never runs out
+  maxQty: number; // the most one request may ask for — see MAX_PER_LINE
   isBooked: boolean; // tracked item she owns none of right now — see note below
   colors: string[]; // color slugs, for the swatch filter
+  swatches: PlpSwatch[]; // the colours to choose from; [] = no colour choice
   imagePath: string | null; // first image, or null -> tinted placeholder
   fullImagePath: string | null; // the same photo uncropped, for the full-size view
   carousel: ProductImage[]; // variation photos; when any, the card shows these instead
@@ -50,6 +67,17 @@ const CATEGORY_TINTS: Record<string, string> = {
 
 function tintFor(categorySlug: string) {
   return CATEGORY_TINTS[categorySlug] ?? "var(--color-surface-2)";
+}
+
+// The most of one product a single request may carry. Must match MAX_QTY in
+// src/app/actions.ts, which rejects anything above it. A tracked product is also
+// capped by how many she owns; balloons and other consumables only by this.
+export const MAX_PER_LINE = 20;
+
+// How many of something one request may ask for: what she owns, but never
+// more than MAX_PER_LINE. A consumable (null) only by MAX_PER_LINE.
+function maxQtyFor(stock: number | null) {
+  return stock === null ? MAX_PER_LINE : Math.max(0, Math.min(stock, MAX_PER_LINE));
 }
 
 function priceOf(product: {
@@ -85,7 +113,13 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         }
       }
 
+      // The card's own photo: one not tied to a colour, if she has one — it is
+      // what a colour without photos falls back to.
+      const images = product.images ?? [];
+      const mainImage = images.find((image) => image.color_id === null) ?? images[0];
+
       products.push({
+        id: product.id,
         slug: product.slug,
         name: product.name,
         spec: product.description ?? "",
@@ -93,14 +127,29 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         categoryName: group.name,
         price: priceOf(product),
         rentable: product.rentable,
+        stock: product.track_availability ? product.quantity : null,
+        maxQty: maxQtyFor(product.track_availability ? product.quantity : null),
         // Without the confirmed-bookings query wired (see the availability note
         // in PLP-BRIEF.md), the only honest "unavailable" signal is a tracked
         // product she currently owns none of. Real per-date availability is a
         // follow-up; this keeps the "Заето" card state driven by real data.
+        // With colours, quantity is their sum: booked = every colour is out.
         isBooked: product.track_availability && product.quantity <= 0,
         colors: product.colors.map((color) => color.color_slug),
-        imagePath: product.images?.[0]?.path ?? null,
-        fullImagePath: product.images?.[0] ? fullImagePath(product.images[0]) : null,
+        swatches: product.colors.map((color) => {
+          const stock = product.track_availability ? color.quantity : null;
+          return {
+            id: color.id,
+            slug: color.color_slug,
+            name: color.color_name,
+            hex: color.hex,
+            stock,
+            maxQty: maxQtyFor(stock),
+            images: images.filter((image) => image.color_id === color.id),
+          };
+        }),
+        imagePath: mainImage?.path ?? null,
+        fullImagePath: mainImage ? fullImagePath(mainImage) : null,
         carousel: carouselImages(product, "catalog"),
         tint: tintFor(group.slug),
         createdAt: product.created_at ?? null,
@@ -109,6 +158,71 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
   }
 
   return { products, categories, colors: [...colorBySlug.values()] };
+}
+
+// ---------------------------------------------------------------------- basket
+
+// One basket line's identity: a product, in one colour (or none). The same
+// product in two colours is two lines.
+export function lineKey(slug: string, color: string | null) {
+  return color ? `${slug}::${color}` : slug;
+}
+
+export type BasketItem = {
+  key: string; // lineKey(slug, color) — one line of the basket
+  product: PlpProduct;
+  color: string | null; // the colour slug as stored — what the basket store is called with
+  swatch: PlpSwatch | null; // that colour; null = a line without a colour
+  qty: number;
+  maxQty: number; // the colour's limit when there is a colour, else the product's
+  lineTotal: number | null; // null = "по запитване"
+};
+
+export type BasketView = {
+  items: BasketItem[];
+  total: number;
+  hasQuote: boolean;
+};
+
+// Joins the stored basket lines ({slug, color, qty}) with the catalog. A product
+// that is no longer in the catalog is dropped, and so is a colour that is gone
+// (deleted, or the product's colours switched off) — kept, it would turn into a
+// second line of the same product without a colour. A line saved without a
+// colour (from before colours) stays as it is. qty is clamped to what may be
+// asked for. "По запитване" lines add nothing to the total — same rule as the
+// configurator.
+export function basketView(
+  lines: BasketLine[],
+  products: PlpProduct[],
+): BasketView {
+  const bySlug = new Map(products.map((product) => [product.slug, product]));
+  const items: BasketItem[] = [];
+  let total = 0;
+  let hasQuote = false;
+
+  for (const line of lines) {
+    const product = bySlug.get(line.slug);
+    if (!product) continue;
+    const swatch =
+      product.swatches.find((option) => option.slug === line.color) ?? null;
+    if (line.color !== null && !swatch) continue;
+    const maxQty = swatch ? swatch.maxQty : product.maxQty;
+    const qty = Math.max(1, Math.min(line.qty, maxQty || 1));
+    const lineTotal = product.price === null ? null : product.price * qty;
+    if (lineTotal === null) hasQuote = true;
+    else total += lineTotal;
+    items.push({
+      key: lineKey(line.slug, line.color),
+      product,
+      color: line.color,
+      swatch,
+      qty,
+      maxQty,
+      lineTotal,
+    });
+  }
+
+  return { items, total, hasQuote };
 }
 
 // ------------------------------------------------------------------ price bands

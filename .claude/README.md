@@ -142,3 +142,15 @@ Three jobs, three permission levels: the tester can't edit, the fixer can't comm
 - Smoke is **not** a merge gate and not in CI (it needs the real `.env.local`). Run `/smoke-test`
   before you merge a release, and again after a `/smoke-fix` PR's review rounds: those can undo the fix.
 - A new spec only for something a code review can't catch. Give it a tag, keep it read-only.
+
+## Release check (before you merge a release into `main`)
+
+```
+/release-check [branch]    build + lint + smoke + reviewers on the WHOLE diff vs main. One GO / NO-GO report. Changes nothing.
+```
+
+The per-PR reviews each saw one small diff. This is the only step that reads the release as a
+whole, so it can catch two PRs that are each fine but break each other. It reuses `qa` and the
+three reviewers; it adds no new agent. It also lists what you must do by hand (SQL to run on the
+live DB, env vars for Netlify) and what no agent tested (admin, form submit), so you know what to
+click through on the Netlify preview yourself.

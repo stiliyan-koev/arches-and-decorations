@@ -1,4 +1,4 @@
-# Балони и Арки — празнични украси във Варна
+# Хубавото балонче — празнични украси във Варна
 
 A site for a Varna event-decoration business (balloon decorations, arches — birthdays, christenings, weddings). Two surfaces in one app:
 

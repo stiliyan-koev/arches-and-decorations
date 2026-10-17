@@ -11,6 +11,12 @@ export function formatPrice(value: number) {
 // setup/transport line.
 export const QUOTE_LABEL = "по запитване";
 
+// The running estimate. When every line is „по запитване“ the sum is 0, and
+// „0,00 €“ would read as free, so show „По запитване“ instead.
+export function formatTotal(total: number, hasQuote: boolean) {
+  return total === 0 && hasQuote ? "По запитване" : formatPrice(total);
+}
+
 // yyyy-mm-dd (what <input type="date"> gives us) -> dd.mm.yyyy for display.
 export function formatDate(iso: string) {
   if (!iso) return "";

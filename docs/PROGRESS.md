@@ -22,7 +22,7 @@ Steps 0–2 are done and verified against real Postgres. **The catalog PLP (`/ca
 |------|------|-------|
 | 0 | Supabase project, schema, seed, storage, users | ✅ done + verified |
 | 1 | Scaffold, tokens, Supabase clients, public shell | ✅ done |
-| 2 | Homepage configurator → booking request | ✅ done + verified |
+| 2 | Configurator → booking request (homepage until v2, now hidden at `/configurator`) | ✅ done + verified |
 | 3 | Catalog PLP + PDP, real photos | 🟡 PLP (list + filters) built + verified; PDP not built |
 | 4 | Admin auth + requests inbox | 🟡 auth done, inbox not started |
 | 5 | Admin calendar + availability | ⬜ not started |
@@ -39,11 +39,10 @@ reading the rendered DOM: 47 real UUIDs, not the fallback's slug ids.
 - [x] SQL editor → run `schema.sql` — 7 categories, 18 products, RLS + RPCs live
 - [x] SQL editor → run `seed.sql`
 - [x] Storage → create bucket `catalog`, public read
-- [ ] **Authentication → Providers → Email → turn OFF "Allow new users to sign up"** —
-      verified `disable_signup: false` on 19 Sep 2026. Every admin RLS policy keys off
-      `auth.role() = 'authenticated'`, so while sign-ups are open *anyone* who registers
-      gets full read/write on the catalog and can read customer phone numbers.
-      **Blocking for deploy.**
+- [x] **Authentication → Providers → Email → turn OFF "Allow new users to sign up"** —
+      off (owner, 8 Oct 2026). Every admin RLS policy keys off
+      `auth.role() = 'authenticated'`, so this must stay off: with sign-ups open *anyone*
+      who registers gets full read/write on the catalog and can read customer phone numbers.
 - [ ] Authentication → Users → your admin user (tick **Auto Confirm User** —
       `mailer_autoconfirm` is false, so an unconfirmed user can never log in)
 - [ ] Authentication → Users → your wife's admin user
@@ -77,7 +76,39 @@ reading the rendered DOM: 47 real UUIDs, not the fallback's slug ids.
 - [x] `/about` page
 - [x] Placeholder pages so no nav link 404s
 
-## Step 2 — Homepage configurator ✅
+## Homepage v2 🟡 built, photos pending
+
+The configurator is no longer the homepage — the catalog is the main flow. Design:
+`reference/homepage-v2/`.
+
+- [x] `/` — photo carousel (`HeroCarousel`), „Изчисли своята украса" + „Към каталога",
+      „Вдъхнови се по повод" cards → `/gallery?tag=…`. Content in `src/lib/home.ts`.
+- [x] Old homepage moved as-is to `/configurator` (`noindex`, not linked anywhere)
+- [x] Footer „Конфигуратор" link removed; `--color-muted` darkened to pass WCAG AA
+- [x] Hero carousel managed from `/admin/home`: upload (4:5 cropper), caption, ← → order,
+      delete. Table `hero_photos`; files in `catalog` → `home/hero/`.
+- [x] `migration-hero-photos.sql` run on the live DB
+- [ ] Hero photos uploaded **(her)**
+- [ ] Occasion card photos in `public/home/` + paths in `src/lib/home.ts` **(you)**
+- [x] Catalog add-to-total logic (the new main flow): basket + mini-basket drawer on
+      `/catalog`, order summary at `/request` (2 Oct 2026, see Step 3)
+- [x] `/gallery` filters by `?tag=` (the occasion cards' slugs `rozhden-den`, `krashtene`,
+      `parti` match once she creates tags with those names)
+- [x] Photo library (`/admin/photos`): one original per photo, which the carousel, the gallery,
+      the products and the showcases use. `migration-photo-library.sql` run on the live DB.
+      On a DB from before these tables, run them in this order: hero-photos → gallery →
+      photo-library → showcases. A fresh DB needs only `schema.sql`.
+- [ ] Re-run `migration-photo-library.sql` once after release 1.2.0 is live **(you)** — it
+      links photos the old admin uploaded in the meantime
+- [x] Showcases („Вдъхнови се“, Oct 2026): `migration-showcases.sql` (run on the live DB 7 Oct),
+      `/admin/showcases` (create, edit, ‹ › order, delete; up to 12 library photos each, first
+      = cover), and „Вдъхнови се“ on `/`: three cards, each opening a popup with the text
+      and every photo whole (✕ / Escape / backdrop / Back close it). Browser-checked on the live
+      DB (admin) and with a local preview (popup, phone + desktop).
+- [ ] Three showcases with photos created **(her)** — until then `/` shows „Вдъхнови се по повод“
+- [ ] Cleanup once three are live: delete `OccasionCards` + `OCCASIONS`
+
+## Step 2 — Configurator ✅ (was the homepage; now `/configurator`)
 
 - [x] Configurator as the hero: tile grid, category pills, qty steppers, summary rail
 - [x] Live „Примерна сума" rail with line items
@@ -124,19 +155,26 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       data 21 Sep 2026.
 - [x] `/catalog/[category]` — same page, category preselected; server-rendered for SEO
       (per-category `<title>`), then canonicalises onto `/catalog?cat=…`
-- [x] Shared „оферта" selection store (`src/lib/selection.ts`, localStorage-backed) —
-      „Добави" on a card writes to it and the „Вашата оферта" pill counts it, surviving the
-      hop to the configurator. **TODO: the homepage Configurator still keeps its own local
-      list and does not read this store yet — wiring it up is a separate task (the brief
-      lists the configurator itself as out of scope).**
+- [x] Basket („оферта“) store (`src/lib/selection.ts`, localStorage, `{slug, qty}` lines)
+      — „Добави" on a card adds one and opens the **mini-basket** drawer (right side, full
+      width on phones): what was added, −/+ per line (capped by stock and 20), „Премахни",
+      running total, „Продължи към запитването →". The „Вашата оферта" pill reopens it.
+- [x] `/request` — order summary instead of checkout: editable basket, „Украса с монтаж" /
+      „Само под наем" (rental off when any line isn't `rentable`), event dates, contacts,
+      then `submitRequest()` — `booking_items.qty` = the line qty, `line_price` = unit × qty.
+      Over-stock for the chosen dates is a warning, not a block. Verified in the browser
+      2 Oct 2026, **never submitted** (live DB). The hidden `/configurator` is untouched and
+      does not share the basket.
+- [x] Colour choice per basket line — swatches on the card, one line per colour, saved to
+      `booking_items.color_id` (Oct 2026). Needs `migration-product-colors.sql` (below).
 - [ ] Date / „Скрий заетите" availability filter on the PLP — **deliberately hidden**
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO
       sits in `src/components/catalog/Filters.tsx`; wire it when step 5 lands.
 - [ ] `/product/[slug]` — PDP (the card image + name already link here)
-- [ ] Colour swatches that swap the photo (per `catalog-and-images.md`)
+- [x] Colour swatches that swap the photo — on the catalog card (per `catalog-and-images.md`)
 - [ ] Image carousel when a product has more than one photo
-- [ ] `/configurator` as its own page (today it lives only on the homepage)
+- [x] `/configurator` as its own page (moved there by homepage v2; hidden backup)
 
 ## Step 4 — Admin: login + requests inbox 🟡
 
@@ -162,8 +200,8 @@ catalog pages get built. The requests inbox is still untouched.
 
 ## Step 6 — Admin CRUD, gallery, deploy 🟡
 
-The product-management half is done (pulled forward with step 4). Gallery, SEO and deploy
-are still open.
+The product-management half is done (pulled forward with step 4). The gallery is built;
+SEO and deploy are still open.
 
 - [x] `/admin/products` — add/edit/hide products, `/admin/categories` for categories
 - [x] Edit prices and quantities without touching Supabase
@@ -171,7 +209,16 @@ are still open.
 - [x] Crop photos to 4:5 on upload, and re-crop existing ones („Изрежи“)
 - [x] Keep the whole photo next to the cropped tile (`full_path`); re-crop starts from it. Tighter 4:5 catalog cards
 - [x] Manage colours/swatches per product
-- [ ] `/gallery` — real past work, grouped by theme
+- [x] „Има варианти по цвят“ switch, a count per colour, re-tag a photo's colour, colours in the list
+- [x] `/gallery` — past work, filter chips per tag (only tags with photos), 4:5 grid,
+      24 per page + „Покажи още“, full-screen viewer with ‹ › / arrow keys / swipe
+- [x] `/admin/gallery` — tags (add/rename/delete), batch upload with tags (tile cut from the
+      middle, no framing step), a search-as-you-type tag picker that can create tags
+      (`TagPicker`), per-photo tag chips, „Избери снимки“ to add/remove a tag on or delete
+      many photos at once, a „Без етикет“ filter, „Изрежи“, delete. Tables
+      `gallery_photos`, `gallery_tags`, `gallery_photo_tags`; files in `catalog` → `gallery/`
+- [x] `migration-gallery.sql` run on the live DB
+- [ ] Gallery photos uploaded **(her)**
 - [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
 - [ ] Responsive pass on a real phone
 - [ ] Push to GitHub → import to Netlify → add the two env vars → deploy
@@ -181,7 +228,7 @@ are still open.
 
 ## Smoke tests 🟡 built, one run so far
 
-Six read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
+Seven read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
 a request, because the database is the live one. `/smoke-test` reports, `/smoke-fix` fixes one red
 spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 
@@ -190,8 +237,12 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 - [x] `@critical` the configurator total adds up, and „по запитване" items add nothing
 - [x] `@minor` /about shows the contacts from `contacts.ts`
 - [x] `@minor` the mobile summary bar stays pinned on a phone viewport (390×844)
+- [x] `@critical` the basket: add two → drawer total, qty +, remove, carry over to `/request`
+      with the same total and a shut send button (never clicked)
 - [x] `@blocker` step 1 → step 2: the contact form opens with the date, city and estimate,
       and the send button is shut until a phone number is filled (never clicked)
+- [x] `@critical` the homepage shows the showcases from the database (three with photos → open
+      the first popup and close it; fewer → „Вдъхнови се по повод“)
 - [x] **(you)** `@playwright/test` installed, `npx playwright install chromium` done
 - [ ] **A green run of all six.** The first run (1 Oct) had the live-DB spec unable to start:
       `supabase-js` needs a global `WebSocket` (Node 22+) and this machine is on Node 20. It now
@@ -202,6 +253,28 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 
 ## Housekeeping
 
+- [ ] **Run `migration-admin-policies.sql`** in the SQL editor **(you)** — BLOCKING before
+      this release goes live, and **run it after the other migrations**: it re-creates
+      policies on their tables, and a missing table aborts the script, which makes the SQL
+      editor roll the whole run back — nothing changes while the file looks like it ran.
+      Every `admin all …` policy today says `auth.role() = 'authenticated'`, which is *any*
+      account of the project; the migration adds an `admins` table, keys the policies off
+      that instead, and does the same for the three write policies on the `catalog` storage
+      bucket (today any account can overwrite or delete every image). **In the same SQL
+      editor session, right after it:** open Authentication → Users in the dashboard and look
+      at who is actually there — sign-up has been open on a live project, so the list can
+      hold strangers and leftover test accounts, and promoting all of them would hand out
+      exactly the access this migration removes. Insert your two uids by hand,
+      `insert into admins (user_id) values ('…'),('…');`, and switch public sign-up off in
+      the same sitting (Authentication → Sign In / Providers). The table starts empty, and
+      until it holds your uid every save in /admin fails with "new row violates row-level
+      security policy" — and because `bookings` / `booking_items` have no public read policy,
+      only the admin one, **/admin/requests shows an empty list even when requests exist**,
+      with no error to explain it. **The code is coupled to this file**: `requireAdmin()` in
+      `src/app/admin/actions.ts` now calls the `is_admin()` rpc, so on a database where this
+      migration has not run the function does not exist, the call errors and every admin
+      action is denied (fails closed). It must run before, or together with, the deploy of
+      this release, or /admin denies everything.
 - [ ] **Run `storage-policies.sql`** in the SQL editor **(you)** — BLOCKING for uploads.
       `storage.objects` has its own RLS, separate from the table policies in `schema.sql`.
       Until this runs, every upload fails with "new row violates row-level security policy"
@@ -210,6 +283,17 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       the money columns as EUR and switches „Балони" to `picker = 'text'`: instead of a
       dropdown, the customer describes the theme in a text box, which is saved to
       `booking_items.custom_text`. Until it runs, balloons keep the old dropdown.
+- [ ] **Run `migration-product-colors.sql`** in the SQL editor **(you)** — BLOCKING, before
+      the colour swatches go live: the catalog reads `products.has_colors` and
+      `product_colors.quantity`, and without them it falls back to the hardcoded catalog.
+      It does **not** turn colours on for anything: `has_colors` stays `false` on every
+      product, and every colour starts with a count of 1. Order of work in admin, per
+      product: **set the real count per colour first, then tick „Има варианти по цвят“.**
+      A product's quantity is now the **sum** of its colours, so „Калъф за арка“ (6 owned,
+      7 colours) left at 1 per colour would read as 7 free, and 6 copied into each colour
+      would read as 42 — understating stock is safe, overstating double-books.
+      Матални квадратни масички has one colour (Бял): leave „Има варианти по цвят“ unticked
+      there if one swatch looks odd.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the

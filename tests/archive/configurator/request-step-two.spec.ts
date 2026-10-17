@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { formatDate, formatPrice } from "../../src/lib/format";
-import { addFirstOption, futureDate, PRICED, priceIn } from "./add-item";
+import { formatDate, formatPrice } from "../../../src/lib/format";
+import { addFirstOption, futureDate, PRICED, priceIn } from "../../smoke/add-item";
 
 // Step 1 -> step 2. If this breaks, a customer can build a whole decoration and
 // never reach the form that sends it: every lead is lost, and the site looks
@@ -10,7 +10,7 @@ import { addFirstOption, futureDate, PRICED, priceIn } from "./add-item";
 // clears the phone at the end so the form is left unsendable — submitting
 // writes a real row into her bookings table.
 test("step 1 leads to the contact form", { tag: "@blocker" }, async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/configurator");
 
   const item = await addFirstOption(page, PRICED);
   expect(item, "No family offers a priced option in a dropdown").not.toBeNull();

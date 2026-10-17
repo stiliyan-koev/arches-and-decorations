@@ -8,7 +8,7 @@
   --color-surface: #ffffff; /* cards, panels */
   --color-surface-2: #fff3ea; /* tinted section background */
   --color-ink: #3b2f42; /* primary text, footer background */
-  --color-muted: #8a7f92; /* secondary text */
+  --color-muted: #6e6377; /* secondary text — 5.3:1 on bg, passes WCAG AA */
   --color-cta: #c93a72; /* buttons, active states, eyebrow */
   --color-cta-strong: #a82c5d; /* hover / pressed */
   --color-border: #f0e4da;
@@ -98,9 +98,24 @@
   animation: sheet-up 0.22s ease-out;
 }
 
+/* Mini-basket drawer — slides in from the right edge. */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-drawer-in {
+  animation: drawer-in 0.22s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-float,
-  .animate-sheet-up {
+  .animate-sheet-up,
+  .animate-drawer-in {
     animation: none;
   }
 }

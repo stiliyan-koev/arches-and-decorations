@@ -2,52 +2,75 @@
 
 import { useSyncExternalStore } from "react";
 
-// The shared "оферта" selection — the list of products the visitor has picked to
-// ask about. It lives here, in one place, so the catalog page and the
-// configurator read and write the SAME list instead of each keeping its own.
+// The basket ("оферта") — the products the visitor has picked to ask about, each
+// with a quantity. It lives here, in one place, so the catalog's mini-basket and
+// the /request page read and write the SAME list.
 //
 // Products are keyed by slug (stable, human-readable, and enough to resolve back
-// to a product on either page). We persist to localStorage so the selection
-// survives the full-page navigation between /catalog and the configurator on the
-// homepage — React state alone would be lost on every such hop.
-//
-// TODO(configurator): the homepage Configurator still keeps its own local
-// `items` state and does not read this store yet. Wiring it to consume the
-// selection (so items added on the catalog show up in the оферта) is a separate
-// task — see PLP-BRIEF.md and the "configurator itself" out-of-scope note.
+// to a product on either page), plus the colour's slug for a product with
+// colours: the same product in two colours is two lines. We persist to
+// localStorage so the basket survives the full-page navigation from /catalog to
+// /request — React state alone would be lost on every such hop.
+
+export type BasketLine = {
+  slug: string;
+  color: string | null; // colour slug; null = the product has no colours
+  qty: number;
+};
 
 const KEY = "oferta.v1";
 
-let slugs: string[] = [];
+// Most different products one request can hold. Must match MAX_ITEMS in
+// src/app/actions.ts, or the server rejects a basket the catalog let through.
+export const MAX_LINES = 30;
+
+let lines: BasketLine[] = [];
 let hydrated = false;
 const listeners = new Set<() => void>();
 
 // Read once, lazily, the first time the store is used in the browser. Wrapped in
 // try/catch because localStorage can throw (private mode, blocked cookies).
+// Older visitors have a plain list of slugs stored under the same key; each of
+// those becomes a line with qty 1. Lines saved before colours have no colour.
 function hydrate() {
   if (hydrated) return;
   hydrated = true;
   try {
     const raw = localStorage.getItem(KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) {
-      slugs = parsed.filter((s): s is string => typeof s === "string");
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return;
+    for (const entry of parsed) {
+      if (typeof entry === "string") {
+        lines.push({ slug: entry, color: null, qty: 1 });
+      } else if (
+        entry &&
+        typeof entry.slug === "string" &&
+        Number.isInteger(entry.qty) &&
+        entry.qty > 0
+      ) {
+        const color = typeof entry.color === "string" ? entry.color : null;
+        lines.push({ slug: entry.slug, color, qty: entry.qty });
+      }
     }
   } catch {
-    slugs = [];
+    lines = [];
   }
 }
 
 function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify(slugs));
+    localStorage.setItem(KEY, JSON.stringify(lines));
   } catch {
-    // A full or unavailable localStorage just means the selection won't survive
-    // a reload — the in-memory list still works for this session.
+    // A full or unavailable localStorage just means the basket won't survive a
+    // reload — the in-memory list still works for this session.
   }
 }
 
-function emit() {
+// Every change replaces `lines` with a new array, saves it and tells the
+// subscribers.
+function commit(next: BasketLine[]) {
+  lines = next;
+  persist();
   for (const listener of listeners) listener();
 }
 
@@ -58,75 +81,71 @@ function subscribe(listener: () => void) {
 }
 
 // The snapshot must be referentially stable between renders when nothing changed,
-// or useSyncExternalStore loops. We only ever replace `slugs` with a new array on
-// an actual change, so returning it directly is safe.
+// or useSyncExternalStore loops. `lines` is only ever replaced on an actual
+// change, so returning it directly is safe.
 function getSnapshot() {
   hydrate();
-  return slugs;
+  return lines;
 }
 
 // Server render (and the first client render, before hydration) sees an empty
-// selection. useSyncExternalStore then swaps in the real list on the client
-// without a hydration mismatch.
-const EMPTY: string[] = [];
+// basket. useSyncExternalStore then swaps in the real list on the client without
+// a hydration mismatch.
+const EMPTY: BasketLine[] = [];
 function getServerSnapshot() {
   return EMPTY;
 }
 
+// Whether a stored line is this product in this colour.
+function isLine(line: BasketLine, slug: string, color: string | null) {
+  return line.slug === slug && line.color === color;
+}
+
 export const selection = {
-  has(slug: string) {
+  has(slug: string, color: string | null) {
     hydrate();
-    return slugs.includes(slug);
+    return lines.some((line) => isLine(line, slug, color));
   },
-  add(slug: string) {
-    hydrate();
-    if (slugs.includes(slug)) return;
-    slugs = [...slugs, slug];
-    persist();
-    emit();
+  // Adds one of the product in that colour; a line already in the basket is
+  // left as it is, and a full basket (MAX_LINES) takes nothing more. Returns
+  // whether it added.
+  add(slug: string, color: string | null) {
+    if (this.has(slug, color)) return false;
+    if (lines.length >= MAX_LINES) return false;
+    commit([...lines, { slug, color, qty: 1 }]);
+    return true;
   },
-  remove(slug: string) {
-    hydrate();
-    if (!slugs.includes(slug)) return;
-    slugs = slugs.filter((s) => s !== slug);
-    persist();
-    emit();
+  // Zero or less removes the line.
+  setQty(slug: string, color: string | null, qty: number) {
+    if (!this.has(slug, color)) return;
+    if (qty <= 0) return this.remove(slug, color);
+    commit(
+      lines.map((line) => (isLine(line, slug, color) ? { ...line, qty } : line)),
+    );
   },
-  toggle(slug: string) {
-    if (this.has(slug)) this.remove(slug);
-    else this.add(slug);
+  remove(slug: string, color: string | null) {
+    if (!this.has(slug, color)) return;
+    commit(lines.filter((line) => !isLine(line, slug, color)));
   },
   clear() {
     hydrate();
-    if (slugs.length === 0) return;
-    slugs = [];
-    persist();
-    emit();
+    if (lines.length === 0) return;
+    commit([]);
   },
 };
 
-// The whole selection, reactive. Components re-render when it changes.
-export function useSelection() {
+// The whole basket, reactive. Components re-render when it changes.
+export function useBasket() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-// Just the count — the header pill only needs this, and subscribing to the array
-// would re-render it on every reorder. The count is a primitive, so it's a stable
-// snapshot on its own.
-export function useSelectionCount() {
+// Whether one product, in one colour, is in the basket — what a catalog card
+// needs. A boolean is a stable snapshot, so adding one card re-renders only that
+// card, not all of them.
+export function useIsSelected(slug: string, color: string | null) {
   return useSyncExternalStore(
     subscribe,
-    () => getSnapshot().length,
-    () => 0,
-  );
-}
-
-// Whether one product is picked — what a catalog card needs. A boolean is a
-// stable snapshot, so toggling one card re-renders only that card, not all of them.
-export function useIsSelected(slug: string) {
-  return useSyncExternalStore(
-    subscribe,
-    () => getSnapshot().includes(slug),
+    () => getSnapshot().some((line) => isLine(line, slug, color)),
     () => false,
   );
 }

@@ -37,6 +37,7 @@ export type ProductColor = {
   color_slug: string;
   color_name: string;
   hex: string | null; // null = pattern swatch (e.g. "Замък на Елза")
+  quantity: number; // how many of this colour she owns — each colour has its own stock
   sort: number;
 };
 
@@ -44,7 +45,9 @@ export type ProductImage = {
   id: string;
   color_id: string | null; // null = colour-agnostic photo of the product
   path: string; // storage path of the tile (4:5 crop) inside the `catalog` bucket
-  full_path: string | null; // whole photo, only shrunk. null = old row, use path
+  full_path: string | null; // whole photo (the library photo), only shrunk. null = old row, use path
+  photo_id?: string | null; // the library photo. Admin reads only
+  has_original?: boolean; // false = the library only has a cropped copy. Admin reads only
   crop?: CropRect | null; // last crop, in full-photo pixels. Admin reads only
   in_carousel?: boolean; // a carousel photo rather than a main/colour one
   sort: number;
@@ -61,6 +64,8 @@ export type Product = {
   track_availability: boolean; // false = consumable (balloons), always available
   rentable: boolean; // can be loaned out on its own, without her setting it up
   service_only: boolean; // only offered together with setup
+  // Empty when the product's „Има варианти по цвят“ is off. When it's on,
+  // `quantity` above is the sum of the colours' counts.
   colors: ProductColor[];
   // Optional only because catalog-fallback.ts has no photos. Once that file is
   // deleted this can become required.
@@ -97,6 +102,7 @@ export type ProductRow = {
   carousel: boolean; // master switch for the carousel photos
   carousel_in_configurator: boolean;
   carousel_in_catalog: boolean;
+  has_colors: boolean; // „Има варианти по цвят“: show the colours as swatches
 };
 
 // A category plus its products — this is what the configurator renders, one

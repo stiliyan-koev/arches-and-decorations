@@ -3,6 +3,17 @@ const ALLOWED_EXTENSIONS = ["heic", "heif", "jpg", "jpeg", "png", "webp"];
 // The part of the photo to keep, in the photo's own pixels.
 export type CropRect = { x: number; y: number; width: number; height: number };
 
+// A crop chosen on one file, in the pixels of a copy shrunk by `scale` (e.g.
+// the stored original, which a later re-crop opens).
+export function scaleCrop(crop: CropRect, scale: number): CropRect {
+  return {
+    x: Math.round(crop.x * scale),
+    y: Math.round(crop.y * scale),
+    width: Math.round(crop.width * scale),
+    height: Math.round(crop.height * scale),
+  };
+}
+
 // Browser-only. Phone photos are 3–5 MB and the site renders them a few hundred
 // pixels wide, so shrink before upload: it keeps the free-tier Storage quota
 // sane and makes uploading over mobile data bearable. With a crop, only that
@@ -80,5 +91,31 @@ export async function resizeToWebp(
       ext: ALLOWED_EXTENSIONS.includes(ext) ? ext : "jpg",
       scale: 1,
     };
+  }
+}
+
+// Browser-only. The middle part of the photo in the given width/height shape
+// (e.g. 4/5), in the photo's own pixels: what a gallery tile shows when she
+// uploads a batch without framing each photo. Undefined when the browser
+// can't open the photo; resizeToWebp then handles it as it is.
+export async function centerCrop(
+  photo: Blob,
+  aspect: number,
+): Promise<CropRect | undefined> {
+  try {
+    const bitmap = await createImageBitmap(photo);
+    const { width, height } = bitmap;
+    bitmap.close();
+
+    // Too wide for the shape: keep the full height, cut the sides.
+    if (width / height > aspect) {
+      const cropWidth = Math.round(height * aspect);
+      return { x: Math.round((width - cropWidth) / 2), y: 0, width: cropWidth, height };
+    }
+    // Too tall: keep the full width, cut top and bottom.
+    const cropHeight = Math.round(width / aspect);
+    return { x: 0, y: Math.round((height - cropHeight) / 2), width, height: cropHeight };
+  } catch {
+    return undefined;
   }
 }

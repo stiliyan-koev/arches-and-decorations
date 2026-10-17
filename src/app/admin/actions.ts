@@ -4,14 +4,38 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
+import {
+  CAPTION_MAX,
+  SHOWCASE_BODY_MAX,
+  SHOWCASE_MAX_PHOTOS,
+  SHOWCASE_TITLE_MAX,
+} from "@/lib/home";
+import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
+import type { GalleryTag } from "@/lib/gallery";
+import { slugify } from "@/lib/slug";
+import type { PhotoRef } from "@/lib/photo-library";
 
-// Every write here runs through the logged-in user's cookies, so RLS sees
-// `authenticated` and the "admin all …" policies in schema.sql apply. There is
-// no service key anywhere in this app.
+// Two layers guard every write here. First, the action itself asks the
+// database whether the caller is one of the owner's accounts (requireAdmin
+// below). Second, the database decides who may actually write: the
+// "admin all …" policies only allow users listed in the `admins` table
+// (migration-admin-policies.sql). There is no service key anywhere in this app.
 
 const BUCKET = "catalog";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+// Server actions are reachable by their id from any URL, not just /admin, so
+// each one checks the caller itself — and it checks WHO, not merely whether
+// someone is logged in: is_admin() (migration-admin-policies.sql) returns true
+// only for the uids in the `admins` table. Fails closed, so an error counts as
+// "no" — including the function not existing because that migration has not
+// run, in which case every admin action is denied.
+async function requireAdmin() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("is_admin");
+  return data === true && !error ? null : { ok: false as const, error: "Нямате достъп." };
+}
 
 // Photo paths come from the browser, so only accept ones inside the product
 // photos folder.
@@ -33,16 +57,112 @@ function cleanCrop(crop: CropRect | null | undefined): CropRect | null | false {
   return { x, y, width, height };
 }
 
-// Every Storage file a set of photo rows uses: the tile and the whole photo,
-// once each (a photo saved without cropping points both at the same file).
-// Old rows have no full_path.
-function photoFiles(rows: { path: string; full_path: string | null }[]) {
-  const files = new Set<string>();
-  for (const row of rows) {
-    files.add(row.path);
-    if (row.full_path) files.add(row.full_path);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// Ids from the browser: only well-formed ones, each once.
+function cleanIds(ids: string[]) {
+  return [...new Set(ids)].filter((id) => typeof id === "string" && UUID.test(id));
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+// Postgres "unique violation": e.g. the photo is already in the carousel.
+const UNIQUE_VIOLATION = "23505";
+
+// ---------- Photo library: shared rules ----------
+//
+// Every original photo is one row in `photos` (the library). The carousel, the
+// gallery and the products each use a library photo through their own row,
+// with their own tile: a 4:5 crop in their own folder, or the original itself
+// when she saved it "Без изрязване".
+
+// New originals, named the way the upload helper names them.
+function isLibraryPhotoPath(path: string) {
+  return /^photos\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+// A one-to-one embed comes back as an object, a one-to-many one as a list.
+function asList<T>(value: T | T[] | null | undefined): T[] {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+// The library photo a place wants to use. Null when the id is not a photo.
+async function getLibraryPhoto(supabase: Supabase, id: string) {
+  if (!UUID.test(id)) return null;
+  const { data } = await supabase
+    .from("photos")
+    .select("id, path")
+    .eq("id", id)
+    .maybeSingle();
+  return data as { id: string; path: string } | null;
+}
+
+// A tile path from the browser is accepted if it sits in that place's own
+// folder, or if it is the library photo itself ("Без изрязване").
+function tileAllowed(path: string, photo: { path: string }, inFolder: (path: string) => boolean) {
+  return path === photo.path || inFolder(path);
+}
+
+// Removes tile files whose rows are gone or moved on — but never a file that
+// is a library photo: a tile saved "Без изрязване" IS the original, and
+// deleting it would lose the photo everywhere it is used. Best effort: the rows
+// are what the site reads, so a stranded file is untidy rather than broken.
+async function removeTiles(supabase: Supabase, paths: string[]) {
+  const unique = [...new Set(paths)];
+  if (unique.length === 0) return;
+  const { data: originals, error } = await supabase
+    .from("photos")
+    .select("path")
+    .in("path", unique);
+  if (error) return; // can't tell which are originals, so keep them all
+  const keep = new Set(originals.map((photo) => photo.path));
+  const files = unique.filter((path) => !keep.has(path));
+  if (files.length) await supabase.storage.from(BUCKET).remove(files);
+}
+
+// Points one place's row at a new tile after a re-crop (always a new file
+// name: the old URL is cached) and removes the old tile. The tile may only be
+// in that place's folder, or the row's own library photo.
+async function replaceTile(
+  table: "hero_photos" | "gallery_photos" | "product_images",
+  inFolder: (path: string) => boolean,
+  id: string,
+  input: { path: string; crop: CropRect | null },
+): Promise<ActionResult> {
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const crop = cleanCrop(input.crop);
+  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from(table)
+    .select("path, photo:photos(path)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Снимката не е намерена." };
+  const photo = asList(row.photo as unknown as { path: string } | null)[0];
+  if (!photo) {
+    return { ok: false, error: "Снимката я няма в библиотеката. Качете я отново." };
   }
-  return [...files];
+  if (!tileAllowed(input.path, photo, inFolder)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  const { data: updated, error } = await supabase
+    .from(table)
+    .update({ path: input.path, crop })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  if (row.path !== input.path) await removeTiles(supabase, [row.path]);
+
+  revalidateCatalog();
+  return { ok: true };
 }
 
 // Admin pages are server-rendered from the same tables the public site reads,
@@ -67,6 +187,9 @@ export type CategoryInput = {
 };
 
 export async function saveCategory(input: CategoryInput): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
@@ -94,6 +217,9 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
 }
 
 export async function deleteCategory(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
   const { error } = await supabase.from("categories").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -118,11 +244,15 @@ export type ProductInput = {
   service_only: boolean;
   active: boolean;
   sort: number;
+  has_colors: boolean;
 };
 
 export async function saveProduct(
   input: ProductInput,
 ): Promise<ActionResult & { id?: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
@@ -145,6 +275,7 @@ export async function saveProduct(
     service_only: input.service_only,
     active: input.active,
     sort: input.sort,
+    has_colors: input.has_colors,
   };
 
   if (input.id) {
@@ -184,20 +315,27 @@ export async function saveProduct(
 }
 
 export async function deleteProduct(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
 
-  // Storage isn't touched by the cascade, so clear the files first. Losing a
-  // row and orphaning its photos is worse than failing loudly here.
+  // Storage isn't touched by the cascade, so note the tiles first and remove
+  // them once the rows are gone. The library photos stay in the library.
   const { data: images } = await supabase
     .from("product_images")
-    .select("path, full_path")
+    .select("path")
     .eq("product_id", id);
 
-  const files = photoFiles(images ?? []);
-  if (files.length) await supabase.storage.from(BUCKET).remove(files);
-
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Продуктът не е намерен." };
+
+  await removeTiles(supabase, (images ?? []).map((image) => image.path));
 
   revalidateCatalog();
   return { ok: true };
@@ -213,6 +351,9 @@ export async function saveCarouselSettings(
     carousel_in_catalog: boolean;
   },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products")
@@ -239,19 +380,46 @@ export type ColorInput = {
   color_slug: string;
   color_name: string;
   hex: string | null;
+  quantity: number; // how many of this colour she owns
 };
 
+// The most of one colour she can say she owns; anything above is a typo.
+const MAX_COLOR_QUANTITY = 999;
+
+function isColorQuantity(quantity: number) {
+  return Number.isInteger(quantity) && quantity >= 0 && quantity <= MAX_COLOR_QUANTITY;
+}
+
 export async function addColor(input: ColorInput): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   if (!input.color_name.trim() || !input.color_slug.trim()) {
     return { ok: false, error: "Име и slug на цвета са задължителни." };
   }
+  if (!isColorQuantity(input.quantity)) {
+    return { ok: false, error: "Броят трябва да е цяло число от 0 до 999." };
+  }
 
   const supabase = await createClient();
+
+  // A new colour goes after the ones she already has: the first colour is
+  // the one the catalog card starts on.
+  const { data: last } = await supabase
+    .from("product_colors")
+    .select("sort")
+    .eq("product_id", input.product_id)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { error } = await supabase.from("product_colors").insert({
     product_id: input.product_id,
     color_slug: input.color_slug.trim(),
     color_name: input.color_name.trim(),
     hex: input.hex,
+    quantity: input.quantity,
+    sort: (last?.sort ?? 0) + 1,
   });
 
   if (error) {
@@ -265,20 +433,55 @@ export async function addColor(input: ColorInput): Promise<ActionResult> {
   return { ok: true };
 }
 
+// Saves the moment she changes the number, like the carousel ticks.
+export async function setColorQuantity(
+  id: string,
+  quantity: number,
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Цветът не е намерен." };
+  if (!isColorQuantity(quantity)) {
+    return { ok: false, error: "Броят трябва да е цяло число от 0 до 999." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_colors")
+    .update({ quantity })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Цветът не е намерен." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Deleting a colour never costs a photo: its photos stay on the product and
+// move to "Всички цветове". Detached here first, so this works even before
+// migration-product-colors.sql switches the foreign key to `on delete set null`.
 export async function deleteColor(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Цветът не е намерен." };
   const supabase = await createClient();
 
-  // product_images.color_id cascades, so the rows go — but again, not the files.
-  const { data: images } = await supabase
+  const { error: detachError } = await supabase
     .from("product_images")
-    .select("path, full_path")
+    .update({ color_id: null })
     .eq("color_id", id);
+  if (detachError) return { ok: false, error: detachError.message };
 
-  const files = photoFiles(images ?? []);
-  if (files.length) await supabase.storage.from(BUCKET).remove(files);
-
-  const { error } = await supabase.from("product_colors").delete().eq("id", id);
+  const { data: deleted, error } = await supabase
+    .from("product_colors")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Цветът не е намерен." };
 
   revalidateCatalog();
   return { ok: true };
@@ -288,31 +491,39 @@ export async function deleteColor(id: string): Promise<ActionResult> {
 
 // The files themselves are uploaded straight from the browser to Storage —
 // they never pass through the server. This only records where they landed:
-// `path` is the tile, `full_path` the whole photo (the same file when she
-// saved it without cropping).
+// `photo_id` is the library photo, `path` the tile (the library photo itself
+// when she saved it without cropping).
 export async function attachImage(input: {
   product_id: string;
   color_id: string | null;
   in_carousel: boolean;
+  photo_id: string;
   path: string;
-  full_path: string;
   crop: CropRect | null;
   sort: number;
 }): Promise<ActionResult> {
-  if (!isProductPhotoPath(input.path) || !isProductPhotoPath(input.full_path)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const crop = cleanCrop(input.crop);
   if (crop === false) return { ok: false, error: "Невалидно изрязване." };
 
   const supabase = await createClient();
+  const photo = await getLibraryPhoto(supabase, input.photo_id);
+  if (!photo) return { ok: false, error: "Снимката я няма в библиотеката." };
+  if (!tileAllowed(input.path, photo, isProductPhotoPath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
   const { error } = await supabase.from("product_images").insert({
     product_id: input.product_id,
     // Carousel photos belong to the product, never to one colour.
     color_id: input.in_carousel ? null : input.color_id,
     in_carousel: input.in_carousel,
+    photo_id: photo.id,
     path: input.path,
-    full_path: input.full_path,
+    // A copy for code that still reads it, until the cleanup migration.
+    full_path: photo.path,
     crop,
     sort: input.sort,
   });
@@ -323,47 +534,16 @@ export async function attachImage(input: {
 }
 
 // A re-cropped photo gets a new tile under a new name (the old public URL is
-// cached), so point the row at it and drop the old tile. Sending
-// `path = full_path` with `crop = null` switches a photo back to uncropped.
+// cached). Sending the library photo's own path with `crop = null` switches a
+// photo back to uncropped.
 export async function replaceImage(
   id: string,
   input: { path: string; crop: CropRect | null },
 ): Promise<ActionResult> {
-  if (!isProductPhotoPath(input.path)) {
-    return { ok: false, error: "Невалиден път до снимката." };
-  }
-  const crop = cleanCrop(input.crop);
-  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
+  const denied = await requireAdmin();
+  if (denied) return denied;
 
-  const supabase = await createClient();
-
-  const { data: image } = await supabase
-    .from("product_images")
-    .select("path, full_path")
-    .eq("id", id)
-    .maybeSingle();
-
-  // An unknown id (or one RLS hides) updates nothing and is not an error, so
-  // check that a row actually changed before removing any file.
-  const { data: updated, error } = await supabase
-    .from("product_images")
-    .update({ path: input.path, crop })
-    .eq("id", id)
-    .select("id");
-  if (error) return { ok: false, error: error.message };
-  if (!updated || updated.length === 0) {
-    return { ok: false, error: "Снимката не е намерена." };
-  }
-
-  // Best effort, as in deleteImage. Never remove the whole photo: a photo
-  // saved without cropping has path = full_path, so its "old tile" IS the
-  // original, and deleting it would lose the photo for good.
-  if (image && image.path !== input.path && image.path !== image.full_path) {
-    await supabase.storage.from(BUCKET).remove([image.path]);
-  }
-
-  revalidateCatalog();
-  return { ok: true };
+  return replaceTile("product_images", isProductPhotoPath, id, input);
 }
 
 // Swaps two neighbouring photos: `first` is the one shown earlier, `second`
@@ -374,6 +554,9 @@ export async function swapImageOrder(
   first: { id: string; sort: number },
   second: { id: string; sort: number },
 ): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   // Photos can share a sort value (new uploads use the file number), so a
   // plain swap could change nothing. Give the two distinct values instead.
   const low = Math.min(first.sort, second.sort);
@@ -405,23 +588,751 @@ export async function swapImageOrder(
   return { ok: true };
 }
 
-export async function deleteImage(id: string): Promise<ActionResult> {
+// Moves a photo of this product to another colour, or to "Всички цветове"
+// (null). Only main photos: carousel photos belong to the whole product. The
+// tile keeps its file name; names are random, so the old colour in it means
+// nothing.
+export async function setImageColor(
+  imageId: string,
+  productId: string,
+  colorId: string | null,
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(imageId) || !UUID.test(productId)) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+  if (colorId !== null && !UUID.test(colorId)) {
+    return { ok: false, error: "Цветът не е намерен." };
+  }
+
   const supabase = await createClient();
 
-  // The file paths come from the row, not from the browser, so this can only
-  // ever remove the files that belong to this photo.
-  const { data: image } = await supabase
+  // The colour has to be one of this product's own.
+  if (colorId) {
+    const { data: color } = await supabase
+      .from("product_colors")
+      .select("id")
+      .eq("id", colorId)
+      .eq("product_id", productId)
+      .maybeSingle();
+    if (!color) return { ok: false, error: "Цветът не е намерен." };
+  }
+
+  const { data, error } = await supabase
     .from("product_images")
-    .select("path, full_path")
+    .update({ color_id: colorId })
+    .eq("id", imageId)
+    .eq("product_id", productId)
+    .eq("in_carousel", false)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Takes the photo off this product. The library photo stays.
+export async function deleteImage(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const supabase = await createClient();
+  const { data: deleted, error } = await supabase
+    .from("product_images")
+    .delete()
     .eq("id", id)
+    .select("path");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  await removeTiles(supabase, deleted.map((image) => image.path));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Homepage photos ----------
+
+// Like product photos, the files are uploaded straight from the browser;
+// these only record and edit the rows. A tile from the browser must sit in the
+// homepage photo folder, named the way the admin form names it — or be the
+// library photo itself.
+function isHeroPhotoPath(path: string) {
+  return /^home\/hero\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+// Puts a library photo at the end of the carousel, with its own tile.
+export async function addHeroPhoto(input: {
+  photoId: string;
+  path: string;
+  crop: CropRect | null;
+}): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const crop = cleanCrop(input.crop);
+  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
+
+  const supabase = await createClient();
+  const photo = await getLibraryPhoto(supabase, input.photoId);
+  if (!photo) return { ok: false, error: "Снимката я няма в библиотеката." };
+  if (!tileAllowed(input.path, photo, isHeroPhotoPath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  // New photos go to the end of the carousel.
+  const { data: lastRow } = await supabase
+    .from("hero_photos")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
-  const { error } = await supabase.from("product_images").delete().eq("id", id);
+  const { error } = await supabase.from("hero_photos").insert({
+    photo_id: photo.id,
+    path: input.path,
+    crop,
+    caption: "",
+    sort: (lastRow?.sort ?? 0) + 1,
+  });
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Снимката вече е в карусела." };
+  }
   if (error) return { ok: false, error: error.message };
 
-  // Best effort: the row is what the site reads, so a stranded file is
-  // untidy rather than broken.
-  if (image) await supabase.storage.from(BUCKET).remove(photoFiles([image]));
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// A new framing for a carousel photo, cut from its library photo.
+export async function replaceHeroTile(
+  id: string,
+  input: { path: string; crop: CropRect | null },
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  return replaceTile("hero_photos", isHeroPhotoPath, id, input);
+}
+
+export async function saveHeroCaption(
+  id: string,
+  caption: string,
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("hero_photos")
+    .update({ caption: caption.trim().slice(0, CAPTION_MAX) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring photos, the same way as swapImageOrder.
+export async function swapHeroOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(first.id) || !UUID.test(second.id)) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("hero_photos").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("hero_photos").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) {
+      return { ok: false, error: "Снимката не е намерена." };
+    }
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Takes the photo out of the carousel. The library photo stays.
+export async function removeHeroPhoto(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const supabase = await createClient();
+  const { data: deleted, error } = await supabase
+    .from("hero_photos")
+    .delete()
+    .eq("id", id)
+    .select("path");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  await removeTiles(supabase, deleted.map((photo) => photo.path));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Showcases ----------
+
+// A showcase („Украса“) is a title, a plain text and library photos shown
+// whole. There are no tiles, so these only touch rows, never files: deleting
+// a showcase or taking a photo out of it leaves the library photo as it is.
+
+const SHOWCASE_NOT_FOUND = "Украсата не е намерена.";
+
+// Creates (id null) or updates a showcase. A new one goes to the end of the
+// list. Returns the id, so the new-showcase form can open its edit page.
+export async function saveShowcase(
+  id: string | null,
+  input: { title: string; body: string },
+): Promise<ActionResult & { id?: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (!title) return { ok: false, error: "Напишете заглавие." };
+  if (title.length > SHOWCASE_TITLE_MAX) {
+    return { ok: false, error: `Заглавието може да е до ${SHOWCASE_TITLE_MAX} знака.` };
+  }
+  if (body.length > SHOWCASE_BODY_MAX) {
+    return { ok: false, error: `Текстът може да е до ${SHOWCASE_BODY_MAX} знака.` };
+  }
+
+  const supabase = await createClient();
+
+  if (id) {
+    if (!UUID.test(id)) return { ok: false, error: SHOWCASE_NOT_FOUND };
+    const { data, error } = await supabase
+      .from("showcases")
+      .update({ title, body })
+      .eq("id", id)
+      .select("id");
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: SHOWCASE_NOT_FOUND };
+
+    revalidateCatalog();
+    return { ok: true, id };
+  }
+
+  const { data: lastRow } = await supabase
+    .from("showcases")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // The id is made here so the row needn't be read back (see addGalleryPhoto).
+  const newId = crypto.randomUUID();
+  const { error } = await supabase.from("showcases").insert({
+    id: newId,
+    title,
+    body,
+    sort: (lastRow?.sort ?? 0) + 1,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true, id: newId };
+}
+
+// Deletes the showcase and its photo links (on delete cascade). The library
+// photos stay.
+export async function deleteShowcase(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: SHOWCASE_NOT_FOUND };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("showcases")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: SHOWCASE_NOT_FOUND };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring showcases, the same way as swapHeroOrder.
+export async function swapShowcaseOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(first.id) || !UUID.test(second.id)) {
+    return { ok: false, error: SHOWCASE_NOT_FOUND };
+  }
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("showcases").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("showcases").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: SHOWCASE_NOT_FOUND };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Adds library photos to the end of a showcase, in the order given. Photos
+// already in it are skipped. Going past SHOWCASE_MAX_PHOTOS is refused
+// outright rather than cut, so no photo is quietly left out.
+export async function addShowcasePhotos(
+  showcaseId: string,
+  photoIds: string[],
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(showcaseId)) return { ok: false, error: SHOWCASE_NOT_FOUND };
+  const ids = cleanIds(photoIds);
+  if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+  if (ids.length > SHOWCASE_MAX_PHOTOS) {
+    return {
+      ok: false,
+      error: `Една украса може да има до ${SHOWCASE_MAX_PHOTOS} снимки.`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: showcase, error: showcaseError } = await supabase
+    .from("showcases")
+    .select("id, showcase_photos(photo_id, sort)")
+    .eq("id", showcaseId)
+    .maybeSingle();
+  if (showcaseError) return { ok: false, error: showcaseError.message };
+  if (!showcase) return { ok: false, error: SHOWCASE_NOT_FOUND };
+
+  const { data: photos, error: photosError } = await supabase
+    .from("photos")
+    .select("id")
+    .in("id", ids);
+  if (photosError) return { ok: false, error: photosError.message };
+  if (photos.length < ids.length) {
+    return { ok: false, error: "Някоя от снимките я няма в библиотеката." };
+  }
+
+  const current = showcase.showcase_photos;
+  const already = new Set(current.map((row) => row.photo_id));
+  const newIds = ids.filter((id) => !already.has(id));
+  if (newIds.length === 0) {
+    return { ok: false, error: "Избраните снимки вече са в украсата." };
+  }
+
+  if (current.length + newIds.length > SHOWCASE_MAX_PHOTOS) {
+    const left = Math.max(0, SHOWCASE_MAX_PHOTOS - current.length);
+    return {
+      ok: false,
+      error: `Една украса може да има до ${SHOWCASE_MAX_PHOTOS} снимки. Остават още ${left}.`,
+    };
+  }
+
+  const lastSort = Math.max(0, ...current.map((row) => row.sort));
+  const { error } = await supabase.from("showcase_photos").insert(
+    newIds.map((photo_id, index) => ({
+      showcase_id: showcaseId,
+      photo_id,
+      sort: lastSort + 1 + index,
+    })),
+  );
+  // Two tabs adding the same photo at once.
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Снимката вече е в украсата." };
+  }
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Takes one photo out of a showcase. The library photo stays.
+export async function removeShowcasePhoto(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Снимката не е намерена." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("showcase_photos")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Swaps two neighbouring photos of a showcase, the same way as swapHeroOrder.
+// The first photo is the cover, so this is also how she picks the cover.
+export async function swapShowcasePhotoOrder(
+  first: { id: string; sort: number },
+  second: { id: string; sort: number },
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(first.id) || !UUID.test(second.id)) {
+    return { ok: false, error: "Снимката не е намерена." };
+  }
+  const low = Math.min(first.sort, second.sort);
+  const high = Math.max(low + 1, first.sort, second.sort);
+
+  const supabase = await createClient();
+  const results = await Promise.all([
+    supabase.from("showcase_photos").update({ sort: low }).eq("id", second.id).select("id"),
+    supabase.from("showcase_photos").update({ sort: high }).eq("id", first.id).select("id"),
+  ]);
+  for (const { data, error } of results) {
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) return { ok: false, error: "Снимката не е намерена." };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Gallery ----------
+
+// Same deal as the homepage photos: the browser uploads the files, these only
+// record and edit the rows. Each gallery photo is a library photo plus its
+// gallery tile, named the way the admin form names it.
+function isGalleryTilePath(path: string) {
+  return /^gallery\/[0-9a-f-]{36}\.webp$/.test(path);
+}
+
+// Puts a library photo in the gallery, with its own tile and the tags given.
+// keepFiles: the row could not be taken out again after a failure, so it
+// still points at the tile and the form must not remove it.
+export async function addGalleryPhoto(input: {
+  photoId: string;
+  path: string;
+  crop: CropRect | null;
+  tagIds: string[];
+}): Promise<ActionResult | { ok: false; error: string; keepFiles: true }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const crop = cleanCrop(input.crop);
+  if (crop === false) return { ok: false, error: "Невалидно изрязване." };
+
+  const supabase = await createClient();
+  const photo = await getLibraryPhoto(supabase, input.photoId);
+  if (!photo) return { ok: false, error: "Снимката я няма в библиотеката." };
+  if (!tileAllowed(input.path, photo, isGalleryTilePath)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  // The id is made here so the tags can be linked without reading the row
+  // back, the same way submitRequest makes its booking id.
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from("gallery_photos").insert({
+    id,
+    photo_id: photo.id,
+    path: input.path,
+    // A copy for code that still reads it, until the cleanup migration.
+    full_path: photo.path,
+    crop,
+  });
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Снимката вече е в галерията." };
+  }
+  if (error) return { ok: false, error: error.message };
+
+  const tagIds = cleanIds(input.tagIds).slice(0, MAX_BULK);
+  if (tagIds.length > 0) {
+    const { error: tagError } = await supabase
+      .from("gallery_photo_tags")
+      .insert(tagIds.map((tag_id) => ({ photo_id: id, tag_id })));
+    // Take the photo out again, so a failed add leaves nothing behind and
+    // the form can remove its tile the same way as for any other failure.
+    if (tagError) {
+      const { error: rollbackError } = await supabase
+        .from("gallery_photos")
+        .delete()
+        .eq("id", id);
+      if (rollbackError) {
+        revalidateCatalog();
+        return {
+          ok: false,
+          error: `Снимката е добавена без етикети: ${tagError.message}`,
+          keepFiles: true,
+        };
+      }
+      return { ok: false, error: tagError.message };
+    }
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Photo ids from the browser. More than MAX_BULK is refused outright rather
+// than cut, so an action never quietly skips some of the photos.
+function cleanPhotoIds(photoIds: string[]) {
+  const ids = cleanIds(photoIds);
+  return ids.length > MAX_BULK ? null : ids;
+}
+
+const TOO_MANY = `Изберете най-много ${MAX_BULK} снимки наведнъж.`;
+
+// Gives one tag to every photo in the list. Photos that already have it are
+// left alone, so it is safe to run on a mixed selection.
+export async function addTagToGalleryPhotos(
+  photoIds: string[],
+  tagId: string,
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0 || !UUID.test(tagId)) {
+    return { ok: false, error: "Няма избрани снимки." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("gallery_photo_tags")
+    .upsert(
+      ids.map((photo_id) => ({ photo_id, tag_id: tagId })),
+      { onConflict: "photo_id,tag_id", ignoreDuplicates: true },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// Takes one tag off every photo in the list. The photos and the tag stay.
+export async function removeTagFromGalleryPhotos(
+  photoIds: string[],
+  tagId: string,
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0 || !UUID.test(tagId)) {
+    return { ok: false, error: "Няма избрани снимки." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("gallery_photo_tags")
+    .delete()
+    .eq("tag_id", tagId)
+    .in("photo_id", ids);
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// A new framing for a gallery photo, cut from its library photo.
+export async function replaceGalleryTile(
+  id: string,
+  input: { path: string; crop: CropRect | null },
+): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  return replaceTile("gallery_photos", isGalleryTilePath, id, input);
+}
+
+// Takes the photos out of the gallery, with their tags (on delete cascade).
+// The library photos stay. Used for one photo and for a selection alike.
+export async function removeFromGallery(photoIds: string[]): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+
+  const supabase = await createClient();
+  const { data: deleted, error } = await supabase
+    .from("gallery_photos")
+    .delete()
+    .in("id", ids)
+    .select("path");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимките не са намерени." };
+
+  await removeTiles(supabase, deleted.map((photo) => photo.path));
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// The name she types, tidied, and its slug. Null when there is nothing usable.
+function cleanTagName(name: string) {
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, TAG_NAME_MAX);
+  const slug = slugify(clean);
+  return clean && slug ? { name: clean, slug } : null;
+}
+
+// Returns the new tag, so the tag picker can put it on a photo straight away.
+export async function createGalleryTag(
+  name: string,
+): Promise<{ ok: true; tag: GalleryTag } | { ok: false; error: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const tag = cleanTagName(name);
+  if (!tag) return { ok: false, error: "Напишете име на етикета." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("gallery_tags")
+    .insert(tag)
+    .select("id, name, slug")
+    .single();
+  if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
+  if (error) return { ok: false, error: error.message };
+
+  revalidateCatalog();
+  return { ok: true, tag: { ...data, count: 0 } };
+}
+
+// Renaming changes the slug too, so an old /gallery?tag=… link falls back to
+// all photos rather than pointing at a name that no longer exists.
+export async function renameGalleryTag(id: string, name: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
+  const tag = cleanTagName(name);
+  if (!tag) return { ok: false, error: "Напишете име на етикета." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("gallery_tags")
+    .update(tag)
+    .eq("id", id)
+    .select("id");
+  if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Етикетът не е намерен." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// The photos stay; they only lose this tag (on delete cascade).
+export async function deleteGalleryTag(id: string): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("gallery_tags")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) return { ok: false, error: "Етикетът не е намерен." };
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Photo library ----------
+
+// Records an original the browser just uploaded to photos/. Returns the new
+// library photo, so the form can go on and use it in a place straight away.
+export async function addPhoto(
+  path: string,
+): Promise<{ ok: true; photo: PhotoRef } | { ok: false; error: string }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!isLibraryPhotoPath(path)) {
+    return { ok: false, error: "Невалиден път до снимката." };
+  }
+
+  // The id is made here so the row needn't be read back (see addGalleryPhoto).
+  const id = crypto.randomUUID();
+  const supabase = await createClient();
+  const { error } = await supabase.from("photos").insert({ id, path });
+  if (error) return { ok: false, error: error.message };
+
+  // No revalidate: a photo only in the library is on no public page yet.
+  return { ok: true, photo: { id, path } };
+}
+
+// Deletes library photos for good: from every place that uses them (on delete
+// cascade), with every file — the original and each place's tile. The paths
+// come from the rows, never from the browser.
+export async function deletePhotos(photoIds: string[]): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const ids = cleanPhotoIds(photoIds);
+  if (!ids) return { ok: false, error: TOO_MANY };
+  if (ids.length === 0) return { ok: false, error: "Няма избрани снимки." };
+
+  const supabase = await createClient();
+  const { data: photos, error: readError } = await supabase
+    .from("photos")
+    .select("id, path, hero_photos(path), gallery_photos(path), product_images(path)")
+    .in("id", ids);
+  if (readError) return { ok: false, error: readError.message };
+
+  const { data: deleted, error } = await supabase
+    .from("photos")
+    .delete()
+    .in("id", ids)
+    .select("id");
+  if (error) return { ok: false, error: error.message };
+  if (deleted.length === 0) return { ok: false, error: "Снимките не са намерени." };
+
+  // Only the photos that really went. Their originals are no longer library
+  // photos now, so removeTiles lets them go too.
+  const gone = new Set(deleted.map((photo) => photo.id));
+  const files = photos
+    .filter((photo) => gone.has(photo.id))
+    .flatMap((photo) => [
+      photo.path,
+      ...asList(photo.hero_photos as unknown as { path: string } | null).map((row) => row.path),
+      ...asList(photo.gallery_photos as unknown as { path: string } | null).map((row) => row.path),
+      ...photo.product_images.map((row) => row.path),
+    ]);
+  await removeTiles(supabase, files);
 
   revalidateCatalog();
   return { ok: true };

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { formatPrice, QUOTE_LABEL } from "../../src/lib/format";
-import { addFirstOption, PRICED, QUOTE, priceIn } from "./add-item";
+import { formatPrice, QUOTE_LABEL } from "../../../src/lib/format";
+import { addFirstOption, PRICED, QUOTE, priceIn } from "../../smoke/add-item";
 
 // The configurator's math: the total in the rail is the sum of the priced
 // items, and a „по запитване“ item is shown as such and adds nothing.
@@ -9,7 +9,7 @@ import { addFirstOption, PRICED, QUOTE, priceIn } from "./add-item";
 // so it keeps working when she renames or re-prices things. It never presses
 // „Изпрати запитване“, so nothing is written to the database.
 test("configurator total adds up, quote items add nothing", { tag: "@critical" }, async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/configurator");
 
   // The big number under „Ориентировъчна сума“, the only polite live region.
   const total = page.locator('[aria-live="polite"]');

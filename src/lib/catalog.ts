@@ -26,15 +26,19 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
          id, slug, name, description, option_group, base_price, pricing_type,
          active, sort, created_at,
          quantity, track_availability, rentable, service_only,
-         carousel, carousel_in_configurator, carousel_in_catalog,
-         product_colors ( id, color_slug, color_name, hex, sort ),
-         product_images ( id, color_id, path, full_path, in_carousel, sort )
+         carousel, carousel_in_configurator, carousel_in_catalog, has_colors,
+         product_colors ( id, color_slug, color_name, hex, quantity, sort ),
+         product_images ( id, color_id, path, full_path, in_carousel, sort, photo:photos ( path ) )
        )`,
     )
     .order("sort")
     .order("sort", { referencedTable: "products" });
 
-  if (error || !data?.length) return FALLBACK_GROUPS;
+  if (error || !data?.length) {
+    // Without this line a missing table reads as "no products yet" on the page.
+    console.error("getCatalog: using the hardcoded catalog", error ?? "no rows");
+    return FALLBACK_GROUPS;
+  }
 
   const groups: CatalogGroup[] = data.map((category) => ({
     id: category.id,
@@ -51,7 +55,26 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     products: category.products
       .filter((product) => product.active)
       .map((product) => {
-        const images = [...product.product_images].sort((a, b) => a.sort - b.sort);
+        // The whole photo is the library photo. full_path is the copy older
+        // rows still carry; it goes once migration-photo-library-cleanup.sql runs.
+        const images = [...product.product_images]
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ photo, ...image }) => ({
+            ...image,
+            // One photo per row; without generated DB types the client can't
+            // know that and types it as a list.
+            full_path:
+              (photo as unknown as { path: string } | null)?.path ?? image.full_path,
+          }));
+        // With „Има варианти по цвят“ off the colours stay in the database
+        // but show nowhere. With it on, every colour has its own count, and
+        // the product owns their sum.
+        const colors = product.has_colors
+          ? [...product.product_colors].sort((a, b) => a.sort - b.sort)
+          : [];
+        const quantity = colors.length
+          ? colors.reduce((sum, color) => sum + color.quantity, 0)
+          : product.quantity;
         return {
           id: product.id,
           slug: product.slug,
@@ -61,11 +84,11 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
           base_price: product.base_price,
           pricing_type: product.pricing_type,
           created_at: product.created_at,
-          quantity: product.quantity,
+          quantity,
           track_availability: product.track_availability,
           rentable: product.rentable,
           service_only: product.service_only,
-          colors: [...product.product_colors].sort((a, b) => a.sort - b.sort),
+          colors,
           // Carousel photos never stand in for the main photo, and stay hidden
           // while the carousel is switched off.
           images: images.filter((image) => !image.in_carousel),

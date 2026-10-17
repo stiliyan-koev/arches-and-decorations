@@ -22,8 +22,14 @@ Create `.env.local` (never commit it):
 ```
 NEXT_PUBLIC_SUPABASE_URL=...        # Project settings → API
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...   # anon public key
+RESEND_API_KEY=...                  # contact form on /about — resend.com/api-keys
 ```
 The anon key is safe in the browser because RLS (in `schema.sql`) guards the tables. You do **not** need the service-role key for v1 — skip it.
+
+`RESEND_API_KEY` is what makes the „Пишете ни“ form on `/about` actually send. Open the Resend
+account **with the address in `src/lib/mail.ts`**: until a domain is verified there, the sender has
+to stay `onboarding@resend.dev` and Resend only delivers to the account's own address. Without the
+key the form still renders, but tells visitors to write on Messenger or Viber instead.
 
 ## 3. Suggested file tree
 ```
@@ -83,7 +89,7 @@ Push to GitHub → Netlify: **Add new project → Import an existing project** �
 | Publish directory | `.next` |
 | Functions directory | *(leave the default — the Next.js runtime generates the functions)* |
 
-Add the two env vars under **Project configuration → Environment variables** *before* the first deploy: `NEXT_PUBLIC_*` values are baked in at build time, so adding them later needs a redeploy. Add your domain under **Domain management**.
+Add the env vars under **Project configuration → Environment variables** *before* the first deploy: `NEXT_PUBLIC_*` values are baked in at build time, so adding them later needs a redeploy. (`RESEND_API_KEY` is read at request time, so that one can be added whenever.) Add your domain under **Domain management**.
 
 ## Definition of done for v1
 A visitor in Varna can: see what's offered with photos, open a product and switch colors, build a selection and get an approximate price, and send a request. Your wife can: log in, see incoming requests, see a calendar of confirmed bookings, and add/edit products with images. No payments, no online booking commitment.
