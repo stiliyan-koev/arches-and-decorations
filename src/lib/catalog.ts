@@ -25,7 +25,7 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
        products (
          id, slug, name, description, option_group, base_price, pricing_type,
          active, sort, created_at,
-         quantity, track_availability, rentable, service_only,
+         quantity, track_availability, offer_mode, covers_needed,
          carousel, carousel_in_configurator, carousel_in_catalog, has_colors,
          product_colors ( id, color_slug, color_name, hex, quantity, sort ),
          product_images ( id, color_id, path, full_path, in_carousel, sort, photo:photos ( path ) )
@@ -86,8 +86,8 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
           created_at: product.created_at,
           quantity,
           track_availability: product.track_availability,
-          rentable: product.rentable,
-          service_only: product.service_only,
+          offer_mode: product.offer_mode,
+          covers_needed: product.covers_needed,
           colors,
           // Carousel photos never stand in for the main photo, and stay hidden
           // while the carousel is switched off.

@@ -24,8 +24,9 @@ import {
   type RequestItem,
 } from "@/app/actions";
 import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
+import CoverWarning from "@/components/basket/CoverWarning";
 import { selection, useBasket } from "@/lib/selection";
-import { basketView, type PlpProduct } from "@/lib/catalog-plp";
+import { basketView, coverShortfall, type PlpProduct } from "@/lib/catalog-plp";
 
 type Mode = "service" | "rental";
 
@@ -73,12 +74,18 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   );
 
   // „Само под наем“ only makes sense when everything in the basket can be loaned
-  // out on its own. A basket that stops qualifying falls back to service.
+  // out on its own, and „Украса с монтаж“ when she may set all of it up. A
+  // basket that can do only one of them gets that one; one that can do neither
+  // (a rent-only item next to a setup-only one) can't be sent as it is.
   const notRentable = items.filter((item) => !item.product.rentable);
+  const notSetUp = items.filter((item) => !item.product.setupPossible);
   const canRent = items.length > 0 && notRentable.length === 0;
+  const canService = notSetUp.length === 0;
+  const noMode = items.length > 0 && !canRent && !canService;
   // Once per product, even when it's in the basket in two colours.
-  const notRentableNames = [...new Set(notRentable.map((item) => item.product.name))];
-  const activeMode: Mode = canRent ? mode : "service";
+  const notRentableNames = namesOf(notRentable);
+  const notSetUpNames = namesOf(notSetUp);
+  const activeMode: Mode = !canService && canRent ? "rental" : canRent ? mode : "service";
   // Forget a rental choice once the basket can't rent, so it doesn't come back
   // on its own when the basket qualifies again. Guarded, so it runs once.
   if (!canRent && mode === "rental") setMode("service");
@@ -163,6 +170,8 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   const hint =
     items.length === 0
       ? "Офертата е празна."
+      : noMode
+        ? "Артикулите само под наем и тези само с монтаж се изпращат поотделно."
       : returnBeforePickup
         ? "Връщането е преди вземането."
         : !datesReady
@@ -229,22 +238,33 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
     return (
       <div className="mx-auto max-w-xl rounded-card border border-border bg-surface p-8 text-center shadow-card">
         <p className="text-5xl">🎈</p>
-        <h2 className="mt-4 font-serif text-2xl">Благодарим!</h2>
+        <h2 className="mt-4 font-serif text-2xl">
+          Получихме Вашето запитване за украса!
+        </h2>
         {/* With only „по запитване“ items the sum is 0, so it isn't named. */}
         <p className="mt-3 text-muted">
-          Получихме вашето запитване
-          {sent.total > 0 && (
+          {sent.total > 0 ? (
             <>
-              {" "}за <strong className="text-ink">{formatPrice(sent.total)}</strong>{" "}
-              ориентировъчно
-              {sent.hasQuote && <> плюс артикулите „по запитване“</>}
+              Ориентировъчната сума на избраните артикули е{" "}
+              <strong className="text-ink">{formatPrice(sent.total)}</strong>
+              {sent.hasQuote && (
+                <> (артикулите „по запитване“ се уточняват допълнително)</>
+              )}
+              .
             </>
+          ) : (
+            "Цените на избраните артикули ще уточним допълнително."
           )}
-          . Ще се свържем с вас по телефона, за да уговорим лична среща.
+        </p>
+        <p className="mt-3 text-muted">
+          Ще се свържем с Вас по телефона за потвърждение на наличностите за
+          Вашата дата и за уточняване на всички детайли.
         </p>
         <p className="mt-4 text-sm text-muted">
-          Крайната сума и наличността за вашата дата уточняваме на срещата. Няма
-          онлайн плащане и не се обвързвате с нищо.
+          <strong className="text-ink">Забележка:</strong> Посочените цени са за
+          наем на артикулите и не включват труд за монтаж/демонтаж. Доставката е
+          безплатна за гр. Варна, а за останалите населени места се изчислява
+          спрямо разстоянието.
         </p>
         <Link
           href="/catalog"
@@ -292,6 +312,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
             + Добави още
           </Link>
         </div>
+        <CoverWarning shortfall={coverShortfall(items)} />
         <BasketLines items={items} notes={notes} />
 
         <fieldset className="mt-6">
@@ -300,7 +321,8 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
           </legend>
           <div className="flex flex-wrap gap-2">
             <ModeButton
-              active={activeMode === "service"}
+              active={!noMode && activeMode === "service"}
+              disabled={!canService}
               onClick={() => setMode("service")}
             >
               Украса с монтаж
@@ -313,14 +335,26 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
               Само под наем
             </ModeButton>
           </div>
-          {!canRent && (
+          {noMode ? (
+            <p className="mt-2 text-[0.8rem] font-bold text-rose-ink">
+              {quoted(notSetUpNames)}{" "}
+              {notSetUpNames.length === 1 ? "се предлага" : "се предлагат"} само
+              под наем, а {quoted(notRentableNames)} само с монтаж. Изпратете ги в
+              отделни запитвания.
+            </p>
+          ) : !canRent ? (
             <p className="mt-2 text-[0.8rem] text-muted">
-              Само под наем не може, защото{" "}
-              {notRentableNames.map((name) => `„${name}“`).join(", ")}{" "}
+              Само под наем не може, защото {quoted(notRentableNames)}{" "}
               {notRentableNames.length === 1 ? "се предлага" : "се предлагат"} само
               с монтаж.
             </p>
-          )}
+          ) : !canService ? (
+            <p className="mt-2 text-[0.8rem] text-muted">
+              С монтаж не може, защото {quoted(notSetUpNames)}{" "}
+              {notSetUpNames.length === 1 ? "се предлага" : "се предлагат"} само
+              под наем.
+            </p>
+          ) : null}
         </fieldset>
 
         <EventDetails
@@ -373,6 +407,14 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
       />
     </form>
   );
+}
+
+function namesOf(items: { product: { name: string } }[]) {
+  return [...new Set(items.map((item) => item.product.name))];
+}
+
+function quoted(names: string[]) {
+  return names.map((name) => `„${name}“`).join(", ");
 }
 
 function noSubscribe() {

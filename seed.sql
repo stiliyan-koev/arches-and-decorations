@@ -119,4 +119,9 @@ update products set option_group = 'Огледало за снимки' where sl
 update products set option_group = 'Статив' where slug = 'easel';
 -- sign-stand has no option_group, so it stays hidden in the modal until it gets one.
 
+-- How each product is offered (balloons are only set up by her), and one cover per arch.
+update products set offer_mode = 'setup' where rentable = false;
+update products set covers_needed = 1
+  where category_id = (select id from categories where slug = 'arches');
+
 commit;

@@ -38,19 +38,19 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
       {
         id: "arch-oval-180x80", slug: "arch-oval-180x80", name: "Овална арка 180×80 см",
         option_group: "Овална арка", base_price: 60, pricing_type: "fixed",
-        quantity: 2, track_availability: true, rentable: true, service_only: false,
+        quantity: 2, track_availability: true, offer_mode: "both", covers_needed: 1,
         colors: [], images: [],
       },
       {
         id: "arch-oval-165x50", slug: "arch-oval-165x50", name: "Овална арка 165×50 см",
         option_group: "Овална арка", base_price: 55, pricing_type: "fixed",
-        quantity: 2, track_availability: true, rentable: true, service_only: false,
+        quantity: 2, track_availability: true, offer_mode: "both", covers_needed: 1,
         colors: [], images: [],
       },
       {
         id: "arch-round-180", slug: "arch-round-180", name: "Кръгла арка 180 см",
         option_group: "Кръгла арка", base_price: 65, pricing_type: "fixed",
-        quantity: 3, track_availability: true, rentable: true, service_only: false,
+        quantity: 3, track_availability: true, offer_mode: "both", covers_needed: 1,
         colors: [], images: [],
       },
     ],
@@ -65,7 +65,7 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
         id: "arch-cover", slug: "arch-cover", name: "Калъф за арка",
         option_group: null, base_price: 30, pricing_type: "fixed",
         // The sum of its colours' counts, as getCatalog() works it out.
-        quantity: 7, track_availability: true, rentable: true, service_only: false,
+        quantity: 7, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [
           { id: "c-white", color_slug: "white", color_name: "Бял", hex: "#FFFFFF", quantity: 1, sort: 1 },
           { id: "c-red", color_slug: "red", color_name: "Червен", hex: "#D33333", quantity: 1, sort: 2 },
@@ -95,7 +95,7 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
       {
         id: "balloons", slug: "balloons", name: "Балони (различни цветове)",
         option_group: null, base_price: 40, pricing_type: "fixed",
-        quantity: 1, track_availability: false, rentable: false, service_only: false,
+        quantity: 1, track_availability: false, offer_mode: "setup", covers_needed: 0,
         colors: [
           { id: "b-white", color_slug: "white", color_name: "Бял", hex: "#FFFFFF", quantity: 1, sort: 1 },
           { id: "b-red", color_slug: "red", color_name: "Червен", hex: "#D33333", quantity: 1, sort: 2 },
@@ -124,31 +124,31 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
       {
         id: "figure-winnie", slug: "figure-winnie", name: "Мечо Пух и приятели",
         option_group: null, base_price: 40, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "figure-baby-boss-1", slug: "figure-baby-boss-1", name: "Baby Boss (единица)",
         option_group: null, base_price: 40, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "figure-elsa", slug: "figure-elsa", name: "Елза",
         option_group: null, base_price: 40, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "figure-anna", slug: "figure-anna", name: "Анна",
         option_group: null, base_price: 40, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "figure-olaf-sven", slug: "figure-olaf-sven", name: "Олаф и Свен",
         option_group: null, base_price: 40, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
     ],
@@ -170,31 +170,31 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
       {
         id: "figure-number-1", slug: "figure-number-1", name: "Цифра „1“ с кухина за балони",
         option_group: "Цифра с балони", base_price: 50, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "sign-happy-birthday", slug: "sign-happy-birthday", name: "Надпис „Happy Birthday“ / рожден ден",
         option_group: "Пластмасов надпис", base_price: null, pricing_type: "custom_quote",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "sign-christening", slug: "sign-christening", name: "Надпис за кръщене",
         option_group: "Пластмасов надпис", base_price: null, pricing_type: "custom_quote",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "sign-bride-to-be", slug: "sign-bride-to-be", name: "Надпис „Bride to be“",
         option_group: "Пластмасов надпис", base_price: null, pricing_type: "custom_quote",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "table-signs-pink", slug: "table-signs-pink", name: "Табелки за маса (розови)",
         option_group: "Табелки за маса", base_price: 15, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
     ],
@@ -215,20 +215,20 @@ export const FALLBACK_GROUPS: CatalogGroup[] = [
       {
         id: "photo-mirror", slug: "photo-mirror", name: "Огледало за снимки",
         option_group: "Огледало за снимки", base_price: 50, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         // No option_group on purpose (matches live) — this stays hidden in the modal until it gets one.
         id: "sign-stand", slug: "sign-stand", name: "Стойка за табели",
         option_group: null, base_price: 20, pricing_type: "fixed",
-        quantity: 1, track_availability: true, rentable: true, service_only: false,
+        quantity: 1, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [], images: [],
       },
       {
         id: "easel", slug: "easel", name: "Статив",
         option_group: "Статив", base_price: 25, pricing_type: "fixed",
-        quantity: 2, track_availability: true, rentable: true, service_only: false,
+        quantity: 2, track_availability: true, offer_mode: "both", covers_needed: 0,
         colors: [
           { id: "e-wood", color_slug: "wood", color_name: "Дървен", hex: "#B08A5B", quantity: 1, sort: 1 },
           { id: "e-metal", color_slug: "metal", color_name: "Метален", hex: "#9AA0A6", quantity: 1, sort: 2 },

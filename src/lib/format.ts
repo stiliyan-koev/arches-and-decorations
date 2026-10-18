@@ -11,6 +11,11 @@ export function formatPrice(value: number) {
 // setup/transport line.
 export const QUOTE_LABEL = "по запитване";
 
+// Under the approximate total, in the mini-basket and on /request.
+export const QUOTE_NOTE = "Цената на артикулите „по запитване“ ще уточним допълнително.";
+export const PRICE_NOTE =
+  "Посочената цена не включва труд за монтаж/демонтаж. Транспортът в рамките на гр. Варна е безплатен. За места извън Варна цената за транспорт се изчислява спрямо разстоянието.";
+
 // The running estimate. When every line is „по запитване“ the sum is 0, and
 // „0,00 €“ would read as free, so show „По запитване“ instead.
 export function formatTotal(total: number, hasQuote: boolean) {

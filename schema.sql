@@ -36,6 +36,10 @@ create table products (
   track_availability boolean not null default true,-- false for consumables (balloons)
   rentable           boolean not null default true,-- can be loaned out standalone
   service_only       boolean not null default false,
+  -- How it's offered (admin keeps rentable/service_only in step with it):
+  -- 'rent' = rent only, 'both' = rent or with setup, 'setup' = setup only.
+  offer_mode         text not null default 'both' check (offer_mode in ('rent','both','setup')),
+  covers_needed      int  not null default 0 check (covers_needed >= 0), -- arch covers per piece
   active             boolean not null default true,
   sort               int  not null default 0,
   -- Carousel of variation photos (product_images.in_carousel), instead of the
