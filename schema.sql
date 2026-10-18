@@ -50,6 +50,9 @@ create table products (
   -- Colour variations: the colours below show as swatches on the catalog card,
   -- each with its own stock. Off = the colours stay but are hidden everywhere.
   has_colors               boolean not null default false,
+  -- „Прозорец за изисквания“: „Добави“ first asks the customer to describe what
+  -- they want (e.g. a custom label); the text goes to booking_items.custom_text.
+  asks_requirements        boolean not null default false,
   created_at         timestamptz default now()
 );
 

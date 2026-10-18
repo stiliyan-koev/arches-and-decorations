@@ -8,6 +8,7 @@ import PhotoViewer from "@/components/PhotoViewer";
 import PhotoCarousel from "@/components/PhotoCarousel";
 import Swatches from "@/components/Swatches";
 import SpecLine from "@/components/catalog/SpecLine";
+import RequirementsDialog from "@/components/catalog/RequirementsDialog";
 import { selection, useIsSelected } from "@/lib/selection";
 import { coverLabel, lineKey, type PlpProduct, type PlpSwatch } from "@/lib/catalog-plp";
 
@@ -22,6 +23,8 @@ const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 // A product with colours shows them as swatches. The chosen colour's photos
 // replace the card's photo (a colour without photos keeps it), and „Добави“
 // adds the product in that colour — another colour is another basket line.
+// A product with „Прозорец за изисквания“ first asks what the customer wants
+// (RequirementsDialog), and adds it with that text.
 export default function ProductCard({
   product,
   priority = false,
@@ -36,6 +39,7 @@ export default function ProductCard({
 }) {
   // The colour the customer clicked; see chooseSwatch for the rest.
   const [picked, setPicked] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
   const swatch = chooseSwatch(product.swatches, picked, filterColors);
   const color = swatch?.slug ?? null;
 
@@ -73,6 +77,11 @@ export default function ProductCard({
     : added
       ? "border-cta bg-cta text-white"
       : "border-balloon-pink bg-surface text-cta hover:border-cta hover:bg-cta hover:text-white";
+
+  function add(requirements: string) {
+    const accepted = selection.add(product.slug, color, requirements);
+    onAdd(accepted ? lineKey(product.slug, color) : null, !accepted);
+  }
 
   return (
     <article
@@ -177,10 +186,11 @@ export default function ProductCard({
             type="button"
             disabled={booked}
             aria-label={buttonAria}
+            aria-haspopup={product.asksRequirements && !added ? "dialog" : undefined}
             onClick={() => {
               if (added) return onAdd(null, false);
-              const accepted = selection.add(product.slug, color);
-              onAdd(accepted ? lineKey(product.slug, color) : null, !accepted);
+              if (product.asksRequirements) return setAsking(true);
+              add("");
             }}
             className={`ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border text-lg leading-none font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:h-auto sm:w-auto sm:px-4 sm:py-2.5 sm:text-[0.82rem] ${buttonStyle}`}
           >
@@ -192,6 +202,14 @@ export default function ProductCard({
           </button>
         </div>
       </div>
+
+      {asking && (
+        <RequirementsDialog
+          title={`${product.name}${colorSuffix}`}
+          onAdd={add}
+          onClose={() => setAsking(false)}
+        />
+      )}
     </article>
   );
 }
