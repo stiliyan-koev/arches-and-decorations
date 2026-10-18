@@ -45,6 +45,9 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
   const [active, setActive] = useState(product?.active ?? true);
   const [sort, setSort] = useState(String(product?.sort ?? 0));
   const [hasColors, setHasColors] = useState(product?.has_colors ?? false);
+  const [asksRequirements, setAsksRequirements] = useState(
+    product?.asks_requirements ?? false,
+  );
   const countByColor = hasColors && colorCount > 0;
 
   const [error, setError] = useState("");
@@ -81,6 +84,7 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
       active,
       sort: Number(sort) || 0,
       has_colors: hasColors,
+      asks_requirements: asksRequirements,
     });
 
     setBusy(false);
@@ -297,6 +301,15 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
           />
           Има варианти по цвят
         </label>
+
+        <label className="flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={asksRequirements}
+            onChange={(event) => setAsksRequirements(event.target.checked)}
+          />
+          Прозорец за изисквания
+        </label>
       </div>
 
       {hasColors && (
@@ -304,6 +317,14 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
           Цветовете и бройките им се добавят в панела „Цветове“ след
           запазване. В каталога се показват като кръгчета, а снимките се
           свързват с цвят в „Снимки“.
+        </p>
+      )}
+
+      {asksRequirements && (
+        <p className="mt-2 text-[0.85rem] text-muted">
+          При „Добави“ в каталога клиентът вижда поле „Опишете вашите
+          изисквания“ (напр. текста за надпис). Написаното идва със
+          запитването, при артикула.
         </p>
       )}
 
