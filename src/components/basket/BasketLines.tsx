@@ -4,7 +4,7 @@ import Image from "next/image";
 import { formatPrice } from "@/lib/format";
 import { imageUrl } from "@/lib/images";
 import { selection } from "@/lib/selection";
-import type { BasketItem } from "@/lib/catalog-plp";
+import { coverLabel, type BasketItem } from "@/lib/catalog-plp";
 import { PATTERN_FILL } from "@/components/Swatches";
 
 const STEP_BUTTON =
@@ -70,6 +70,11 @@ export default function BasketLines({
                   ? product.categoryName
                   : `${formatPrice(product.price)} / бр.`}
               </p>
+              {coverLabel(product) && (
+                <p className="text-[0.78rem] font-bold text-ink">
+                  {coverLabel(product)}
+                </p>
+              )}
 
               <div className="mt-auto flex items-center gap-2 pt-1">
                 <button
