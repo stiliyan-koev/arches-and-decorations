@@ -7,6 +7,10 @@ import type { CropRect } from "@/lib/resize-image";
 // want (the category's first product is the item — used for balloons).
 export type Picker = "dropdown" | "grid" | "text";
 
+// How a product is offered: rent only (the customer collects it), rented or set
+// up by her, or only set up by her.
+export type OfferMode = "rent" | "both" | "setup";
+
 // The bare category fields the admin lists and product form need (name/slug/sort
 // editing, and the category <select>). Kept separate from the full Category so
 // those admin queries don't have to fetch the configurator columns.
@@ -62,8 +66,8 @@ export type Product = {
   pricing_type: "fixed" | "custom_quote";
   quantity: number; // how many she physically owns
   track_availability: boolean; // false = consumable (balloons), always available
-  rentable: boolean; // can be loaned out on its own, without her setting it up
-  service_only: boolean; // only offered together with setup
+  offer_mode: OfferMode;
+  covers_needed: number; // arch covers one piece needs (a set of 2 arches: 2)
   // Empty when the product's „Има варианти по цвят“ is off. When it's on,
   // `quantity` above is the sum of the colours' counts.
   colors: ProductColor[];
@@ -95,8 +99,8 @@ export type ProductRow = {
   pricing_type: "fixed" | "custom_quote";
   quantity: number;
   track_availability: boolean;
-  rentable: boolean;
-  service_only: boolean;
+  offer_mode: OfferMode;
+  covers_needed: number;
   active: boolean;
   sort: number;
   carousel: boolean; // master switch for the carousel photos

@@ -14,6 +14,7 @@ import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
 import type { PhotoRef } from "@/lib/photo-library";
+import type { OfferMode } from "@/lib/types";
 
 // Two layers guard every write here. First, the action itself asks the
 // database whether the caller is one of the owner's accounts (requireAdmin
@@ -240,12 +241,14 @@ export type ProductInput = {
   pricing_type: "fixed" | "custom_quote";
   quantity: number;
   track_availability: boolean;
-  rentable: boolean;
-  service_only: boolean;
+  offer_mode: OfferMode;
+  covers_needed: number;
   active: boolean;
   sort: number;
   has_colors: boolean;
 };
+
+const OFFER_MODES: OfferMode[] = ["rent", "both", "setup"];
 
 export async function saveProduct(
   input: ProductInput,
@@ -255,6 +258,12 @@ export async function saveProduct(
 
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
+  }
+  if (!OFFER_MODES.includes(input.offer_mode)) {
+    return { ok: false, error: "Изберете как се предлага продуктът." };
+  }
+  if (!Number.isInteger(input.covers_needed) || input.covers_needed < 0) {
+    return { ok: false, error: "Нужните калъфи са цяло число, 0 или повече." };
   }
   if (input.pricing_type === "fixed" && input.base_price == null) {
     return { ok: false, error: "Въведете цена или изберете „По запитване“." };
@@ -271,8 +280,11 @@ export async function saveProduct(
     pricing_type: input.pricing_type,
     quantity: input.quantity,
     track_availability: input.track_availability,
-    rentable: input.rentable,
-    service_only: input.service_only,
+    offer_mode: input.offer_mode,
+    covers_needed: input.covers_needed,
+    // The two older flags, kept in step so nothing reading them goes stale.
+    rentable: input.offer_mode !== "setup",
+    service_only: input.offer_mode === "setup",
     active: input.active,
     sort: input.sort,
     has_colors: input.has_colors,

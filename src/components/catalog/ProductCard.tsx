@@ -7,8 +7,9 @@ import { fullImagePath, imageUrl } from "@/lib/images";
 import PhotoViewer from "@/components/PhotoViewer";
 import PhotoCarousel from "@/components/PhotoCarousel";
 import Swatches from "@/components/Swatches";
+import SpecLine from "@/components/catalog/SpecLine";
 import { selection, useIsSelected } from "@/lib/selection";
-import { lineKey, type PlpProduct, type PlpSwatch } from "@/lib/catalog-plp";
+import { coverLabel, lineKey, type PlpProduct, type PlpSwatch } from "@/lib/catalog-plp";
 
 const CARD_SIZES = "(max-width: 640px) 45vw, (max-width: 1024px) 45vw, 300px";
 
@@ -144,8 +145,11 @@ export default function ProductCard({
         <p className="line-clamp-2 text-[0.9rem] leading-tight font-bold text-ink hover:underline sm:text-[0.95rem] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta">
           {product.name}
         </p>
-        {product.spec && (
-          <p className="line-clamp-1 text-[0.78rem] leading-snug text-muted">{product.spec}</p>
+        {product.spec && <SpecLine spec={product.spec} title={product.name} />}
+        {coverLabel(product) && (
+          <p className="text-[0.78rem] leading-snug font-bold text-ink">
+            {coverLabel(product)}
+          </p>
         )}
         {swatch && (
           <div className="pt-2">
