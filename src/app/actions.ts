@@ -1,10 +1,11 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { sendOwnerEmail } from "@/lib/mail";
-import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
+import { formatDate, formatPrice, formatTotal, QUOTE_LABEL } from "@/lib/format";
 
 export type RequestItem = {
   productId: string;
@@ -273,30 +274,36 @@ export async function submitRequest(
     };
   }
 
-  // She hears about every request by email. The booking is saved by now, so a
-  // failed email doesn't fail the request — the customer is told it went
-  // through, because it did; the log says which booking she wasn't told about.
-  // Same throttle as the contact form: both spend the same Resend quota.
-  let emailed = false;
-  if (allowSend(await callerIp())) {
-    emailed = await sendOwnerEmail(
-      requestEmailSubject(payload),
-      await requestEmailText(supabase, payload, estimatedTotal),
-    );
-  }
-  if (!emailed) {
-    console.error("Request saved, but the owner wasn't emailed:", bookingId);
-  }
+  // She hears about every request by email. The booking is saved by now, so
+  // the email goes out after the response (after(); Netlify keeps the function
+  // running for it): the customer's button doesn't wait on Resend, and a slow
+  // or failed email can't turn a saved request into an error. The log says
+  // which booking she wasn't told about. Same throttle as the contact form:
+  // both spend the same Resend quota.
+  const ip = await callerIp();
+  after(async () => {
+    let emailed = false;
+    if (allowSend(ip)) {
+      emailed = await sendOwnerEmail(
+        requestEmailSubject(payload),
+        await requestEmailText(supabase, payload, estimatedTotal),
+      );
+    }
+    if (!emailed) {
+      console.error("Request saved, but the owner wasn't emailed:", bookingId);
+    }
+  });
 
   return { ok: true };
 }
 
-// „Нова заявка — Мария, 14.11.2026“. Whitespace collapsed: the name goes into
-// a mail header, and a newline in a header would split it.
+// „Нова заявка — Мария, 14.11.2026“. Whitespace collapsed on the whole line:
+// it goes into a mail header, and a newline in a header would split it. The
+// name is free text, and Postgres accepts a date with a newline around it.
 function requestEmailSubject(payload: RequestPayload) {
-  const who = (payload.customerName.trim() || payload.phone.trim()).replace(/\s+/g, " ");
+  const who = payload.customerName.trim() || payload.phone.trim();
   const date = payload.mode === "rental" ? payload.startDate : payload.eventDate;
-  return `Нова заявка — ${who}, ${formatDate(date)}`;
+  return `Нова заявка — ${who}, ${formatDate(date)}`.replace(/\s+/g, " ").trim();
 }
 
 // The request as she'd read it on the form: product and colour names, not ids.
@@ -359,11 +366,16 @@ async function requestEmailText(
     if (requirements) lines.push(`  Изисквания: ${requirements}`);
   }
 
+  // formatTotal, like the site: an all-„по запитване“ basket sums to 0, and
+  // „0,00 €“ would read as free. That case already says „По запитване“, so
+  // the reminder line is only for a real number.
   lines.push("");
   lines.push(
-    `Ориентировъчна сума: ${estimatedTotal === null ? "(неизвестна)" : formatPrice(estimatedTotal)}`,
+    `Ориентировъчна сума: ${estimatedTotal === null ? "(неизвестна)" : formatTotal(estimatedTotal, hasQuote)}`,
   );
-  if (hasQuote) lines.push("Артикулите „по запитване“ не са включени в сумата.");
+  if (hasQuote && estimatedTotal !== 0) {
+    lines.push("Артикулите „по запитване“ не са включени в сумата.");
+  }
 
   const note = payload.note.trim();
   if (note) {
