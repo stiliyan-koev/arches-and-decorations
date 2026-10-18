@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { sendOwnerEmail } from "@/lib/mail";
+import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
 
 export type RequestItem = {
   productId: string;
@@ -272,7 +273,106 @@ export async function submitRequest(
     };
   }
 
+  // She hears about every request by email. The booking is saved by now, so a
+  // failed email doesn't fail the request — the customer is told it went
+  // through, because it did; the log says which booking she wasn't told about.
+  // Same throttle as the contact form: both spend the same Resend quota.
+  let emailed = false;
+  if (allowSend(await callerIp())) {
+    emailed = await sendOwnerEmail(
+      requestEmailSubject(payload),
+      await requestEmailText(supabase, payload, estimatedTotal),
+    );
+  }
+  if (!emailed) {
+    console.error("Request saved, but the owner wasn't emailed:", bookingId);
+  }
+
   return { ok: true };
+}
+
+// „Нова заявка — Мария, 14.11.2026“. Whitespace collapsed: the name goes into
+// a mail header, and a newline in a header would split it.
+function requestEmailSubject(payload: RequestPayload) {
+  const who = (payload.customerName.trim() || payload.phone.trim()).replace(/\s+/g, " ");
+  const date = payload.mode === "rental" ? payload.startDate : payload.eventDate;
+  return `Нова заявка — ${who}, ${formatDate(date)}`;
+}
+
+// The request as she'd read it on the form: product and colour names, not ids.
+// A name that can't be read (a product hidden since, a database hiccup) shows
+// as „(артикулът не е намерен)“ — the email still goes.
+async function requestEmailText(
+  supabase: Supabase,
+  payload: RequestPayload,
+  estimatedTotal: number | null,
+) {
+  const productIds = [...new Set(payload.items.map((item) => item.productId))];
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, product_colors(id, color_name)")
+    .in("id", productIds);
+
+  const productNames = new Map<string, string>();
+  const colorNames = new Map<string, string>();
+  for (const product of (data ?? []) as {
+    id: string;
+    name: string;
+    product_colors: { id: string; color_name: string }[];
+  }[]) {
+    productNames.set(product.id, product.name);
+    for (const color of product.product_colors) colorNames.set(color.id, color.color_name);
+  }
+
+  const isRental = payload.mode === "rental";
+  const lines = [
+    `Вид: ${isRental ? "Само под наем" : "Украса с монтаж"}`,
+  ];
+  if (isRental) {
+    lines.push(`Вземане: ${formatDate(payload.startDate)}`);
+    lines.push(`Връщане: ${formatDate(payload.endDate)}`);
+  } else {
+    const time = payload.eventTime ? `, ${payload.eventTime}` : "";
+    lines.push(`Дата: ${formatDate(payload.eventDate)}${time}`);
+    lines.push(`Монтаж 2 часа преди събитието: ${payload.setup2hBefore ? "да" : "не"}`);
+  }
+  lines.push(`Град: ${payload.city.trim() || "(не е посочен)"}`);
+  lines.push("");
+  lines.push(`Име: ${payload.customerName.trim() || "(не е посочено)"}`);
+  lines.push(`Телефон: ${payload.phone.trim()}`);
+  lines.push("");
+  lines.push("Артикули:");
+
+  let hasQuote = false;
+  for (const item of payload.items) {
+    const name = productNames.get(item.productId) ?? "(артикулът не е намерен)";
+    const color = item.colorId ? colorNames.get(item.colorId) : undefined;
+    // linePrice comes from the browser, so only a real number is printed.
+    const price =
+      typeof item.linePrice === "number" && Number.isFinite(item.linePrice)
+        ? formatPrice(item.linePrice)
+        : QUOTE_LABEL;
+    if (price === QUOTE_LABEL) hasQuote = true;
+
+    lines.push(`• ${[name, color].filter(Boolean).join(", ")} — ${item.qty} бр. — ${price}`);
+    const requirements = item.customText?.trim();
+    if (requirements) lines.push(`  Изисквания: ${requirements}`);
+  }
+
+  lines.push("");
+  lines.push(
+    `Ориентировъчна сума: ${estimatedTotal === null ? "(неизвестна)" : formatPrice(estimatedTotal)}`,
+  );
+  if (hasQuote) lines.push("Артикулите „по запитване“ не са включени в сумата.");
+
+  const note = payload.note.trim();
+  if (note) {
+    lines.push("");
+    lines.push("Бележка:");
+    lines.push(note);
+  }
+
+  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -298,8 +398,9 @@ const WRITE_TO_US =
 // with spaces in it stays in the body text instead of the header.
 const PLAIN_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
-// Throttling the send. This action is public and every accepted call spends
-// the owner's Resend quota, so there's a cap per caller and a cap overall.
+// Throttling the send. This form and submitRequest are public and every email
+// either sends spends the owner's Resend quota, so there's one cap per caller
+// and one overall, shared by both.
 // Best-effort only: each serverless instance keeps its own Map, so this stops
 // a runaway loop or a casual script, not a determined attacker.
 const PER_IP_WINDOW_MS = 10 * 60 * 1000;
