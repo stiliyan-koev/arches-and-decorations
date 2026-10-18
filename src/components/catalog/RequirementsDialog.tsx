@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import { REQUIREMENTS_MAX } from "@/lib/selection";
 
 // The box „Добави“ opens for a product with „Прозорец за изисквания“ (a custom
@@ -23,6 +31,7 @@ export default function RequirementsDialog({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const pressedOnBackdrop = useRef(false);
   const [text, setText] = useState("");
   const titleId = useId();
   const textId = useId();
@@ -42,10 +51,17 @@ export default function RequirementsDialog({
     onAdd(text.trim());
   }
 
+  function handlePointerDown(event: PointerEvent<HTMLDialogElement>) {
+    pressedOnBackdrop.current = event.target === event.currentTarget;
+  }
+
   function handleDialogClick(event: MouseEvent<HTMLDialogElement>) {
     // The form fills the dialog, so a click on the dialog itself is a click
-    // on the dark backdrop beside it.
-    if (event.target === event.currentTarget) event.currentTarget.close();
+    // on the dark backdrop beside it. The press must start there too: one that
+    // starts in the box (selecting text) and ends on the backdrop keeps it open.
+    if (pressedOnBackdrop.current && event.target === event.currentTarget) {
+      event.currentTarget.close();
+    }
   }
 
   // Phones: near the top, so the keyboard doesn't cover it. Wider: centred.
@@ -54,6 +70,7 @@ export default function RequirementsDialog({
       ref={dialogRef}
       aria-labelledby={titleId}
       onClose={onClose}
+      onPointerDown={handlePointerDown}
       onClick={handleDialogClick}
       className="mx-auto mt-[10vh] mb-auto w-[min(92vw,440px)] rounded-card border border-border bg-surface p-0 text-ink shadow-[0_20px_50px_rgb(59_47_66/0.25)] backdrop:bg-ink/40 sm:my-auto"
     >
