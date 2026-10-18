@@ -72,16 +72,16 @@ export default function ProductCard({
       ? `„${product.name}“ е в офертата — отвори офертата${colorSuffix}`
       : `Добави „${product.name}“ към офертата${colorSuffix}`;
 
-  function add(requirements: string) {
-    const accepted = selection.add(product.slug, color, requirements);
-    onAdd(accepted ? lineKey(product.slug, color) : null, !accepted);
-  }
-
   const buttonStyle = booked
     ? "border-border bg-surface-2 text-muted cursor-not-allowed"
     : added
       ? "border-cta bg-cta text-white"
       : "border-balloon-pink bg-surface text-cta hover:border-cta hover:bg-cta hover:text-white";
+
+  function add(requirements: string) {
+    const accepted = selection.add(product.slug, color, requirements);
+    onAdd(accepted ? lineKey(product.slug, color) : null, !accepted);
+  }
 
   return (
     <article
