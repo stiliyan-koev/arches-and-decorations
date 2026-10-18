@@ -27,6 +27,7 @@ export default async function EditProductPage({
         `id, category_id, slug, name, description, base_price, pricing_type,
          quantity, track_availability, offer_mode, covers_needed, active, sort,
          carousel, carousel_in_configurator, carousel_in_catalog, has_colors,
+         asks_requirements,
          product_colors ( id, color_slug, color_name, hex, quantity, sort ),
          product_images ( id, color_id, photo_id, path, full_path, crop, in_carousel, sort,
                           photo:photos ( path, has_original ) )`,

@@ -246,6 +246,7 @@ export type ProductInput = {
   active: boolean;
   sort: number;
   has_colors: boolean;
+  asks_requirements: boolean;
 };
 
 const OFFER_MODES: OfferMode[] = ["rent", "both", "setup"];
@@ -288,6 +289,7 @@ export async function saveProduct(
     active: input.active,
     sort: input.sort,
     has_colors: input.has_colors,
+    asks_requirements: input.asks_requirements,
   };
 
   if (input.id) {
