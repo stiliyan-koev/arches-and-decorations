@@ -167,6 +167,11 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       does not share the basket.
 - [x] Colour choice per basket line — swatches on the card, one line per colour, saved to
       `booking_items.color_id` (Oct 2026). Needs `migration-product-colors.sql` (below).
+- [x] „Прозорец за изисквания“ per product (18 Oct 2026) — a checkbox on the product form.
+      On, „Добави“ first opens „Опишете вашите изисквания“ (may be left empty); the text
+      rides on the basket line, stays editable in the mini-basket and on `/request`, and is
+      saved to `booking_items.custom_text`. Needs `migration-requirements.sql` (below).
+      Until `/admin/requests` exists she reads it in Supabase, `booking_items.custom_text`.
 - [ ] Date / „Скрий заетите" availability filter on the PLP — **deliberately hidden**
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO
@@ -294,6 +299,10 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       would read as 42 — understating stock is safe, overstating double-books.
       Матални квадратни масички has one colour (Бял): leave „Има варианти по цвят“ unticked
       there if one swatch looks odd.
+- [ ] **Run `migration-requirements.sql`** in the SQL editor **(you)** — BLOCKING, before
+      the „Прозорец за изисквания“ code goes live: the catalog reads
+      `products.asks_requirements`, and without it falls back to the hardcoded catalog (and
+      the admin product page errors). Adds one column, off for every product.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the

@@ -189,12 +189,13 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
     setError(null);
 
     const requestItems: RequestItem[] = items.map(
-      ({ product, swatch, qty, lineTotal }) => ({
+      ({ product, swatch, qty, lineTotal, requirements }) => ({
         productId: product.id,
         colorId: swatch?.id ?? null,
         qty,
         linePrice: lineTotal,
-        customText: null,
+        // „Опишете вашите изисквания“ — saved to booking_items.custom_text.
+        customText: requirements.trim() || null,
       }),
     );
 
