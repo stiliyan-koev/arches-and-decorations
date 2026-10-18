@@ -30,7 +30,10 @@ export type PlpProduct = {
   categorySlug: string;
   categoryName: string;
   price: number | null; // null = "по запитване" (custom_quote or no base_price)
-  rentable: boolean;
+  rentable: boolean; // may go out without her setting it up (offer_mode rent/both)
+  setupPossible: boolean; // she may set it up (offer_mode both/setup)
+  coversNeeded: number; // arch covers one piece needs; 0 = none
+  isCover: boolean; // an arch cover, counted against coversNeeded in the basket
   stock: number | null; // how many she owns; null = consumable, never runs out
   maxQty: number; // the most one request may ask for — see MAX_PER_LINE
   isBooked: boolean; // tracked item she owns none of right now — see note below
@@ -97,6 +100,10 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
   const products: PlpProduct[] = [];
   const categories: PlpCategory[] = [];
   const colorBySlug = new Map<string, PlpColor>();
+  // The covers are the category a family recommends (arches -> covers).
+  const coverCategoryIds = new Set(
+    groups.map((group) => group.recommend_category_id).filter(Boolean),
+  );
 
   for (const group of groups) {
     if (group.products.length === 0) continue;
@@ -126,7 +133,10 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         categorySlug: group.slug,
         categoryName: group.name,
         price: priceOf(product),
-        rentable: product.rentable,
+        rentable: product.offer_mode !== "setup",
+        setupPossible: product.offer_mode !== "rent",
+        coversNeeded: product.covers_needed,
+        isCover: coverCategoryIds.has(group.id),
         stock: product.track_availability ? product.quantity : null,
         maxQty: maxQtyFor(product.track_availability ? product.quantity : null),
         // Without the confirmed-bookings query wired (see the availability note
@@ -223,6 +233,26 @@ export function basketView(
   }
 
   return { items, total, hasQuote };
+}
+
+// Arches need covers: a warning when the basket holds fewer covers than its
+// arches need. null = enough (or no arches). A hint, never a block.
+export function coverShortfall(items: BasketItem[]) {
+  let needed = 0;
+  let have = 0;
+  for (const { product, qty } of items) {
+    needed += qty * product.coversNeeded;
+    if (product.isCover) have += qty;
+  }
+  return have < needed ? { needed, have } : null;
+}
+
+// The line under a cover or an arch saying how they go together.
+export function coverLabel(product: PlpProduct) {
+  if (product.isCover) return "1 бр. е за 1 арка";
+  if (product.coversNeeded === 1) return "Нужен е 1 калъф";
+  if (product.coversNeeded > 1) return `Нужни са ${product.coversNeeded} калъфа`;
+  return null;
 }
 
 // ------------------------------------------------------------------ price bands

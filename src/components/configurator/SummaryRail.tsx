@@ -1,4 +1,4 @@
-import { formatTotal } from "@/lib/format";
+import { formatTotal, PRICE_NOTE, QUOTE_NOTE } from "@/lib/format";
 
 export type SummaryLine = {
   key: string;
@@ -79,9 +79,10 @@ export default function SummaryRail({
       </div>
       <p className="mb-3.5 text-[0.78rem] leading-relaxed text-muted">
         Цената е ориентировъчна. Крайната оферта уточняваме лично.
-        {hasQuoteItems && !empty && (
-          <> Артикулите „по запитване“ остойностяваме отделно.</>
-        )}
+        {hasQuoteItems && !empty && <> {QUOTE_NOTE}</>}
+      </p>
+      <p className="mb-3.5 text-[0.78rem] leading-relaxed font-bold text-ink">
+        {PRICE_NOTE}
       </p>
 
       {error && (

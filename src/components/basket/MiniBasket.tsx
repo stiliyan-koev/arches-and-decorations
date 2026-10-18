@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import BasketLines from "@/components/basket/BasketLines";
-import { formatTotal } from "@/lib/format";
+import { formatTotal, PRICE_NOTE, QUOTE_NOTE } from "@/lib/format";
 import { MAX_LINES, useBasket } from "@/lib/selection";
-import { basketView, type PlpProduct } from "@/lib/catalog-plp";
+import CoverWarning from "@/components/basket/CoverWarning";
+import { basketView, coverShortfall, type PlpProduct } from "@/lib/catalog-plp";
 
 type Props = {
   open: boolean;
@@ -131,6 +132,7 @@ export default function MiniBasket({
         ) : (
           <>
             <div className="flex-1 overflow-y-auto px-5">
+              <CoverWarning shortfall={coverShortfall(items)} />
               <BasketLines items={items} />
             </div>
 
@@ -148,7 +150,10 @@ export default function MiniBasket({
               </div>
               <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
                 Крайната оферта уточняваме лично.
-                {hasQuote && <> Артикулите „по запитване“ остойностяваме отделно.</>}
+                {hasQuote && <> {QUOTE_NOTE}</>}
+              </p>
+              <p className="mt-1 text-[0.75rem] leading-relaxed font-bold text-ink">
+                {PRICE_NOTE}
               </p>
 
               <Link

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/slug";
 import { deleteProduct, saveProduct } from "@/app/admin/actions";
-import type { CategorySummary, ProductRow } from "@/lib/types";
+import type { CategorySummary, OfferMode, ProductRow } from "@/lib/types";
 
 type Props = {
   product: ProductRow | null; // null = creating a new one
@@ -36,8 +36,12 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
   const [trackAvailability, setTrackAvailability] = useState(
     product?.track_availability ?? true,
   );
-  const [rentable, setRentable] = useState(product?.rentable ?? true);
-  const [serviceOnly, setServiceOnly] = useState(product?.service_only ?? false);
+  const [offerMode, setOfferMode] = useState<OfferMode>(
+    product?.offer_mode ?? "both",
+  );
+  const [coversNeeded, setCoversNeeded] = useState(
+    String(product?.covers_needed ?? 0),
+  );
   const [active, setActive] = useState(product?.active ?? true);
   const [sort, setSort] = useState(String(product?.sort ?? 0));
   const [hasColors, setHasColors] = useState(product?.has_colors ?? false);
@@ -72,8 +76,8 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
       pricing_type: pricingType,
       quantity: Number(quantity) || 0,
       track_availability: trackAvailability,
-      rentable,
-      service_only: serviceOnly,
+      offer_mode: offerMode,
+      covers_needed: Number(coversNeeded) || 0,
       active,
       sort: Number(sort) || 0,
       has_colors: hasColors,
@@ -167,6 +171,10 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
             onChange={(event) => setDescription(event.target.value)}
             className={`mt-1.5 ${FIELD}`}
           />
+          <span className="mt-1 block text-[0.8rem] text-muted">
+            На картата се вижда само първият ред. Ако има още редове, до него
+            излиза (i) и те се отварят с натискане.
+          </span>
         </label>
 
         <label>
@@ -218,6 +226,35 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
         </label>
 
         <label>
+          <span className={LABEL}>Как се предлага</span>
+          <select
+            value={offerMode}
+            onChange={(event) => setOfferMode(event.target.value as OfferMode)}
+            className={`mt-1.5 ${FIELD}`}
+          >
+            <option value="rent">Може под наем</option>
+            <option value="both">С монтаж от нас</option>
+            <option value="setup">Само с монтаж от нас</option>
+          </select>
+        </label>
+
+        <label>
+          <span className={LABEL}>Нужни калъфи (бр.)</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            inputMode="numeric"
+            value={coversNeeded}
+            onChange={(event) => setCoversNeeded(event.target.value)}
+            className={`mt-1.5 ${FIELD}`}
+          />
+          <span className="mt-1 block text-[0.8rem] text-muted">
+            За 1 брой от продукта: арка 1, комплект от 2 арки 2, останалото 0.
+          </span>
+        </label>
+
+        <label>
           <span className={LABEL}>Подредба (по-малко = по-напред)</span>
           <input
             type="number"
@@ -250,24 +287,6 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
           <span className="font-normal text-muted">
             (изключено за балони)
           </span>
-        </label>
-
-        <label className="flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={rentable}
-            onChange={(event) => setRentable(event.target.checked)}
-          />
-          Може само под наем
-        </label>
-
-        <label className="flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={serviceOnly}
-            onChange={(event) => setServiceOnly(event.target.checked)}
-          />
-          Само с монтаж от нас
         </label>
 
         <label className="flex items-center gap-2.5">
