@@ -16,6 +16,9 @@ export type BasketLine = {
   slug: string;
   color: string | null; // colour slug; null = the product has no colours
   qty: number;
+  // What the customer wrote in „Опишете вашите изисквания“ (products with
+  // „Прозорец за изисквания“); "" = nothing. Sent as the item's custom text.
+  requirements: string;
 };
 
 const KEY = "oferta.v1";
@@ -24,6 +27,10 @@ const KEY = "oferta.v1";
 // src/app/actions.ts, or the server rejects a basket the catalog let through.
 export const MAX_LINES = 30;
 
+// Longest requirements text. Must match MAX_CUSTOM_TEXT in src/app/actions.ts
+// (and the 1000 in booking_items' check), or the server rejects the request.
+export const REQUIREMENTS_MAX = 1000;
+
 let lines: BasketLine[] = [];
 let hydrated = false;
 const listeners = new Set<() => void>();
@@ -31,7 +38,8 @@ const listeners = new Set<() => void>();
 // Read once, lazily, the first time the store is used in the browser. Wrapped in
 // try/catch because localStorage can throw (private mode, blocked cookies).
 // Older visitors have a plain list of slugs stored under the same key; each of
-// those becomes a line with qty 1. Lines saved before colours have no colour.
+// those becomes a line with qty 1. Lines saved before colours have no colour,
+// and lines saved before requirements have none.
 function hydrate() {
   if (hydrated) return;
   hydrated = true;
@@ -41,7 +49,7 @@ function hydrate() {
     if (!Array.isArray(parsed)) return;
     for (const entry of parsed) {
       if (typeof entry === "string") {
-        lines.push({ slug: entry, color: null, qty: 1 });
+        lines.push({ slug: entry, color: null, qty: 1, requirements: "" });
       } else if (
         entry &&
         typeof entry.slug === "string" &&
@@ -49,7 +57,11 @@ function hydrate() {
         entry.qty > 0
       ) {
         const color = typeof entry.color === "string" ? entry.color : null;
-        lines.push({ slug: entry.slug, color, qty: entry.qty });
+        const requirements =
+          typeof entry.requirements === "string"
+            ? entry.requirements.slice(0, REQUIREMENTS_MAX)
+            : "";
+        lines.push({ slug: entry.slug, color, qty: entry.qty, requirements });
       }
     }
   } catch {
@@ -106,14 +118,24 @@ export const selection = {
     hydrate();
     return lines.some((line) => isLine(line, slug, color));
   },
-  // Adds one of the product in that colour; a line already in the basket is
-  // left as it is, and a full basket (MAX_LINES) takes nothing more. Returns
-  // whether it added.
-  add(slug: string, color: string | null) {
+  // Adds one of the product in that colour, with what the customer wrote in
+  // „Опишете вашите изисквания“ (if the product asks). A line already in the
+  // basket is left as it is, and a full basket (MAX_LINES) takes nothing more.
+  // Returns whether it added.
+  add(slug: string, color: string | null, requirements = "") {
     if (this.has(slug, color)) return false;
     if (lines.length >= MAX_LINES) return false;
-    commit([...lines, { slug, color, qty: 1 }]);
+    commit([...lines, { slug, color, qty: 1, requirements }]);
     return true;
+  },
+  // The requirements box on a basket line, edited in place.
+  setRequirements(slug: string, color: string | null, requirements: string) {
+    if (!this.has(slug, color)) return;
+    commit(
+      lines.map((line) =>
+        isLine(line, slug, color) ? { ...line, requirements } : line,
+      ),
+    );
   },
   // Zero or less removes the line.
   setQty(slug: string, color: string | null, qty: number) {

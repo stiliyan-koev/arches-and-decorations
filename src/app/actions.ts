@@ -10,7 +10,7 @@ export type RequestItem = {
   colorId: string | null;
   qty: number;
   linePrice: number | null;
-  customText: string | null; // what the customer described, e.g. the balloon theme
+  customText: string | null; // what the customer described: the balloon theme, or a product's „Опишете вашите изисквания“
 };
 
 export type RequestPayload = {
@@ -37,7 +37,7 @@ const MAX_ITEMS = 30;
 const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed. = MAX_PER_LINE in catalog-plp.ts
 const MAX_SHORT_TEXT = 200; // name, phone, city
 const MAX_NOTE = 3000; // same as the note textarea's maxLength
-const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength
+const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength and REQUIREMENTS_MAX in selection.ts
 
 const SEND_FAILED = "Нещо се обърка при изпращането. Моля, опитайте отново.";
 

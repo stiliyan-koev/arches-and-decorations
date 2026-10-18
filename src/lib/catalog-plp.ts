@@ -34,6 +34,7 @@ export type PlpProduct = {
   setupPossible: boolean; // she may set it up (offer_mode both/setup)
   coversNeeded: number; // arch covers one piece needs; 0 = none
   isCover: boolean; // an arch cover, counted against coversNeeded in the basket
+  asksRequirements: boolean; // „Добави“ first asks „Опишете вашите изисквания“
   stock: number | null; // how many she owns; null = consumable, never runs out
   maxQty: number; // the most one request may ask for — see MAX_PER_LINE
   isBooked: boolean; // tracked item she owns none of right now — see note below
@@ -137,6 +138,7 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         setupPossible: product.offer_mode !== "rent",
         coversNeeded: product.covers_needed,
         isCover: coverCategoryIds.has(group.id),
+        asksRequirements: product.asks_requirements ?? false,
         stock: product.track_availability ? product.quantity : null,
         maxQty: maxQtyFor(product.track_availability ? product.quantity : null),
         // Without the confirmed-bookings query wired (see the availability note
@@ -186,6 +188,7 @@ export type BasketItem = {
   qty: number;
   maxQty: number; // the colour's limit when there is a colour, else the product's
   lineTotal: number | null; // null = "по запитване"
+  requirements: string; // what the customer described; "" = nothing
 };
 
 export type BasketView = {
@@ -194,7 +197,7 @@ export type BasketView = {
   hasQuote: boolean;
 };
 
-// Joins the stored basket lines ({slug, color, qty}) with the catalog. A product
+// Joins the stored basket lines ({slug, color, qty, requirements}) with the catalog. A product
 // that is no longer in the catalog is dropped, and so is a colour that is gone
 // (deleted, or the product's colours switched off) — kept, it would turn into a
 // second line of the same product without a colour. A line saved without a
@@ -229,6 +232,7 @@ export function basketView(
       qty,
       maxQty,
       lineTotal,
+      requirements: line.requirements,
     });
   }
 

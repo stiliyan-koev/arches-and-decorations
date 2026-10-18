@@ -85,6 +85,9 @@ export type Product = {
   // ignores both. Once catalog-fallback.ts is deleted these can become required.
   description?: string | null; // BG spec line, e.g. "Метална основа · ⌀ 180 см"
   created_at?: string | null; // ISO timestamp, for newest-first sorting
+  // „Прозорец за изисквания“: „Добави“ in the catalog first asks the customer
+  // what they want. Optional for the same reason as the two above.
+  asks_requirements?: boolean;
 };
 
 // The full products row, as the admin edits it. `Product` above is the trimmed
@@ -107,6 +110,7 @@ export type ProductRow = {
   carousel_in_configurator: boolean;
   carousel_in_catalog: boolean;
   has_colors: boolean; // „Има варианти по цвят“: show the colours as swatches
+  asks_requirements: boolean; // „Прозорец за изисквания“: ask what the customer wants on „Добави“
 };
 
 // A category plus its products — this is what the configurator renders, one
