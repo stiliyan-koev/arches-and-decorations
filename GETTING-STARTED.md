@@ -13,7 +13,7 @@ Drop these at the repo root so Claude Code has full context:
 
 ## 1. Supabase project
 1. Create a project in the Supabase dashboard (pick the EU region — Frankfurt — closest to Varna).
-2. SQL editor → paste and run **`schema.sql`**, then **`seed.sql`**.
+2. SQL editor → paste and run **`schema.sql`**, then **`seed.sql`**. Both are for this new, empty project only — never run them on a database that is in use (`seed.sql` stops with an error if it finds products).
 3. Storage → create a bucket named **`catalog`**, set it **public** (read).
 4. Authentication → Users → add your admin user (email + password). Add your wife's later. No public sign-up — the admin is invite-only.
 

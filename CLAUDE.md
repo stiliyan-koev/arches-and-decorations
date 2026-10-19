@@ -51,14 +51,14 @@ npm run smoke   # Playwright smoke specs against the production build (run npm r
 [`docs/PROGRESS.md`](docs/PROGRESS.md) is the live checklist — read it before picking up work. In short:
 
 - **Steps 1–2 are done**: scaffold, tokens, Supabase clients, public shell, and the configurator (built from `getCatalog()`, submits to `bookings`/`booking_items`). It was the homepage until v2; now it sits at the hidden `/configurator`.
-- **Step 0 (Supabase project, run `schema.sql` + `seed.sql`, create the `catalog` Storage bucket, add admin users) is the owner's job and is BLOCKING** — the DB write path has never run against real Postgres, so anything downstream is unverified.
+- **Step 0 (Supabase project, `schema.sql` + `seed.sql`, the `catalog` Storage bucket, admin users) is done** — the live database has been in use since 19 Sep 2026. **Never run `seed.sql` or `schema.sql` on it again:** both are for a brand-new project only, and the live database gets its changes as `migration-*.sql` files.
 - **Steps 3–6 (catalog PLP/PDP, admin auth + requests, calendar + availability, CRUD + gallery + deploy) are not started.** Don't build steps 4–6 before 1–3 are real and visible.
 
 ## Companion docs
 
 - [`docs/PROGRESS.md`](docs/PROGRESS.md) — the running checklist; keep it in sync as you complete work.
 - [`GETTING-STARTED.md`](GETTING-STARTED.md) — cold-start setup (Supabase, env vars, deploy) and the intended file tree.
-- [`schema.sql`](schema.sql) / [`seed.sql`](seed.sql) — DB schema (+ RLS + `reserved_qty`) and seed data; run in the Supabase SQL editor.
+- [`schema.sql`](schema.sql) / [`seed.sql`](seed.sql) — DB schema (+ RLS + `reserved_qty`) and the starter catalog, for a **brand-new** Supabase project only (SQL editor). `seed.sql` refuses to run on a database that already has products; the live database gets its changes from `migration-*.sql`.
 - [`catalog-and-images.md`](catalog-and-images.md) — category tree, seed product list, image naming/storage convention, and the swatch→image logic for the PDP.
 - [`DESIGN.md`](DESIGN.md) — original brand/design proposal (superseded in part by the code — see above).
 

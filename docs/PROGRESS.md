@@ -351,7 +351,7 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 - [ ] `CLAUDE.md` is stale — it still calls Step 0 "BLOCKING" and says `/admin` doesn't
       exist "yet" as if that were news. Refresh it once step 3 lands.
 - [ ] Replace the contact placeholders in `src/lib/contacts.ts` (phone, email, socials)
-- [ ] Replace the placeholder prices in `seed.sql` with real ones
+- [x] ~~Replace the placeholder prices in `seed.sql`~~ — dropped (19 Oct 2026): live prices are set in admin (see „Re-price every product in admin“ above), and `seed.sql` only seeds a brand-new database; it refuses to run on one that has products.
 - [ ] Upgrade Node 20.9 → 22 LTS (Supabase warns on every build)
 
 ## Out of scope for v1
