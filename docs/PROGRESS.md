@@ -230,6 +230,33 @@ SEO and deploy are still open.
 - [ ] Push to GitHub → import to Netlify → add the two env vars → deploy
 - [ ] Point the domain at Netlify
 
+## Privacy (GDPR) 🟡
+
+No cookie banner, on purpose: the public site sets no cookies, loads no third-party
+script and keeps only the basket (`oferta.v1`) in localStorage, which is strictly
+necessary. Nothing to ask consent for. **Adding analytics or a pixel means building a
+consent banner first** and updating `/privacy`.
+
+- [x] `/privacy` — the GDPR notice (who, what, why, legal basis, how long, processors,
+      transfers, storage, rights, КЗЛД), linked from the footer and from both forms
+      (19 Oct 2026). A notice line, no consent checkbox: the basis is the customer's own
+      request, not consent.
+- [x] `forget_old_requests()` — wipes name, phone, note and requirements 12 months after
+      the event, nightly via pg_cron (`migration-retention.sql`, also in `schema.sql`)
+- [ ] **Run `migration-retention.sql`** in the SQL editor **(you)** — `/privacy` already
+      promises the 12 months. Check the next morning: `select * from cron.job_run_details
+      order by start_time desc limit 5;`
+- [ ] **Fill `CONTACTS.legalName`** in `src/lib/contacts.ts` **(you)** — the owner's full
+      name, or the company name + ЕИК once registered. GDPR wants a real identity for the
+      „администратор“; until then `/privacy` names the brand.
+- [ ] Accept the data processing agreements (DPA) of Supabase, Resend and Netlify **(you)**
+      — each publishes one; Supabase's is signed from the organisation settings.
+- [ ] Request and contact-form emails in Gmail: delete them by hand within 12 months —
+      request emails 12 months after the event, contact-form emails once answered and at
+      the latest 12 months after the last message. `/privacy` promises both **(her)**
+- [ ] ЗЕТ (e-commerce law) asks a business site for an email address; the site has none on
+      purpose. Revisit when there's a real domain address.
+
 ---
 
 ## Smoke tests 🟡 built, one run so far

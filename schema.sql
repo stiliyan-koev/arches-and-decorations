@@ -283,6 +283,33 @@ grant execute on function reserved_qty_by_color(date, date) to anon, authenticat
 -- available = products.quantity - reserved_qty(...). track_availability=false items are always available.
 -- A product with colours: available per colour = product_colors.quantity - reserved_qty_by_color(...).
 
+-- ---------- Forgetting old requests (GDPR) ----------
+-- 12 months after the event a request forgets who sent it: name, phone, note
+-- and the requirements text go; products, dates, city and prices stay. /privacy
+-- promises exactly this — change both together. Nightly through pg_cron.
+-- Details in migration-retention.sql.
+create or replace function forget_old_requests() returns void
+language sql set search_path = public as $$
+  update booking_items bi
+     set custom_text = null
+    from bookings b
+   where b.id = bi.booking_id
+     and bi.custom_text is not null
+     and coalesce(b.end_date, b.start_date, b.event_date, b.created_at::date)
+         < (current_date - interval '12 months')::date;
+
+  update bookings
+     set customer_name = null, phone = null, note = null
+   where (customer_name is not null or phone is not null or note is not null)
+     and coalesce(end_date, start_date, event_date, created_at::date)
+         < (current_date - interval '12 months')::date;
+$$;
+
+revoke execute on function forget_old_requests() from public, anon, authenticated;
+
+create extension if not exists pg_cron;
+select cron.schedule('forget-old-requests', '15 3 * * *', 'select forget_old_requests()');
+
 -- ---------- Who the admin is ----------
 -- One row per admin user. The "admin all …" policies below key off this table,
 -- not off "is this request logged in at all": any Supabase account of the

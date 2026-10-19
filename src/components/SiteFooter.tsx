@@ -95,7 +95,10 @@ export default function SiteFooter() {
           fixed to the viewport and would otherwise sit on top of this line. */}
       <div className="border-t border-white/15 py-4 pb-24 text-center text-xs opacity-60 lg:pb-4">
         © {new Date().getFullYear()} {CONTACTS.brand} · {CONTACTS.city} · Цените
-        в сайта са ориентировъчни
+        в сайта са ориентировъчни ·{" "}
+        <Link href="/privacy" className="underline-offset-2 hover:underline">
+          Поверителност
+        </Link>
       </div>
     </footer>
   );
