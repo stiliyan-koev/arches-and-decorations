@@ -83,8 +83,10 @@ Cause: <one line>
 Also noticed (not fixed): <list, or "nothing">
 ```
 
-Then: "Look at the diff (`git diff`), then run `/ship-pr` to open the PR.
-Run `/smoke-test` once more before you merge: review fix rounds can undo this fix." Stop.
+Then the `### Follow-up actions` table from CLAUDE.md — for a smoke fix normally these two rows:
+look at the diff (`git diff`), then `/ship-pr`; and `/smoke-test` again before the merge, because
+review fix rounds can undo this fix. Add a row for anything else the owner must do by hand
+(SQL, env var), each file a markdown link. Stop.
 
 ## Never
 

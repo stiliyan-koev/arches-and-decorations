@@ -104,26 +104,38 @@ Build: ok | FAILED      Lint: ok | N errors      Smoke: GREEN | RED | BLOCKED (N
 ### NICE
 1. ...
 
-### Do by hand before merge
-- Run on the live DB: <file.sql>
-- Set in Netlify: <ENV_VAR>
-- package.json version: ok | says X, branch says Y
-
 ### Not tested by agents — click through on the preview
 - ...
 - Not read by <reviewer>: <files>
+
+### Next step
+<one line, from the list below>
+
+### Follow-up actions
+| # | Action | Where / file | Why |
+|---|---|---|---|
+| 1 | Run in the Supabase SQL editor | [<file.sql>](<file.sql>) | <what it changes> |
+| 2 | Add env var `<ENV_VAR>` | Netlify → Site settings → Environment | <what breaks without it> |
+| 3 | Bump the version | [package.json](package.json) | says X, the branch says Y |
 ```
+
+Row 3 only when the version is actually wrong — drop it when it matches.
 
 **NO-GO** when any of these is true: the build fails, lint has errors, smoke has a `BLOCKER` or
 `CRITICAL` finding, or one MUST is left ("(unconfirmed)" ones too). Smoke `BLOCKED` (specs couldn't run) is also
 NO-GO: nobody looked at the site. Otherwise **GO**. `MINOR` smoke findings and NICEs don't block.
 
-End with the next step, one line:
+The `### Next step` line is one of these:
 - NO-GO from a smoke `BLOCKER` or `CRITICAL` -> `/smoke-fix`, then `/ship-pr` into the release branch, then `/release-check` again.
 - Smoke `BLOCKED` -> fix the setup that `qa`'s `CANNOT RUN` line names, then `/release-check` again.
 - Build failed or lint errors -> fix, `/ship-pr`, `/release-check` again.
 - NO-GO from a MUST -> fix it, `/ship-pr`, `/release-check` again.
-- GO -> "Do the by-hand list, click through the preview, then merge (normal merge, not squash) and tag."
+- GO -> "Do the follow-up actions, click through the preview, then merge (normal merge, not squash) and tag."
+
+Print the blocks in the order of the template: the next-step line sits under the untested list, and
+the `### Follow-up actions` table closes the message — nothing after it. Shape per CLAUDE.md
+("Follow-up actions"): every file a markdown link, one row per action, `No manual steps.` when
+there is nothing.
 
 ## Never
 

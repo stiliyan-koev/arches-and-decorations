@@ -33,7 +33,10 @@ The Lead gives you the base branch, `release/X.Y.Z` (below: REL). All PRs go int
    The body has: what this chunk adds (2-4 lines), files, anything a reviewer
    will find odd on purpose (e.g. "components not used yet, wired in chunk 07"),
    and "Checks: build OK, lint OK".
-7. Reply to the Lead with just: PR number, branch, and one line on anything unusual.
+7. Reply to the Lead with just: PR number, branch, one line on anything unusual, and a
+   `Follow-up actions:` list — everything the owner must do by hand for this chunk (SQL file to run
+   on the live DB, env var, Storage bucket or policy, data to enter in the admin), one line each as
+   `action — file or place — why`, or `none`. The Lead turns it into the owner's table.
 
 ## Job B: "fix PR #N"
 
@@ -46,7 +49,8 @@ The Lead gives you the base branch, `release/X.Y.Z` (below: REL). All PRs go int
 7. Post one comment on the PR, starting with the header `## Developer — fixes round <K>`,
    listing each item: FIXED / SKIPPED (why) / DISAGREE (why).
    `gh pr comment N --body "<list>"`
-8. Reply to the Lead with the same list.
+8. Reply to the Lead with the same list, plus a `Follow-up actions:` line if the fixes added a
+   manual step (new SQL, new env var), or `none`.
 
 ## Never
 
