@@ -53,9 +53,9 @@ const CAROUSEL_BALLOONS: Balloon[] = [
   { size: 58, color: "var(--color-balloon-orange)", left: "8%", top: "20%", delay: "2.2s", wide: true },
   { size: 44, color: "var(--color-balloon-yellow)", right: "1%", top: "40%", delay: "2.9s" },
   { size: 50, color: "var(--color-balloon-pink)", left: "1%", top: "44%", delay: "0s" },
-  { size: 36, color: "var(--color-balloon-orange)", right: -10, top: "64%", delay: "2.5s" },
+  { size: 36, color: "var(--color-balloon-orange)", right: -16, top: "64%", delay: "2.5s" },
   { size: 52, color: "var(--color-balloon-orange)", left: "27%", top: "66%", delay: "0.8s", wide: true },
-  { size: 38, color: "var(--color-balloon-blue)", left: -10, top: "70%", delay: "3.3s" },
+  { size: 38, color: "var(--color-balloon-blue)", left: -18, top: "70%", delay: "3.3s" },
   { size: 40, color: "var(--color-balloon-pink)", right: "12%", top: "70%", delay: "1.9s", wide: true },
   { size: 30, color: "var(--color-balloon-yellow)", left: "18%", top: "86%", delay: "2.7s", wide: true },
   { size: 36, color: "var(--color-balloon-blue)", right: "30%", top: "86%", delay: "1.1s", wide: true },
@@ -66,7 +66,7 @@ const CAROUSEL_BALLOONS: Balloon[] = [
 // plus one in the gap beside the section title and a few along the bottom.
 const SIDE_BALLOONS: Balloon[] = [
   { size: 28, color: "var(--color-balloon-yellow)", left: "44%", top: "3%", delay: "2.2s", wide: true },
-  { size: 50, color: "var(--color-balloon-blue)", right: -30, top: "3%", delay: "0.7s" },
+  { size: 50, color: "var(--color-balloon-blue)", right: -30, top: 20, delay: "0.7s" },
   { size: 56, color: "var(--color-balloon-pink)", left: "2%", top: "16%", delay: "0s", wide: true },
   { size: 44, color: "var(--color-balloon-blue)", left: "7%", top: "28%", delay: "0.4s", wide: true },
   { size: 44, color: "var(--color-balloon-pink)", right: "8%", top: "30%", delay: "1.2s", wide: true },

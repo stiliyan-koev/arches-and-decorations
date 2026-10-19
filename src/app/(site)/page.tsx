@@ -27,7 +27,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden pb-2">
         <FloatingBalloons layout="carousel" />
         <div className="relative z-10">
           <HeroCarousel photos={heroPhotos} />
@@ -37,7 +37,7 @@ export default async function HomePage() {
       <section className="relative overflow-hidden">
         <FloatingBalloons />
 
-        <div className="relative z-10 mx-auto flex max-w-[1140px] flex-col items-center px-5 pt-10 pb-11 text-center md:pt-[72px] md:pb-20">
+        <div className="relative z-10 mx-auto flex max-w-[1140px] flex-col items-center px-5 pt-8 pb-11 text-center md:pt-16 md:pb-20">
           <span className="text-xs font-extrabold tracking-[0.14em] text-cta uppercase md:text-[13px]">
             Празнични украси · Варна
           </span>
