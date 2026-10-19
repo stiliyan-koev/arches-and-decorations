@@ -38,7 +38,7 @@ export default function LabourPriceForm({ price }: { price: number }) {
         <div className="min-w-[14rem] flex-1">
           <h2 className="text-base font-extrabold">Труд за украса</h2>
           <p className="text-[0.85rem] text-muted">
-            Добавя се веднъж към всяка оферта „Украса с монтаж“. 0 = без труд.
+            Добавя се веднъж към всяка оферта „Украса с монтаж от нас“. 0 = без труд.
           </p>
         </div>
 

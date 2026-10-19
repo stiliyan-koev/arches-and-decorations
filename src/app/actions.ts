@@ -336,7 +336,7 @@ async function requestEmailText(
 
   const isRental = payload.mode === "rental";
   const lines = [
-    `Вид: ${isRental ? "Само под наем" : "Украса с монтаж"}`,
+    `Вид: ${isRental ? "Под наем" : "Украса с монтаж от нас"}`,
   ];
   if (isRental) {
     lines.push(`Вземане: ${formatDate(payload.startDate)}`);

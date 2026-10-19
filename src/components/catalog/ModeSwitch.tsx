@@ -5,13 +5,13 @@ import type { Mode } from "@/lib/catalog-plp";
 const OPTIONS: { value: Mode; title: string; sub: string; icon: "balloon" | "box" }[] = [
   {
     value: "service",
-    title: "Украса с монтаж",
-    sub: "Подреждаме я на място",
+    title: "Украса с монтаж от нас",
+    sub: "Декорираме на място",
     icon: "balloon",
   },
   {
     value: "rent",
-    title: "Само под наем",
+    title: "Под наем",
     sub: "Вземате и връщате сами",
     icon: "box",
   },
