@@ -1,7 +1,8 @@
 import "server-only";
 
-// Sending the /about contact form to the owner. Resend's REST API straight
-// over fetch — one POST doesn't need an npm package.
+// Emailing the owner: every request sent from /request (submitRequest) and the
+// /about contact form. Resend's REST API straight over fetch — one POST
+// doesn't need an npm package.
 //
 // Setup, once: open a Resend account *with the address below*, create an API
 // key, put it in RESEND_API_KEY (Netlify env vars for the live site, .env.local

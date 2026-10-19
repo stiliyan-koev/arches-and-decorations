@@ -194,7 +194,8 @@ catalog pages get built. The requests inbox is still untouched.
 - [ ] `/admin/requests` — incoming requests list
 - [ ] Open a request: see items, colours, date, phone
 - [ ] Confirm a request + set the final price
-- [ ] Owner gets notified of a new request (email or Supabase)
+- [x] Owner gets notified of a new request — `submitRequest()` emails her the whole request
+      through `sendOwnerEmail()` (Resend) once the booking is saved; needs `RESEND_API_KEY`
 
 ## Step 5 — Admin: calendar + availability ⬜
 

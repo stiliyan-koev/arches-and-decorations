@@ -1,9 +1,11 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { sendOwnerEmail } from "@/lib/mail";
+import { formatDate, formatPrice, formatTotal, QUOTE_LABEL } from "@/lib/format";
 
 export type RequestItem = {
   productId: string;
@@ -272,7 +274,117 @@ export async function submitRequest(
     };
   }
 
+  // She hears about every request by email. The booking is saved by now, so
+  // the email goes out after the response (after(); Netlify keeps the function
+  // running for it): the customer's button doesn't wait on Resend, and a slow
+  // or failed email can't turn a saved request into an error. The log says
+  // which booking she wasn't told about. Throttled like the contact form, with
+  // its own caps (requestSends), so spam there can't stop these emails.
+  const ip = await callerIp();
+  after(async () => {
+    let emailed = false;
+    if (allowSend(requestSends, ip)) {
+      emailed = await sendOwnerEmail(
+        requestEmailSubject(payload),
+        await requestEmailText(supabase, payload, estimatedTotal),
+      );
+    }
+    if (!emailed) {
+      console.error("Request saved, but the owner wasn't emailed:", bookingId);
+    }
+  });
+
   return { ok: true };
+}
+
+// „Нова заявка — Мария, 14.11.2026“. Whitespace collapsed on the whole line:
+// it goes into a mail header, and a newline in a header would split it. The
+// name is free text, and Postgres accepts a date with a newline around it.
+function requestEmailSubject(payload: RequestPayload) {
+  const who = payload.customerName.trim() || payload.phone.trim();
+  const date = payload.mode === "rental" ? payload.startDate : payload.eventDate;
+  return `Нова заявка — ${who}, ${formatDate(date)}`.replace(/\s+/g, " ").trim();
+}
+
+// The request as she'd read it on the form: product and colour names, not ids.
+// A name that can't be read (a product hidden since, a database hiccup) shows
+// as „(артикулът не е намерен)“ — the email still goes.
+async function requestEmailText(
+  supabase: Supabase,
+  payload: RequestPayload,
+  estimatedTotal: number | null,
+) {
+  const productIds = [...new Set(payload.items.map((item) => item.productId))];
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, product_colors(id, color_name)")
+    .in("id", productIds);
+
+  const productNames = new Map<string, string>();
+  const colorNames = new Map<string, string>();
+  for (const product of (data ?? []) as {
+    id: string;
+    name: string;
+    product_colors: { id: string; color_name: string }[];
+  }[]) {
+    productNames.set(product.id, product.name);
+    for (const color of product.product_colors) colorNames.set(color.id, color.color_name);
+  }
+
+  const isRental = payload.mode === "rental";
+  const lines = [
+    `Вид: ${isRental ? "Само под наем" : "Украса с монтаж"}`,
+  ];
+  if (isRental) {
+    lines.push(`Вземане: ${formatDate(payload.startDate)}`);
+    lines.push(`Връщане: ${formatDate(payload.endDate)}`);
+  } else {
+    const time = payload.eventTime ? `, ${payload.eventTime}` : "";
+    lines.push(`Дата: ${formatDate(payload.eventDate)}${time}`);
+    lines.push(`Монтаж 2 часа преди събитието: ${payload.setup2hBefore ? "да" : "не"}`);
+  }
+  lines.push(`Град: ${payload.city.trim() || "(не е посочен)"}`);
+  lines.push("");
+  lines.push(`Име: ${payload.customerName.trim() || "(не е посочено)"}`);
+  lines.push(`Телефон: ${payload.phone.trim()}`);
+  lines.push("");
+  lines.push("Артикули:");
+
+  let hasQuote = false;
+  for (const item of payload.items) {
+    const name = productNames.get(item.productId) ?? "(артикулът не е намерен)";
+    const color = item.colorId ? colorNames.get(item.colorId) : undefined;
+    // linePrice comes from the browser, so only a real number is printed;
+    // anything else is a „по запитване“ line.
+    const linePrice = item.linePrice;
+    const priced = typeof linePrice === "number" && Number.isFinite(linePrice);
+    if (!priced) hasQuote = true;
+    const price = priced ? formatPrice(linePrice) : QUOTE_LABEL;
+
+    lines.push(`• ${[name, color].filter(Boolean).join(", ")} — ${item.qty} бр. — ${price}`);
+    const requirements = item.customText?.trim();
+    if (requirements) lines.push(`  Изисквания: ${requirements}`);
+  }
+
+  // formatTotal, like the site: an all-„по запитване“ basket sums to 0, and
+  // „0,00 €“ would read as free. That case already says „По запитване“, so
+  // the reminder line is only for a real number.
+  lines.push("");
+  lines.push(
+    `Ориентировъчна сума: ${estimatedTotal === null ? "(неизвестна)" : formatTotal(estimatedTotal, hasQuote)}`,
+  );
+  if (hasQuote && estimatedTotal !== 0) {
+    lines.push("Артикулите „по запитване“ не са включени в сумата.");
+  }
+
+  const note = payload.note.trim();
+  if (note) {
+    lines.push("");
+    lines.push("Бележка:");
+    lines.push(note);
+  }
+
+  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -298,16 +410,20 @@ const WRITE_TO_US =
 // with spaces in it stays in the body text instead of the header.
 const PLAIN_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 
-// Throttling the send. This action is public and every accepted call spends
-// the owner's Resend quota, so there's a cap per caller and a cap overall.
-// Best-effort only: each serverless instance keeps its own Map, so this stops
+// Throttling the send. This form and submitRequest are public and every email
+// spends the owner's Resend quota, so each has a cap per caller and a cap
+// overall. Each keeps its own Map of sends: spam on the contact form can't use
+// up the caps her request emails need, and the other way round. (Resend's own
+// daily quota is still one, shared by both.)
+// Best-effort only: each serverless instance keeps its own Maps, so this stops
 // a runaway loop or a casual script, not a determined attacker.
 const PER_IP_WINDOW_MS = 10 * 60 * 1000;
 const PER_IP_SENDS = 3;
 const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
 const GLOBAL_SENDS = 60;
 
-const recentSends = new Map<string, number[]>();
+const contactSends = new Map<string, number[]>();
+const requestSends = new Map<string, number[]>();
 
 // Netlify sets x-nf-client-connection-ip; x-forwarded-for is the fallback and
 // its first entry is the client. Callers we can't place share one bucket, so
@@ -322,22 +438,22 @@ async function callerIp() {
 
 // true when this send is within both caps — and then counts it. Drops expired
 // timestamps on every call, so the Map never holds more than the last hour.
-function allowSend(ip: string) {
+function allowSend(sends: Map<string, number[]>, ip: string) {
   const now = Date.now();
   let total = 0;
-  for (const [key, times] of recentSends) {
+  for (const [key, times] of sends) {
     const fresh = times.filter((at) => now - at < GLOBAL_WINDOW_MS);
-    if (fresh.length) recentSends.set(key, fresh);
-    else recentSends.delete(key);
+    if (fresh.length) sends.set(key, fresh);
+    else sends.delete(key);
     total += fresh.length;
   }
   if (total >= GLOBAL_SENDS) return false;
 
-  const mine = recentSends.get(ip) ?? [];
+  const mine = sends.get(ip) ?? [];
   const inWindow = mine.filter((at) => now - at < PER_IP_WINDOW_MS);
   if (inWindow.length >= PER_IP_SENDS) return false;
 
-  recentSends.set(ip, [...mine, now]);
+  sends.set(ip, [...mine, now]);
   return true;
 }
 
@@ -372,7 +488,9 @@ export async function submitContactMessage(
 
   // Counted only here, where a send is actually about to happen: a bot that
   // tripped the honeypot above never reaches this line, so it costs nothing.
-  if (!allowSend(await callerIp())) return { ok: false, error: WRITE_TO_US };
+  if (!allowSend(contactSends, await callerIp())) {
+    return { ok: false, error: WRITE_TO_US };
+  }
 
   const sent = await sendOwnerEmail(
     // Whitespace collapsed: the name goes into a mail header, and a newline in

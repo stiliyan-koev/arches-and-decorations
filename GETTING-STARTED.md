@@ -22,11 +22,12 @@ Create `.env.local` (never commit it):
 ```
 NEXT_PUBLIC_SUPABASE_URL=...        # Project settings → API
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...   # anon public key
-RESEND_API_KEY=...                  # contact form on /about — resend.com/api-keys
+RESEND_API_KEY=...                  # owner emails (requests + /about form) — resend.com/api-keys
 ```
 The anon key is safe in the browser because RLS (in `schema.sql`) guards the tables. You do **not** need the service-role key for v1 — skip it.
 
-`RESEND_API_KEY` is what makes the „Пишете ни“ form on `/about` actually send. Open the Resend
+`RESEND_API_KEY` is what emails the owner each request sent from `/request` and makes the „Пишете ни“
+form on `/about` actually send. Without it a request is still saved, just not emailed. Open the Resend
 account **with the address in `src/lib/mail.ts`**: until a domain is verified there, the sender has
 to stay `onboarding@resend.dev` and Resend only delivers to the account's own address. Without the
 key the form still renders, but tells visitors to write on Messenger or Viber instead.
