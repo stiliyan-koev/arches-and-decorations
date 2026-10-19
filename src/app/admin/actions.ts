@@ -238,7 +238,7 @@ export async function saveLabourPrice(price: number): Promise<ActionResult> {
   if (denied) return denied;
 
   if (!Number.isFinite(price) || price < 0 || price > 100000) {
-    return { ok: false, error: "Цената трябва да е число от 0 нагоре." };
+    return { ok: false, error: "Цената трябва да е число от 0 до 100 000." };
   }
 
   const supabase = await createClient();

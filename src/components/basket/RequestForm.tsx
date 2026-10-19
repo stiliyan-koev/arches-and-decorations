@@ -104,8 +104,10 @@ export default function RequestForm({
   const notSetUpNames = namesOf(notSetUp);
   const activeMode: Mode = !canService && canRent ? "rental" : canRent ? mode : "service";
   // Forget a rental choice once the basket can't rent, so it doesn't come back
-  // on its own when the basket qualifies again. Guarded, so it runs once.
-  if (!canRent && mode === "rental") setMode("service");
+  // on its own when the basket qualifies again. Guarded, so it runs once. Only
+  // in the browser: the server/hydration render sees an empty basket, which
+  // would throw away a ?mode=rent from the catalog.
+  if (inBrowser && !canRent && mode === "rental") setMode("service");
   // hasLabour() settles on the same mode as activeMode, so the label shows
   // exactly when the request goes as „Украса с монтаж“.
   const labour =
