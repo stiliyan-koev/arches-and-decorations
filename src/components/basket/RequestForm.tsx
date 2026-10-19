@@ -8,6 +8,7 @@ import {
 } from "react";
 import Link from "next/link";
 import BasketLines from "@/components/basket/BasketLines";
+import LabourLabel from "@/components/basket/LabourLabel";
 import EventDetails, {
   type EventFields,
 } from "@/components/configurator/EventDetails";
@@ -23,18 +24,32 @@ import {
   submitRequest,
   type RequestItem,
 } from "@/app/actions";
-import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
+import { formatDate, formatPrice, QUOTE_LABEL, TRANSPORT_NOTE } from "@/lib/format";
 import CoverWarning from "@/components/basket/CoverWarning";
 import { selection, useBasket } from "@/lib/selection";
-import { basketView, coverShortfall, type PlpProduct } from "@/lib/catalog-plp";
+import {
+  basketView,
+  coverShortfall,
+  hasLabour,
+  type PlpProduct,
+} from "@/lib/catalog-plp";
 
 type Mode = "service" | "rental";
 
 // The order summary behind the mini-basket's „Продължи“. Same job as the
 // configurator's two steps, on one page: the basket (still editable), when and
 // where, how to reach the customer, then submitRequest(). No payment — it's a
-// request she confirms in person.
-export default function RequestForm({ products }: { products: PlpProduct[] }) {
+// request she confirms in person. It starts in the mode picked on the catalog,
+// and „Украса с монтаж“ adds „Труд за украса“ once.
+export default function RequestForm({
+  products,
+  labourPrice,
+  initialMode,
+}: {
+  products: PlpProduct[];
+  labourPrice: number;
+  initialMode: Mode;
+}) {
   const lines = useBasket();
   // The basket lives in localStorage, so the server always renders it empty.
   // Wait for the browser before deciding the basket is empty, or every visit
@@ -46,7 +61,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   );
   const { items, total, hasQuote } = basketView(lines, products);
 
-  const [mode, setMode] = useState<Mode>("service");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [event, setEvent] = useState<EventFields>({
     city: "Варна",
     date: "",
@@ -69,9 +84,11 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   }>({ key: "", byProduct: {}, byColor: {} });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState<{ total: number; hasQuote: boolean } | null>(
-    null,
-  );
+  const [sent, setSent] = useState<{
+    total: number;
+    hasQuote: boolean;
+    labour: number;
+  } | null>(null);
 
   // „Само под наем“ only makes sense when everything in the basket can be loaned
   // out on its own, and „Украса с монтаж“ when she may set all of it up. A
@@ -89,6 +106,11 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
   // Forget a rental choice once the basket can't rent, so it doesn't come back
   // on its own when the basket qualifies again. Guarded, so it runs once.
   if (!canRent && mode === "rental") setMode("service");
+  // hasLabour() settles on the same mode as activeMode, so the label shows
+  // exactly when the request goes as „Украса с монтаж“.
+  const labour =
+    labourPrice > 0 && hasLabour(items, mode === "service") ? labourPrice : 0;
+  const grandTotal = total + labour;
 
   // The dates the request occupies: one day for a service, pickup→return for a
   // rental. Empty until they're filled in (and the return isn't before pickup).
@@ -166,6 +188,14 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
       value: lineTotal === null ? QUOTE_LABEL : formatPrice(lineTotal),
     }),
   );
+  if (labour > 0) {
+    summaryLines.push({
+      key: "labour",
+      name: "Труд за украса",
+      sub: "",
+      value: formatPrice(labour),
+    });
+  }
 
   const hint =
     items.length === 0
@@ -212,12 +242,13 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         startDate: activeMode === "rental" ? event.startDate : "",
         endDate: activeMode === "rental" ? event.endDate : "",
         setup2hBefore: activeMode === "service" && event.setup2hBefore,
-        estimatedTotal: total,
+        estimatedTotal: grandTotal,
+        labourPrice: labour > 0 ? labour : null,
         items: requestItems,
       });
 
       if (result.ok) {
-        setSent({ total, hasQuote });
+        setSent({ total: grandTotal, hasQuote, labour });
         selection.clear();
       } else {
         setError(result.error);
@@ -246,7 +277,9 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         <p className="mt-3 text-muted">
           {sent.total > 0 ? (
             <>
-              Ориентировъчната сума на избраните артикули е{" "}
+              {sent.labour > 0
+                ? "Ориентировъчната сума, с труда за украса, е"
+                : "Ориентировъчната сума на избраните артикули е"}{" "}
               <strong className="text-ink">{formatPrice(sent.total)}</strong>
               {sent.hasQuote && (
                 <> (артикулите „по запитване“ се уточняват допълнително)</>
@@ -263,9 +296,12 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         </p>
         <p className="mt-4 text-sm text-muted">
           <strong className="text-ink">Забележка:</strong> Посочените цени са за
-          наем на артикулите и не включват труд за монтаж/демонтаж. Доставката е
-          безплатна за гр. Варна, а за останалите населени места се изчислява
-          спрямо разстоянието.
+          наем на артикулите
+          {sent.labour > 0
+            ? ", а трудът за украса е включен в сумата."
+            : " и не включват труд за монтаж/демонтаж."}{" "}
+          Доставката е безплатна за гр. Варна, а за останалите населени места се
+          изчислява спрямо разстоянието.
         </p>
         <Link
           href="/catalog"
@@ -307,7 +343,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[1.05rem] font-extrabold">Избрани продукти</h2>
           <Link
-            href="/catalog"
+            href={activeMode === "rental" ? "/catalog?mode=rent" : "/catalog"}
             className="text-sm font-extrabold text-cta hover:text-cta-strong"
           >
             + Добави още
@@ -315,6 +351,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
         </div>
         <CoverWarning shortfall={coverShortfall(items)} />
         <BasketLines items={items} notes={notes} />
+        {labour > 0 && <LabourLabel price={labour} />}
 
         <fieldset className="mt-6">
           <legend className="mb-2 text-[1.05rem] font-extrabold">
@@ -389,8 +426,9 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
       <div className="min-w-0 rounded-b-card border-t border-border bg-rail p-[22px] pb-28 lg:rounded-tr-card lg:rounded-b-none lg:border-t-0 lg:border-l lg:pb-[22px]">
         <SummaryRail
           lines={summaryLines}
-          total={total}
+          total={grandTotal}
           hasQuoteItems={hasQuote}
+          priceNote={labour > 0 ? TRANSPORT_NOTE : undefined}
           ctaLabel={ctaLabel}
           ctaDisabled={ctaDisabled}
           hint={hint}
@@ -400,7 +438,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
 
       <MobileSummaryBar
         itemCount={items.reduce((sum, item) => sum + item.qty, 0)}
-        total={total}
+        total={grandTotal}
         hasQuoteItems={hasQuote}
         ctaLabel={submitting ? "Изпращане…" : "Изпрати"}
         ctaDisabled={ctaDisabled}

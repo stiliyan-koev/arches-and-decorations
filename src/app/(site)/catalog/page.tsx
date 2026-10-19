@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import CatalogView from "@/components/catalog/CatalogView";
 import { getCatalog } from "@/lib/catalog";
 import { parseState, toPlpData } from "@/lib/catalog-plp";
+import { getLabourPrice } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Каталог",
@@ -15,9 +16,19 @@ export const metadata: Metadata = {
 export default async function CatalogPage({
   searchParams,
 }: PageProps<"/catalog">) {
-  const [groups, params] = await Promise.all([getCatalog(), searchParams]);
+  const [groups, params, labourPrice] = await Promise.all([
+    getCatalog(),
+    searchParams,
+    getLabourPrice(),
+  ]);
   const data = toPlpData(groups);
   const initialState = parseState(params, data);
 
-  return <CatalogView data={data} initialState={initialState} />;
+  return (
+    <CatalogView
+      data={data}
+      initialState={initialState}
+      labourPrice={labourPrice}
+    />
+  );
 }

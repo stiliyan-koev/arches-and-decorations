@@ -26,7 +26,10 @@ export type RequestPayload = {
   startDate: string; // yyyy-mm-dd — rental pickup
   endDate: string; // yyyy-mm-dd — rental return
   setup2hBefore: boolean;
-  estimatedTotal: number;
+  estimatedTotal: number; // with labourPrice in it
+  // „Труд за украса“ as the customer saw it in the sum; null = none (rental, or
+  // the configurator, which doesn't add it).
+  labourPrice?: number | null;
   items: RequestItem[];
 };
 
@@ -364,6 +367,12 @@ async function requestEmailText(
     lines.push(`• ${[name, color].filter(Boolean).join(", ")} — ${item.qty} бр. — ${price}`);
     const requirements = item.customText?.trim();
     if (requirements) lines.push(`  Изисквания: ${requirements}`);
+  }
+
+  // From the browser too, like linePrice: only a real number is printed.
+  const labour = payload.labourPrice;
+  if (typeof labour === "number" && Number.isFinite(labour) && labour > 0) {
+    lines.push(`• Труд за украса — ${formatPrice(labour)}`);
   }
 
   // formatTotal, like the site: an all-„по запитване“ basket sums to 0, and

@@ -172,6 +172,12 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       rides on the basket line, stays editable in the mini-basket and on `/request`, and is
       saved to `booking_items.custom_text`. Needs `migration-requirements.sql` (below).
       Until `/admin/requests` exists she reads it in Supabase, `booking_items.custom_text`.
+- [x] „Украса с монтаж“ / „Само под наем“ moved out of the filters into a big switch at the
+      top of `/catalog` (19 Oct 2026); the choice rides on to `/request` as `?mode=rent`.
+      In „Украса с монтаж“ the basket adds a „Труд за украса“ label once (50 €), in the
+      mini-basket, on `/request`, in the sum and in the owner's email. Price set at the top
+      of admin → Каталог. Needs `migration-labour.sql` (below); until then it is a fixed
+      50 € and saving it in admin fails.
 - [ ] Date / „Скрий заетите" availability filter on the PLP — **deliberately hidden**
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO
@@ -331,6 +337,9 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       the „Прозорец за изисквания“ code goes live: the catalog reads
       `products.asks_requirements`, and without it falls back to the hardcoded catalog (and
       the admin product page errors). Adds one column, off for every product.
+- [ ] **Run `migration-labour.sql`** in the SQL editor **(you)**, after
+      `migration-admin-policies.sql` — adds the one-row `settings` table holding the
+      „Труд за украса“ price (starts at 50 €). Not blocking: the site falls back to 50 €.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
 - [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the
