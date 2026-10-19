@@ -365,14 +365,14 @@ export default function RequestForm({
               disabled={!canService}
               onClick={() => setMode("service")}
             >
-              Украса с монтаж
+              Украса с монтаж от нас
             </ModeButton>
             <ModeButton
               active={activeMode === "rental"}
               disabled={!canRent}
               onClick={() => setMode("rental")}
             >
-              Само под наем
+              Под наем
             </ModeButton>
           </div>
           {noMode ? (
@@ -384,7 +384,7 @@ export default function RequestForm({
             </p>
           ) : !canRent ? (
             <p className="mt-2 text-[0.8rem] text-muted">
-              Само под наем не може, защото {quoted(notRentableNames)}{" "}
+              Под наем не може, защото {quoted(notRentableNames)}{" "}
               {notRentableNames.length === 1 ? "се предлага" : "се предлагат"} само
               с монтаж.
             </p>
