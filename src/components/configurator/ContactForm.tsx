@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const FIELD_LABEL =
   "mb-1.5 block text-xs font-extrabold uppercase tracking-[0.06em] text-muted";
 const FIELD_INPUT =
@@ -65,9 +67,20 @@ export default function ContactForm({ fields, onChange }: Props) {
         />
       </div>
 
+      {/* The GDPR notice at the point of collection. No consent checkbox: the
+          basis is the customer's own request, not consent. A new tab, so the
+          half-filled form isn't lost. */}
       <p className="mt-3.5 text-xs leading-relaxed text-muted">
         Използваме името и контактите ви само за организацията на събитието.
-        Всички часове са по българско време.
+        Как ги пазим — в{" "}
+        <Link
+          href="/privacy"
+          target="_blank"
+          className="font-semibold underline underline-offset-2 hover:text-ink"
+        >
+          Политиката за поверителност
+        </Link>
+        . Всички часове са по българско време.
       </p>
     </>
   );

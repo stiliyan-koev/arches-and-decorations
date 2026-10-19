@@ -72,7 +72,7 @@ Active pill = filled blush. Switching tabs swaps the grid only — selections in
 - `Желана фигурка, надпис, цветове или допълнителни детайли` — textarea
 - **Как да се свържем с вас?** — `Вашето име`, `Телефон`, `Имейл` (по желание)
 - `Website` — honeypot, hidden from real users, kept for spam filtering
-- GDPR consent checkbox + privacy note
+- Privacy note linking `/privacy` — no consent checkbox (the basis is the request itself, not consent)
 
 ## Open gaps (fix these — they're real, not cosmetic)
 
