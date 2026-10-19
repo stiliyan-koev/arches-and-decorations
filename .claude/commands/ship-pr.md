@@ -109,7 +109,9 @@ Only APPROVED when ALL are true: no open MUST, `gh pr checks <N>` green.
 (GitHub doesn't let an account approve its own PR, so the verdict is a comment, not a review.)
 
 Tell the owner in 5 lines: PR link, rounds used, agents used, what the reviewers caught,
-what you dropped and why.
+what you dropped and why. Then end with the `### Follow-up actions` table from CLAUDE.md —
+SQL this PR adds, env vars, admin data, and the merge itself (only the owner merges) —
+or `No manual steps.`
 
 ## Never
 

@@ -99,7 +99,10 @@ Tick the chunk in pr-plan.md "Progress". Add one line under "Review fixes":
 ## 6. Next
 
 If every chunk is ticked -> step 7. If $ARGUMENTS is `all`, go back to step 0. Otherwise stop and give the owner a
-5-line summary: PR link, rounds, what the reviewers caught, what you dropped and why.
+5-line summary: PR link, rounds, what the reviewers caught, what you dropped and why — then the
+`### Follow-up actions` table from CLAUDE.md (SQL files the merged chunks add, env vars, data to
+enter in the admin; every file a markdown link), or `No manual steps.` In an `all` run, collect the
+steps from every chunk and print ONE table at the end.
 
 ## 7. Release
 
@@ -109,6 +112,9 @@ with the list of merged chunk PRs in the body. Do NOT merge it. Tell the owner i
 2. Merge with a **normal merge** (not squash).
 3. Tag it: `git switch main`, `git pull`, `git tag vX.Y.Z`, `git push origin vX.Y.Z`.
 4. Delete the release branch.
+
+Put those four, plus every manual step the release's chunks collected, in the one
+`### Follow-up actions` table (see CLAUDE.md).
 
 ## Never
 

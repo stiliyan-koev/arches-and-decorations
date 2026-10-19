@@ -104,10 +104,12 @@ Build: ok | FAILED      Lint: ok | N errors      Smoke: GREEN | RED | BLOCKED (N
 ### NICE
 1. ...
 
-### Do by hand before merge
-- Run on the live DB: <file.sql>
-- Set in Netlify: <ENV_VAR>
-- package.json version: ok | says X, branch says Y
+### Follow-up actions
+| # | Action | Where / file | Why |
+|---|---|---|---|
+| 1 | Run on the live DB | [<file.sql>](<file.sql>) | <what it changes> |
+| 2 | Set in Netlify | Netlify → Site settings → Environment | <ENV_VAR> |
+| 3 | package.json version | [package.json](package.json) | says X, branch says Y (skip the row when ok) |
 
 ### Not tested by agents — click through on the preview
 - ...
@@ -123,7 +125,10 @@ End with the next step, one line:
 - Smoke `BLOCKED` -> fix the setup that `qa`'s `CANNOT RUN` line names, then `/release-check` again.
 - Build failed or lint errors -> fix, `/ship-pr`, `/release-check` again.
 - NO-GO from a MUST -> fix it, `/ship-pr`, `/release-check` again.
-- GO -> "Do the by-hand list, click through the preview, then merge (normal merge, not squash) and tag."
+- GO -> "Do the follow-up actions, click through the preview, then merge (normal merge, not squash) and tag."
+
+The follow-up table is the last thing you print, in the shape CLAUDE.md ("Follow-up actions") sets:
+every file a markdown link, one row per action, `No manual steps.` when there is nothing.
 
 ## Never
 

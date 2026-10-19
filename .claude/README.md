@@ -49,6 +49,12 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
 6. **Structured output.** Reviewers must answer in `MUST|NICE — file:line — problem — fix`.
    That makes their output easy for the Lead to merge and filter, like a small API between agents.
 7. **Deterministic first, AI second.** CI (build + lint) runs before anyone argues about code.
+8. **The hand-off is part of the output.** Code that compiles is half a task: the SQL still has to
+   run on the live DB, the env var still has to go into Netlify. So every command ends with one
+   `### Follow-up actions` table (the rule lives in CLAUDE.md, "Follow-up actions"), every file in
+   it a markdown link the owner can click, and `No manual steps.` when there is genuinely nothing.
+   Sub-agents report their steps up as a `Follow-up actions:` list; the Lead merges them into the
+   single table the owner reads.
 
 ## Known limits (be honest with yourself)
 
@@ -151,6 +157,6 @@ Three jobs, three permission levels: the tester can't edit, the fixer can't comm
 
 The per-PR reviews each saw one small diff. This is the only step that reads the release as a
 whole, so it can catch two PRs that are each fine but break each other. It reuses `qa` and the
-three reviewers; it adds no new agent. It also lists what you must do by hand (SQL to run on the
-live DB, env vars for Netlify) and what no agent tested (admin, form submit), so you know what to
-click through on the Netlify preview yourself.
+three reviewers; it adds no new agent. It also prints the `### Follow-up actions` table (SQL to run
+on the live DB, env vars for Netlify, the merge and the tag) and what no agent tested (admin, form
+submit), so you know what to click through on the Netlify preview yourself.
