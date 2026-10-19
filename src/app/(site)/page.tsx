@@ -27,7 +27,12 @@ export default async function HomePage() {
 
   return (
     <>
-      <HeroCarousel photos={heroPhotos} />
+      <div className="relative overflow-hidden">
+        <FloatingBalloons layout="carousel" />
+        <div className="relative z-10">
+          <HeroCarousel photos={heroPhotos} />
+        </div>
+      </div>
 
       <section className="relative overflow-hidden">
         <FloatingBalloons />
@@ -94,11 +99,17 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {showcases.length === HOME_SHOWCASE_COUNT ? (
-        <ShowcaseCards showcases={showcases} />
-      ) : (
-        <OccasionCards />
-      )}
+      {/* Full width, so the balloons fill the margins beside the cards too. */}
+      <div className="relative overflow-hidden">
+        <FloatingBalloons layout="sides" />
+        <div className="relative z-10">
+          {showcases.length === HOME_SHOWCASE_COUNT ? (
+            <ShowcaseCards showcases={showcases} />
+          ) : (
+            <OccasionCards />
+          )}
+        </div>
+      </div>
     </>
   );
 }
