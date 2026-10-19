@@ -1,10 +1,27 @@
--- Decoration & Arch Rental — seed data
--- Run AFTER schema.sql. Safe to re-run: it clears catalog tables first.
--- ⚠️ PRICES BELOW ARE PLACEHOLDERS (EUR). Replace with real ones via admin.
+-- Decoration & Arch Rental — seed data: the starter catalog for a NEW project.
+--
+-- ⛔ FOR A FRESH, EMPTY DATABASE ONLY. NEVER RUN THIS ON THE LIVE DATABASE.
+-- Run it once, right after schema.sql, on a brand-new Supabase project. The
+-- live catalog is edited in /admin, and changes to the live database ship as
+-- migration-*.sql files, never through this file.
+--
+-- A full run stops with an error and changes nothing when `categories` or
+-- `products` already has rows. The guard only covers a full run, so never run
+-- any part of this file on the live database either: the updates further down
+-- would overwrite what was edited in /admin.
+--
+-- ⚠️ PRICES BELOW ARE PLACEHOLDERS (EUR). Real prices are set in admin.
 
 begin;
 
-truncate product_images, product_colors, products, categories restart identity cascade;
+-- The guard. It runs inside the transaction above, so its error rolls back
+-- everything after it too.
+do $$
+begin
+  if exists (select 1 from categories) or exists (select 1 from products) then
+    raise exception 'seed.sql is for a fresh, empty database only: categories or products already has rows. Nothing was changed.';
+  end if;
+end $$;
 
 -- ---------- Categories ----------
 insert into categories (slug, name, sort) values
