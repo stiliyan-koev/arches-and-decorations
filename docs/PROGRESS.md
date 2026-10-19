@@ -251,8 +251,9 @@ consent banner first** and updating `/privacy`.
       „администратор“; until then `/privacy` names the brand.
 - [ ] Accept the data processing agreements (DPA) of Supabase, Resend and Netlify **(you)**
       — each publishes one; Supabase's is signed from the organisation settings.
-- [ ] Contact-form emails in Gmail: delete them once answered, at the latest 12 months
-      after the last message — `/privacy` promises that too **(her)**
+- [ ] Request and contact-form emails in Gmail: delete them by hand within 12 months —
+      request emails 12 months after the event, contact-form emails once answered and at
+      the latest 12 months after the last message. `/privacy` promises both **(her)**
 - [ ] ЗЕТ (e-commerce law) asks a business site for an email address; the site has none on
       purpose. Revisit when there's a real domain address.
 
