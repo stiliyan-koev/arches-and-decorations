@@ -7,6 +7,7 @@ import FilterSheet from "@/components/catalog/FilterSheet";
 import ProductCard from "@/components/catalog/ProductCard";
 import OfferButton from "@/components/catalog/OfferButton";
 import FloatingOfferButton from "@/components/catalog/FloatingOfferButton";
+import ModeSwitch from "@/components/catalog/ModeSwitch";
 import MiniBasket from "@/components/basket/MiniBasket";
 import { ChevronDownIcon } from "@/components/home/Icons";
 import {
@@ -34,9 +35,11 @@ function toggle(list: string[], id: string) {
 export default function CatalogView({
   data,
   initialState,
+  labourPrice,
 }: {
   data: PlpData;
   initialState: FilterState;
+  labourPrice: number; // „Труд за украса“, from the settings table
 }) {
   const [state, setState] = useState<FilterState>(initialState);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -96,8 +99,10 @@ export default function CatalogView({
     setState((s) => ({ ...s, colors: toggle(s.colors, slug) }));
   const toggleBand = (id: string) =>
     setState((s) => ({ ...s, bands: toggle(s.bands, id) }));
-  // Reset the facets but keep the chosen sort (matches the reference).
-  const clearFilters = () => setState((s) => ({ ...EMPTY_STATE, sort: s.sort }));
+  // Reset the facets but keep the chosen sort (matches the reference) and the
+  // mode, which isn't a filter: it has its own switch at the top.
+  const clearFilters = () =>
+    setState((s) => ({ ...EMPTY_STATE, mode: s.mode, sort: s.sort }));
 
   function openBasket(addedKey: string | null, full = false) {
     openedFrom.current = document.activeElement as HTMLElement | null;
@@ -119,13 +124,6 @@ export default function CatalogView({
 
   // Active-filter chips, each removable.
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
-  if (state.mode === "rent") {
-    chips.push({
-      key: "mode",
-      label: "Само под наем",
-      onRemove: () => setMode("service"),
-    });
-  }
   for (const slug of state.cats) {
     const name = data.categories.find((c) => c.slug === slug)?.name ?? slug;
     chips.push({ key: `cat-${slug}`, label: name, onRemove: () => toggleCat(slug) });
@@ -199,6 +197,8 @@ export default function CatalogView({
         </div>
       </div>
 
+      <ModeSwitch mode={state.mode} onMode={setMode} />
+
       {/* Mobile category pill row, sticky under the site header */}
       <div className="sticky top-14 z-30 -mx-5 mb-4 border-b border-border bg-bg/95 px-5 py-2.5 backdrop-blur lg:hidden">
         <div className="flex gap-2 overflow-x-auto">
@@ -240,7 +240,6 @@ export default function CatalogView({
           <Filters
             data={data}
             state={state}
-            onMode={setMode}
             onToggleCat={toggleCat}
             onToggleColor={toggleColor}
             onToggleBand={toggleBand}
@@ -372,6 +371,8 @@ export default function CatalogView({
         products={data.products}
         lastAdded={lastAdded}
         full={basketFull}
+        mode={state.mode}
+        labourPrice={labourPrice}
       />
 
       <FilterSheet
@@ -380,7 +381,6 @@ export default function CatalogView({
         data={data}
         state={state}
         resultCount={visible.length}
-        onMode={setMode}
         onToggleCat={toggleCat}
         onToggleColor={toggleColor}
         onToggleBand={toggleBand}

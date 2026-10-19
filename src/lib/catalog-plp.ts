@@ -239,6 +239,17 @@ export function basketView(
   return { items, total, hasQuote };
 }
 
+// „Труд за украса“ — added once, as a label, to a basket she sets up: the
+// visitor wants „Украса с монтаж“ and every product is one she may set up. A
+// basket that can only be rented goes as „Само под наем“ whatever was picked,
+// so it gets none. The same rule as the mode /request settles on.
+export function hasLabour(items: BasketItem[], wantsSetUp: boolean) {
+  if (items.length === 0) return false;
+  const canSetUp = items.every((item) => item.product.setupPossible);
+  const canRent = items.every((item) => item.product.rentable);
+  return canSetUp && (wantsSetUp || !canRent);
+}
+
 // Arches need covers: a warning when the basket holds fewer covers than its
 // arches need. null = enough (or no arches). A hint, never a block.
 export function coverShortfall(items: BasketItem[]) {
@@ -408,14 +419,9 @@ export function bandCount(
 }
 
 // How many facets are active (for the mobile "Филтри" badge). Sort is not a
-// filter and mode counts only when it's the non-default "rent".
+// filter, and neither is the mode: it has its own switch at the top.
 export function activeFilterCount(state: FilterState) {
-  return (
-    state.cats.length +
-    state.colors.length +
-    state.bands.length +
-    (state.mode === "rent" ? 1 : 0)
-  );
+  return state.cats.length + state.colors.length + state.bands.length;
 }
 
 export function hasActiveFilters(state: FilterState) {

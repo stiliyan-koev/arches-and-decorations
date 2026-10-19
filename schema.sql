@@ -202,6 +202,17 @@ create table blackout_dates (
   reason text
 );
 
+-- ---------- Settings ----------
+
+-- Site-wide values she edits in admin. Exactly one row (id = 1); a new setting
+-- is a new column.
+create table settings (
+  id           int primary key default 1 check (id = 1),
+  labour_price numeric(10,2) not null default 50 check (labour_price >= 0) -- „Труд за украса“, EUR; 0 = none
+);
+
+insert into settings (id) values (1);
+
 -- ---------- Availability helper ----------
 -- A booking occupies [occupied_from, occupied_to]:
 --   service -> [event_date, event_date]
@@ -366,6 +377,7 @@ alter table showcase_photos enable row level security;
 alter table gallery_photos     enable row level security;
 alter table gallery_tags       enable row level security;
 alter table gallery_photo_tags enable row level security;
+alter table settings           enable row level security;
 alter table admins             enable row level security;
 -- No policy on `admins` on purpose: nothing reads it through the API.
 
@@ -381,6 +393,7 @@ create policy "public read showcase_photos" on showcase_photos for select using 
 create policy "public read gallery_photos"     on gallery_photos     for select using (true);
 create policy "public read gallery_tags"       on gallery_tags       for select using (true);
 create policy "public read gallery_photo_tags" on gallery_photo_tags for select using (true);
+create policy "public read settings"           on settings           for select using (true);
 
 -- Public may submit a request (insert only), but never read bookings
 create policy "public create booking"       on bookings       for insert with check (status = 'requested');
@@ -401,3 +414,4 @@ create policy "admin all showcase_photos" on showcase_photos for all using ((sel
 create policy "admin all gallery_photos"     on gallery_photos     for all using ((select is_admin())) with check ((select is_admin()));
 create policy "admin all gallery_tags"       on gallery_tags       for all using ((select is_admin())) with check ((select is_admin()));
 create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all settings"           on settings           for all using ((select is_admin())) with check ((select is_admin()));

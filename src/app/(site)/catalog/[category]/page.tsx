@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import CatalogView from "@/components/catalog/CatalogView";
 import { getCatalog } from "@/lib/catalog";
 import { parseState, toPlpData } from "@/lib/catalog-plp";
+import { getLabourPrice } from "@/lib/settings";
 
 // Shared per-request so generateMetadata and the page don't both hit the DB.
 const loadData = cache(async () => toPlpData(await getCatalog()));
@@ -28,10 +29,11 @@ export default async function CategoryPage({
   params,
   searchParams,
 }: PageProps<"/catalog/[category]">) {
-  const [{ category }, sp, data] = await Promise.all([
+  const [{ category }, sp, data, labourPrice] = await Promise.all([
     params,
     searchParams,
     loadData(),
+    getLabourPrice(),
   ]);
 
   const known = data.categories.some((c) => c.slug === category);
@@ -39,5 +41,11 @@ export default async function CategoryPage({
 
   const initialState = { ...parseState(sp, data), cats: [category] };
 
-  return <CatalogView data={data} initialState={initialState} />;
+  return (
+    <CatalogView
+      data={data}
+      initialState={initialState}
+      labourPrice={labourPrice}
+    />
+  );
 }

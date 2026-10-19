@@ -10,7 +10,6 @@ type Props = {
   data: PlpData;
   state: FilterState;
   resultCount: number;
-  onMode: (mode: "service" | "rent") => void;
   onToggleCat: (slug: string) => void;
   onToggleColor: (slug: string) => void;
   onToggleBand: (id: string) => void;
@@ -26,7 +25,6 @@ export default function FilterSheet({
   data,
   state,
   resultCount,
-  onMode,
   onToggleCat,
   onToggleColor,
   onToggleBand,
@@ -93,7 +91,6 @@ export default function FilterSheet({
           <Filters
             data={data}
             state={state}
-            onMode={onMode}
             onToggleCat={onToggleCat}
             onToggleColor={onToggleColor}
             onToggleBand={onToggleBand}

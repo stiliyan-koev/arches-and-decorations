@@ -229,6 +229,36 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+// ---------- Labour ----------
+
+// „Труд за украса“, the one row of `settings` (migration-labour.sql). Upsert,
+// so it also works if the row was deleted by hand. 0 switches the label off.
+export async function saveLabourPrice(price: number): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!Number.isFinite(price) || price < 0 || price > 100000) {
+    return { ok: false, error: "Цената трябва да е число от 0 до 100 000." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ id: 1, labour_price: Math.round(price * 100) / 100 });
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.code === "42P01" || error.code === "PGRST205"
+          ? "Липсва таблицата settings — пуснете migration-labour.sql в Supabase."
+          : error.message,
+    };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
 // ---------- Products ----------
 
 export type ProductInput = {
