@@ -50,11 +50,12 @@ You (owner)  ── run /ship-next-pr ──►  LEAD  (your main Claude Code se
    That makes their output easy for the Lead to merge and filter, like a small API between agents.
 7. **Deterministic first, AI second.** CI (build + lint) runs before anyone argues about code.
 8. **The hand-off is part of the output.** Code that compiles is half a task: the SQL still has to
-   run on the live DB, the env var still has to go into Netlify. So every command ends with one
-   `### Follow-up actions` table (the rule lives in CLAUDE.md, "Follow-up actions"), every file in
-   it a markdown link the owner can click, and `No manual steps.` when there is genuinely nothing.
-   Sub-agents report their steps up as a `Follow-up actions:` list; the Lead merges them into the
-   single table the owner reads.
+   run on the live DB, the env var still has to go into Netlify. So `/ship-pr`, `/ship-next-pr`,
+   `/ship-tooling`, `/smoke-fix` and `/release-check` each end with one `### Follow-up actions`
+   table (the rule lives in CLAUDE.md, "Follow-up actions"), every file in it a markdown link the
+   owner can click, and `No manual steps.` when there is genuinely nothing. `/smoke-test` is the
+   exception: it prints `qa`'s report as it is and adds nothing. `developer` reports its steps up as
+   a `Follow-up actions:` list; the Lead merges them into the single table the owner reads.
 
 ## Known limits (be honest with yourself)
 

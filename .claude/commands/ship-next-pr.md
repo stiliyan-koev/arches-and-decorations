@@ -94,27 +94,30 @@ Only when ALL are true:
 
 Then: `gh pr merge <N> --squash --delete-branch`, `git switch <REL>`, `git pull`.
 Tick the chunk in pr-plan.md "Progress". Add one line under "Review fixes":
-`NN — K rounds — what the review caught (short)`.
+`NN — K rounds — what the review caught (short)`. Then append the chunk's `Follow-up actions:`
+lines from `developer` under its Progress row, one per line — that is where they are kept, so the
+table at the end is a copy from pr-plan.md and not a re-read of the merged diffs.
 
 ## 6. Next
 
-If every chunk is ticked -> step 7. If $ARGUMENTS is `all`, go back to step 0. Otherwise stop and give the owner a
-5-line summary: PR link, rounds, what the reviewers caught, what you dropped and why — then the
-`### Follow-up actions` table from CLAUDE.md (SQL files the merged chunks add, env vars, data to
-enter in the admin; every file a markdown link), or `No manual steps.` In an `all` run, collect the
-steps from every chunk and print ONE table at the end.
+If every chunk is ticked -> step 7. If $ARGUMENTS is `all`, go back to step 0 — print no table
+between chunks, the lines are in pr-plan.md and step 7 prints the one table.
+
+Otherwise (a single-chunk run that leaves chunks open) stop and give the owner a 5-line summary:
+PR link, rounds, what the reviewers caught, what you dropped and why — then the
+`### Follow-up actions` table from CLAUDE.md with this chunk's lines (SQL files it adds, env vars,
+data to enter in the admin; every file a markdown link), or `No manual steps.`
 
 ## 7. Release
 
 When all chunks are ticked: open `gh pr create --base main --head <REL> --title "release: X.Y.Z"`
-with the list of merged chunk PRs in the body. Do NOT merge it. Tell the owner it is ready, and remind him:
-1. Test the release branch's Netlify preview.
-2. Merge with a **normal merge** (not squash).
-3. Tag it: `git switch main`, `git pull`, `git tag vX.Y.Z`, `git push origin vX.Y.Z`.
-4. Delete the release branch.
+with the list of merged chunk PRs in the body. Do NOT merge it. Tell the owner it is ready.
 
-Put those four, plus every manual step the release's chunks collected, in the one
-`### Follow-up actions` table (see CLAUDE.md).
+Then print the one `### Follow-up actions` table (see CLAUDE.md) — the only place these steps
+appear, don't repeat them in the prose above it. First the manual steps the chunks collected, copied
+from their lines in pr-plan.md, then four rows closing the release: test the release branch's
+Netlify preview; merge it with a **normal merge** (not squash); tag it (`git switch main`,
+`git pull`, `git tag vX.Y.Z`, `git push origin vX.Y.Z`); delete the release branch.
 
 ## Never
 

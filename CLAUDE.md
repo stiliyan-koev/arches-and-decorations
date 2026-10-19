@@ -67,12 +67,14 @@ afterwards goes at the very end of the task's final message, as **one table**, e
 
 Rules:
 
-- **Every file in the table is a markdown link**, path relative to the repo root — `[migration-foo.sql](migration-foo.sql)`, `[src/lib/catalog.ts:42](src/lib/catalog.ts:42)` — so the owner opens a file preview with one click instead of hunting for it in the folder. Name an admin page or a route by its file too, so it is clickable. A step with no file (Netlify, Supabase dashboard, DNS) keeps the "Where" cell plain text.
+- **Every file in the table is a markdown link**, path relative to the repo root — `[migration-foo.sql](migration-foo.sql)`, `[src/lib/catalog.ts:42](src/lib/catalog.ts:42)` — so the owner opens a file preview with one click instead of hunting for it in the folder. Name an admin page by its file when you already have the path in hand; when you don't, the plain route (`/admin/showcases`) in the "Where" cell is fine — don't spend a file read hunting for it. A step with no file (Netlify, Supabase dashboard, DNS) keeps the "Where" cell plain text.
 - One row per action, **in the order they must be done**; "Why" is one short phrase, not a paragraph.
 - It covers everything a human must do: SQL to run on the live DB, env vars, a Storage bucket or RLS policy, data entered through the admin, `git` steps the agents may not take (merge into `main`, tag, cut a release branch), a Netlify setting, and anything no spec covers that he should click through himself.
+- An env var is the **name** only — `RESEND_API_KEY`, never its value. No secret, key or token goes in the table, in a PR body or in a comment.
+- For data entered through the admin, describe what to enter ("3 showcase photos, one per card"). Never paste live DB rows or customer data into the table.
 - **Nothing to do by hand → one line: `No manual steps.`** Never print an empty table.
 - The table is the last thing in the message, under a `### Follow-up actions` heading. Don't scatter the same steps through the prose above it as well — mention them once, there.
-- Sub-agents (`developer`, `qa`, the reviewers) report their manual steps back to the Lead in the same shape; the Lead merges them into the one table the owner sees.
+- `developer` reports its manual steps back to the Lead as a `Follow-up actions:` list, one line each; the Lead turns them into the one table the owner sees. The other sub-agents (`qa`, the reviewers) have a fixed reply shape and report nothing extra.
 
 ## Companion docs
 
