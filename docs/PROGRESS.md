@@ -348,8 +348,8 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       There is no git remote.
 - [ ] Delete `src/lib/catalog-fallback.ts` — live data is confirmed working, so it's dead
       weight now. (`Product.images` is optional purely because this file has none.)
-- [ ] `CLAUDE.md` is stale — it still calls Step 0 "BLOCKING" and says `/admin` doesn't
-      exist "yet" as if that were news. Refresh it once step 3 lands.
+- [ ] `CLAUDE.md` is stale — its "Current state" still calls Steps 3–6 "not started",
+      though the catalog and most of `/admin` have shipped. Refresh that section.
 - [ ] Replace the contact placeholders in `src/lib/contacts.ts` (phone, email, socials)
 - [x] ~~Replace the placeholder prices in `seed.sql`~~ — dropped (19 Oct 2026): live prices are set in admin (see „Re-price every product in admin“ above), and `seed.sql` only seeds a brand-new database; it refuses to run on one that has products.
 - [ ] Upgrade Node 20.9 → 22 LTS (Supabase warns on every build)

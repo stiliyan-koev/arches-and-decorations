@@ -5,10 +5,10 @@
 -- live catalog is edited in /admin, and changes to the live database ship as
 -- migration-*.sql files, never through this file.
 --
--- It refuses to run when `categories` or `products` already has rows: it stops
--- with an error and changes nothing. (Until Oct 2026 it emptied those tables
--- first instead, which on the live database would have deleted every category,
--- product, colour and product photo, and every line of every request.)
+-- A full run stops with an error and changes nothing when `categories` or
+-- `products` already has rows. The guard only covers a full run, so never run
+-- any part of this file on the live database either: the updates further down
+-- would overwrite what was edited in /admin.
 --
 -- ⚠️ PRICES BELOW ARE PLACEHOLDERS (EUR). Real prices are set in admin.
 
