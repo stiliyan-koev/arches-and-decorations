@@ -21,6 +21,15 @@ async function cardInfo(card: Locator) {
   return { name, price: priceIn(priceText.trim()) };
 }
 
+// „Труд за украса“: a label under the lines, added once to the sum when the
+// basket goes as „Украса с монтаж“. 0 when the basket doesn't get it.
+async function labourIn(drawer: Locator) {
+  const label = drawer.getByText("Труд за украса", { exact: true });
+  if ((await label.count()) === 0) return 0;
+  const priceText = (await label.locator("..").getByText(/^\d+,\d{2}\s€$/).textContent()) ?? "";
+  return priceIn(priceText.trim());
+}
+
 test("the basket adds up and carries over to the request page", { tag: "@critical" }, async ({ page }) => {
   await page.goto("/catalog");
   await page.evaluate(() => localStorage.removeItem("oferta.v1"));
@@ -33,12 +42,15 @@ test("the basket adds up and carries over to the request page", { tag: "@critica
   const first = await cardInfo(priced.nth(0));
   const second = await cardInfo(priced.nth(1));
 
-  // Adding opens the drawer, names the product and shows its price as the total.
+  // Adding opens the drawer, names the product and shows its price (plus the
+  // labour, if it gets one) as the total.
   await priced.nth(0).getByRole("button").last().click();
   const drawer = page.getByRole("dialog", { name: "Вашата оферта" });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText(`Добавено: „${first.name}“`)).toBeVisible();
-  await expect(drawer.getByText(formatPrice(first.price), { exact: true }).last()).toBeVisible();
+  await expect(
+    drawer.getByText(formatPrice(first.price + (await labourIn(drawer))), { exact: true }).last(),
+  ).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
@@ -48,21 +60,22 @@ test("the basket adds up and carries over to the request page", { tag: "@critica
   const secondCard = cards.filter({ hasText: second.name }).first();
   await secondCard.getByRole("button").last().click();
   await expect(drawer).toBeVisible();
-  let expected = first.price + second.price;
-  await expect(drawer.getByText(formatPrice(expected), { exact: true })).toBeVisible();
+  let lines = first.price + second.price;
+  await expect(drawer.getByText(formatPrice(lines + (await labourIn(drawer))), { exact: true })).toBeVisible();
 
   // One more of the first product, if she owns more than one.
   const plus = drawer.getByRole("button", { name: `Увеличи броя на „${first.name}“` });
   if (await plus.isEnabled()) {
     await plus.click();
-    expected += first.price;
-    await expect(drawer.getByText(formatPrice(expected), { exact: true })).toBeVisible();
+    lines += first.price;
+    await expect(drawer.getByText(formatPrice(lines + (await labourIn(drawer))), { exact: true })).toBeVisible();
   }
 
   // Removing a line takes it off the total.
   await drawer.getByRole("button", { name: `Премахни „${second.name}“ от офертата` }).click();
-  expected -= second.price;
+  lines -= second.price;
   await expect(drawer.getByText(second.name)).toHaveCount(0);
+  const expected = lines + (await labourIn(drawer));
   await expect(drawer.getByText(formatPrice(expected), { exact: true }).last()).toBeVisible();
 
   // Over to the order summary: same line, same total, send shut until it's filled in.
