@@ -7,12 +7,16 @@ import "server-only";
 // Setup, once: a Resend account with the address below, an API key in
 // RESEND_API_KEY (Netlify env vars for the live site, .env.local for dev), and
 // ukrasivarna.com verified in Resend — which is what lets us send from our own
-// domain instead of the shared onboarding@resend.dev. Where the request lands.
+// domain instead of the shared onboarding@resend.dev. Everything goes to
+// OWNER_EMAIL, the address that account was opened with.
 const OWNER_EMAIL = "rent.arch.varna@gmail.com";
 
 // Who it comes from. No mailbox is needed at this address — Resend sends from
-// it because the domain is verified — but a customer's reply would bounce, so
-// the forms set reply_to to the customer's own address instead.
+// it because the domain is verified — but nothing can be read there either. The
+// /about contact form asks for an email and sets reply_to to it, so a reply goes
+// to the customer; a request from /request has no email field, so its email
+// carries no reply_to and a reply to it bounces — the customer is reached on the
+// phone number in the body.
 const SENDER = "Хубавото балонче <zayavki@ukrasivarna.com>";
 
 // Neither of these is ever shown on the site. The env vars are here so a dev
