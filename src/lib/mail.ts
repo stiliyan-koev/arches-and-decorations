@@ -9,7 +9,7 @@ import "server-only";
 // for dev). Until a real domain is verified in Resend, the sender has to stay
 // onboarding@resend.dev and Resend only delivers to the account's own address —
 // which is why the account has to be opened with this one.
-const OWNER_EMAIL = "emiliya.uzunova194@gmail.com";
+const OWNER_EMAIL = "rent.arch.varna@gmail.com";
 
 // Neither of these is ever shown on the site. The env vars are here so a dev
 // can send to themselves, and so the sender can move to a real address the day
