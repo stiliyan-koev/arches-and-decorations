@@ -288,7 +288,7 @@ export async function submitRequest(
     let emailed = false;
     if (allowSend(requestSends, ip)) {
       emailed = await sendOwnerEmail(
-        requestEmailSubject(payload),
+        requestEmailSubject(payload, estimatedTotal),
         await requestEmailText(supabase, payload, estimatedTotal),
       );
     }
@@ -300,13 +300,21 @@ export async function submitRequest(
   return { ok: true };
 }
 
-// „Нова заявка — Мария, 14.11.2026“. Whitespace collapsed on the whole line:
-// it goes into a mail header, and a newline in a header would split it. The
-// name is free text, and Postgres accepts a date with a newline around it.
-function requestEmailSubject(payload: RequestPayload) {
+// „Мария Иванова — 14.11.2026 — 250,00 €“: who, when and how much, so the
+// inbox list alone says what a request is worth. Whitespace collapsed on the
+// whole line: it goes into a mail header, and a newline in a header would
+// split it. The name is free text, and Postgres accepts a date with a newline
+// around it.
+function requestEmailSubject(payload: RequestPayload, estimatedTotal: number | null) {
   const who = payload.customerName.trim() || payload.phone.trim();
   const date = payload.mode === "rental" ? payload.startDate : payload.eventDate;
-  return `Нова заявка — ${who}, ${formatDate(date)}`.replace(/\s+/g, " ").trim();
+  // The same number as the body's last line, „по запитване“ items and all.
+  const hasQuote = payload.items.some(
+    (item) => typeof item.linePrice !== "number" || !Number.isFinite(item.linePrice),
+  );
+  const price =
+    estimatedTotal === null ? "(неизвестна)" : formatTotal(estimatedTotal, hasQuote);
+  return `${who} — ${formatDate(date)} — ${price}`.replace(/\s+/g, " ").trim();
 }
 
 // The request as she'd read it on the form: product and colour names, not ids.
