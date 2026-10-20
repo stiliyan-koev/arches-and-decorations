@@ -4,18 +4,21 @@ import "server-only";
 // /about contact form. Resend's REST API straight over fetch — one POST
 // doesn't need an npm package.
 //
-// Setup, once: open a Resend account *with the address below*, create an API
-// key, put it in RESEND_API_KEY (Netlify env vars for the live site, .env.local
-// for dev). Until a real domain is verified in Resend, the sender has to stay
-// onboarding@resend.dev and Resend only delivers to the account's own address —
-// which is why the account has to be opened with this one.
+// Setup, once: a Resend account with the address below, an API key in
+// RESEND_API_KEY (Netlify env vars for the live site, .env.local for dev), and
+// ukrasivarna.com verified in Resend — which is what lets us send from our own
+// domain instead of the shared onboarding@resend.dev. Where the request lands.
 const OWNER_EMAIL = "rent.arch.varna@gmail.com";
 
+// Who it comes from. No mailbox is needed at this address — Resend sends from
+// it because the domain is verified — but a customer's reply would bounce, so
+// the forms set reply_to to the customer's own address instead.
+const SENDER = "Хубавото балонче <zayavki@ukrasivarna.com>";
+
 // Neither of these is ever shown on the site. The env vars are here so a dev
-// can send to themselves, and so the sender can move to a real address the day
-// the domain is verified — without a code change.
+// can send to themselves, and so either address can move without a code change.
 const TO = process.env.CONTACT_EMAIL_TO || OWNER_EMAIL;
-const FROM = process.env.CONTACT_EMAIL_FROM || "onboarding@resend.dev";
+const FROM = process.env.CONTACT_EMAIL_FROM || SENDER;
 
 // true when Resend took the message. Never throws: the caller decides what the
 // customer gets told, and a failure here must not look like a crash.
