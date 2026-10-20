@@ -28,9 +28,10 @@ The anon key is safe in the browser because RLS (in `schema.sql`) guards the tab
 
 `RESEND_API_KEY` is what emails the owner each request sent from `/request` and makes the „Пишете ни“
 form on `/about` actually send. Without it a request is still saved, just not emailed. Open the Resend
-account **with the address in `src/lib/mail.ts`**: until a domain is verified there, the sender has
-to stay `onboarding@resend.dev` and Resend only delivers to the account's own address. Without the
-key the form still renders, but tells visitors to write on Messenger or Viber instead.
+account **with the address in `src/lib/mail.ts`**: that is where the mail is delivered. `ukrasivarna.com`
+is verified in Resend, so the sender is the address on our own domain in `src/lib/mail.ts`, not
+`onboarding@resend.dev`. Without the key the form still renders, but tells visitors to write on
+Messenger or Viber instead.
 
 ## 3. Suggested file tree
 ```
