@@ -12,8 +12,8 @@ import MiniBasket from "@/components/basket/MiniBasket";
 import { ChevronDownIcon } from "@/components/home/Icons";
 import {
   activeFilterCount,
-  buildQuery,
   BANDS,
+  catalogHref,
   EMPTY_STATE,
   hasActiveFilters,
   SORTS,
@@ -60,12 +60,12 @@ export default function CatalogView({
 
   // Keep the URL in step with the view so it survives a reload and can be shared.
   // replaceState, not push — Back should leave the catalog, not undo nine filter
-  // clicks. Everything lives on /catalog as a query string; a pretty
-  // /catalog/[category] entry (still server-rendered for SEO) canonicalises onto
-  // /catalog?cat=… here. Only writes when the URL would actually change, so it's
-  // a no-op on a matching reload and doesn't depend on effect-timing quirks.
+  // clicks. One category picked = its own page, /catalog/arches, the address
+  // search engines index; anything else is /catalog with a query string. Only
+  // writes when the URL would actually change, so it's a no-op on a matching
+  // reload and doesn't depend on effect-timing quirks.
   useEffect(() => {
-    const target = `/catalog${buildQuery(state)}`;
+    const target = catalogHref(state);
     const current = `${window.location.pathname}${window.location.search}`;
     if (target !== current) {
       window.history.replaceState(null, "", target);
@@ -84,6 +84,12 @@ export default function CatalogView({
     observer.observe(pill);
     return () => observer.disconnect();
   }, []);
+
+  // One category picked: the page is about it, so the heading says so.
+  const onlyCategory =
+    state.cats.length === 1
+      ? data.categories.find((c) => c.slug === state.cats[0])
+      : undefined;
 
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
@@ -180,9 +186,21 @@ export default function CatalogView({
             <Link href="/" className="hover:text-cta">
               Начало
             </Link>{" "}
-            · Каталог
+            ·{" "}
+            {onlyCategory ? (
+              <>
+                <Link href="/catalog" className="hover:text-cta">
+                  Каталог
+                </Link>{" "}
+                · {onlyCategory.name}
+              </>
+            ) : (
+              "Каталог"
+            )}
           </nav>
-          <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">Каталог</h1>
+          <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">
+            {onlyCategory ? onlyCategory.name : "Каталог"}
+          </h1>
           <p className="max-w-[640px] text-[0.95rem] text-muted">
             Всичко, което може да влезе в украсата ви. Изберете каквото ви
             харесва и го добавете към офертата — цената остава ориентировъчна до
@@ -203,6 +221,7 @@ export default function CatalogView({
       <div className="sticky top-14 z-30 -mx-5 mb-4 border-b border-border bg-bg/95 px-5 py-2.5 backdrop-blur lg:hidden">
         <div className="flex gap-2 overflow-x-auto">
           <PillButton
+            href={catalogHref({ ...state, cats: [] })}
             active={state.cats.length === 0}
             onClick={() => setState((s) => ({ ...s, cats: [] }))}
           >
@@ -211,6 +230,7 @@ export default function CatalogView({
           {data.categories.map((category) => (
             <PillButton
               key={category.slug}
+              href={catalogHref({ ...state, cats: [category.slug] })}
               active={
                 state.cats.length === 1 && state.cats[0] === category.slug
               }
@@ -390,27 +410,39 @@ export default function CatalogView({
   );
 }
 
+// A real link, so search engines find every category page from here; a
+// plain click filters in place instead of loading the page again.
 function PillButton({
+  href,
   active,
   onClick,
   children,
 }: {
+  href: string;
   active: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`min-h-[44px] shrink-0 rounded-full border px-4 text-[0.85rem] font-bold whitespace-nowrap transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta ${
+    <a
+      href={href}
+      aria-current={active ? "page" : undefined}
+      onClick={(event) => {
+        // Ctrl/Cmd/Shift/Alt-click keeps the browser's own behaviour (new tab,
+        // window, download).
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        onClick();
+      }}
+      className={`inline-flex min-h-[44px] shrink-0 items-center rounded-full border px-4 text-[0.85rem] font-bold whitespace-nowrap transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta ${
         active
           ? "border-cta bg-cta text-white"
           : "border-border bg-surface text-ink"
       }`}
     >
       {children}
-    </button>
+    </a>
   );
 }

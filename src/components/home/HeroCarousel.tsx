@@ -157,7 +157,10 @@ export default function HeroCarousel({ photos }: { photos: HeroPhoto[] }) {
                   src={photo.src}
                   alt={photo.alt}
                   fill
-                  priority={index === 0}
+                  // The first photo is the page's largest paint. Next 16's
+                  // `preload` no longer sets fetchpriority, so ask for it too.
+                  preload={index === 0}
+                  fetchPriority={index === 0 ? "high" : undefined}
                   draggable={false}
                   sizes="(min-width: 1024px) 400px, 300px"
                   className="object-cover"

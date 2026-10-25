@@ -1,15 +1,42 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getPublicGallery } from "@/lib/gallery-photos";
+import { isSupabaseConfigured } from "@/lib/catalog";
+import { getPublicGallery, getPublicGalleryTags } from "@/lib/gallery-photos";
 import { GALLERY_PAGE_SIZE, galleryHref, photoAlt, shownFromParam } from "@/lib/gallery";
 import GalleryGrid from "@/components/gallery/GalleryGrid";
 import GalleryFilters from "@/components/gallery/GalleryFilters";
 
-export const metadata: Metadata = {
-  title: "Галерия",
-  description:
-    "Реализирани балонни декорации и арки във Варна — рождени дни, кръщенета, сватби и тематични партита. Разгледайте по повод.",
-};
+// Each tag is a page of its own for search engines (/gallery?tag=krashtene):
+// its own title, description and canonical. ?shown= only lengthens the list,
+// so it is left out of the canonical.
+export async function generateMetadata({
+  searchParams,
+}: PageProps<"/gallery">): Promise<Metadata> {
+  const params = await searchParams;
+  const tagSlug = typeof params.tag === "string" ? params.tag : null;
+  let tag = null;
+  if (tagSlug && isSupabaseConfigured()) {
+    try {
+      tag = (await getPublicGalleryTags()).find((t) => t.slug === tagSlug) ?? null;
+    } catch {
+      // The page itself logs the error and shows its empty state.
+    }
+  }
+
+  if (!tag) {
+    return {
+      title: "Галерия",
+      description:
+        "Реализирани балонни декорации и арки във Варна — рождени дни, кръщенета, сватби и тематични партита. Разгледайте по повод.",
+      alternates: { canonical: "/gallery" },
+    };
+  }
+  return {
+    title: `${tag.name} · Галерия`,
+    description: `${tag.name}: снимки от украси с балони и арки, които сме направили във Варна. Вижте идеи и поискайте подобна украса.`,
+    alternates: { canonical: galleryHref(tag) },
+  };
+}
 
 // "1 снимка", "5 снимки".
 function photoCount(count: number) {
@@ -38,7 +65,9 @@ export default async function GalleryPage({ searchParams }: PageProps<"/gallery"
 
   return (
     <div className="mx-auto max-w-[1120px] px-5 pt-14 pb-16">
-      <h1 className="text-4xl font-bold text-ink">Галерия</h1>
+      <h1 className="text-4xl font-bold text-ink">
+        {activeTag ? `Галерия: ${activeTag.name}` : "Галерия"}
+      </h1>
       <p className="mt-3 max-w-[620px] text-muted">
         Украси, които вече сме направили. Изберете повод, за да видите само
         него, и отворете снимка, за да я разгледате на цял екран.

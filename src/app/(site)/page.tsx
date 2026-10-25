@@ -9,10 +9,17 @@ import { getHomeShowcases } from "@/lib/showcases";
 import { HOME_SHOWCASE_COUNT } from "@/lib/home";
 
 export const metadata: Metadata = {
-  title: { absolute: "Хубавото балонче — празнични украси във Варна" },
+  title: { absolute: "Украса с балони и арки във Варна · Хубавото балонче" },
   description:
     "Балонни украси и арки за рождени дни, кръщенета и партита във Варна. Разгледай каталога и виж ориентировъчна цена.",
+  alternates: { canonical: "/" },
 };
+
+// Served from the CDN and rebuilt at most every 5 minutes. Admin writes refresh
+// it straight away (revalidatePath in admin/actions.ts). The short window also
+// means a database hiccup that showed the placeholder tiles heals within
+// minutes. Works because the reads below use the cookie-free client.
+export const revalidate = 300;
 
 // The homepage: photos of finished work, a call to open the catalog, and three
 // finished decorations up close (the showcases from /admin/showcases). Until
@@ -38,10 +45,13 @@ export default async function HomePage() {
         <FloatingBalloons />
 
         <div className="relative z-10 mx-auto flex max-w-[1140px] flex-col items-center px-5 pt-8 pb-11 text-center md:pt-16 md:pb-20">
-          <span className="text-xs font-extrabold tracking-[0.14em] text-cta uppercase md:text-[13px]">
-            Празнични украси · Варна
-          </span>
-          <h1 className="mt-3 max-w-[900px] text-[32px] md:mt-3.5 md:text-[52px]">
+          {/* The small eyebrow is the h1: it names the service and the city,
+              which is what people search for. The big line under it is the
+              call to action, styled like a heading but not one. */}
+          <h1 className="font-body text-xs leading-normal font-extrabold tracking-[0.14em] text-cta uppercase md:text-[13px]">
+            Украса с балони и арки във Варна
+          </h1>
+          <p className="mt-3 max-w-[900px] font-display text-[32px] leading-[1.12] font-semibold tracking-[-0.01em] text-balance md:mt-3.5 md:text-[52px]">
             Изчисли своята{" "}
             <span
               className="px-1 md:px-1.5"
@@ -88,7 +98,7 @@ export default async function HomePage() {
                 />
               </svg>
             </Link>
-          </h1>
+          </p>
           <p className="mt-3.5 max-w-[620px] text-[17px] text-muted md:mt-[18px] md:text-xl">
             Разгледай каталога, добави арките, балоните и фигурките, които
             харесваш, и виж ориентировъчна цена за целия декор.

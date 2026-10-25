@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { imageUrl } from "@/lib/images";
@@ -83,6 +84,13 @@ export async function getGalleryPhotos(options: {
   };
 }
 
+// The tags that have photos, for the public page, its title and the sitemap.
+// Once per request (cache), so the page's metadata doesn't read them twice.
+// Throws on a database error.
+export const getPublicGalleryTags = cache(async () =>
+  (await getGalleryTags()).filter((tag) => tag.count > 0),
+);
+
 // The public page: the tags that have photos, the one picked (if the slug
 // matches one), and a page of photos. Empty until there is a database with
 // the gallery tables, so the page shows its "no photos yet" state instead of
@@ -98,7 +106,7 @@ export async function getPublicGallery(tagSlug: string | null, limit: number) {
   if (!isSupabaseConfigured()) return empty;
 
   try {
-    const tags = (await getGalleryTags()).filter((tag) => tag.count > 0);
+    const tags = await getPublicGalleryTags();
     const activeTag = tags.find((tag) => tag.slug === tagSlug) ?? null;
     const { photos, total, hasMore } = await getGalleryPhotos({
       tagId: activeTag?.id ?? null,
