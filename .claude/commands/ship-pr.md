@@ -1,5 +1,5 @@
 ---
-description: Ship your current changes as a PR, get it reviewed by 3 agents, fix up to 2 rounds, then approve. You merge.
+description: Ship your current changes as a PR, get it reviewed by 4 agents, fix up to 2 rounds, then approve. You merge.
 argument-hint: "[X.Y.Z] [short title]   — both optional; version defaults to the latest release/*, title is written from the diff"
 ---
 You are the Tech Lead. The owner wrote these changes. Your job: package them as a PR, get them
@@ -10,15 +10,17 @@ If `gh` is not found in PowerShell: `$env:Path += ";C:\Program Files\GitHub CLI"
 
 ## Hard limits (these are what stop infinite loops — never raise them)
 
-- **8 agent calls per run**, retries included. Print `[BUDGET] agents N/8` on every status line.
+- **10 agent calls per run**, retries included. Print `[BUDGET] agents N/10` on every status line.
   Out of budget -> post what you have with verdict CHANGES REQUESTED, list what is open, stop.
+  (Worst case: 4 reviewers + developer + 3 re-reviews + developer = 9, leaving one retry.
+  `seo-reviewer` never re-reviews — that is what holds this at 10 instead of 11.)
 - **2 fix rounds maximum.** Print `[ROUND K/2]`. There is no round 3, ever.
 - **Stay on this PR.** Only `git`, `gh`, `npm` about these changes. If you catch yourself
   investigating Claude Code, permission rules or git internals: stop, tell the owner in one line.
 - **An agent that fails** is retried ONCE. Fails again -> continue without it, say so.
 - **Reviewers get the diff inline** and at most 6 tool calls. The developer gets at most 15.
 
-Status line format: `[LEAD] step 3 · [ROUND 1/2] · [BUDGET] agents 4/8 · <what is happening>`.
+Status line format: `[LEAD] step 3 · [ROUND 1/2] · [BUDGET] agents 4/10 · <what is happening>`.
 Agent task labels start with the role: `developer: fix round 1`, `security: review r1`.
 
 ## 1. Package the changes
@@ -42,16 +44,26 @@ Agent task labels start with the role: `developer: fix round 1`, `security: revi
 3. If the current branch is `main`, `release/*` or `agentic/*`, create one: `git switch -c feat/<short-slug>`.
 4. Size check: `git diff --stat` (plus untracked). Over ~1500 lines -> tell the owner the review
    will be shallow and suggest splitting; continue only if he says so.
-5. `npm run build` and `npm run lint`. Failing -> STOP, show the error. Do not fix it yourself.
+5. `npm run build`, `npm run lint` and `npm run seo-check`. Any of them failing -> STOP, show the
+   error. Do not fix it yourself. `seo-check` is static and deterministic, so exit 1 is a real
+   regression (a route with no canonical, a noindex leak, a page nothing links to), never an
+   opinion. **Keep its output** — step 2 hands it to `seo-reviewer`. These are your own calls, not
+   agent calls: they cost nothing from the budget above.
 6. Commit (title from `$ARGUMENTS` minus the version, or a short conventional title you write), push
    `git push -u origin <branch>`, open `gh pr create --base <BASE> --title ... --body ...`.
    Body: 3-5 lines on what changed, the file list, "Checks: build OK, lint OK".
 
 ## 2. Review round 1 (full PR)
 
-`gh pr diff <N>` ONCE. Start all three in parallel, one message, each with the diff INLINE,
+`gh pr diff <N>` ONCE. Start them in parallel, one message, each with the diff INLINE,
 the PR title/body, "standalone PR, no chunk row", and "at most 6 tool calls":
-`logic-reviewer`, `security-reviewer`, `performance-reviewer`.
+`logic-reviewer`, `security-reviewer`, `performance-reviewer`, `seo-reviewer`.
+
+`seo-reviewer` additionally gets the `seo-check` output from step 1 pasted into its task, with
+"the deterministic checks already ran — judge the content side only, never repeat their findings".
+**Skip `seo-reviewer`** when the diff touches nothing under `src/app/`, `src/components/`,
+`robots.ts` or `sitemap.ts`: a PR that only changes `src/lib/`, SQL or config has nothing for it
+to look at, and a spawned agent that reports NO FINDINGS still costs a budget call.
 
 Each posts its own findings on the PR only if it has any.
 
@@ -71,7 +83,8 @@ Verdict: APPROVED | CHANGES REQUESTED
 ### NICE
 1. ...
 
-Reviewers: logic N, security N, performance N · M dropped
+Reviewers: logic N, security N, performance N, seo N · M dropped
+seo-check: PASS | WARN | FAIL
 ```
 
 APPROVED -> step 6.
@@ -93,12 +106,15 @@ DISAGREE -> you decide in one line: accept the reason (drop it) or keep it as MU
 - **After fix round 1:** re-run ONLY the reviewers that had a MUST in round 1, each with the
   fix diff inline and the list of its own MUSTs. Their job: "is each MUST resolved, and did the
   fix break anything?" Nothing else. No new NICE items.
+  **Never re-run `seo-reviewer`.** Re-run `npm run seo-check` instead — it is free and it answers
+  "did the canonical get added, is the route linked now" better than an agent would. For its
+  judgment items (H1 wording, thin copy), one file read from your step 3 allowance settles it.
   Then back to step 3 as round 2.
 - **After fix round 2:** do NOT run reviewers. Read the fix diff yourself and check CI.
 
 ## 6. Verdict
 
-Only APPROVED when ALL are true: no open MUST, `gh pr checks <N>` green.
+Only APPROVED when ALL are true: no open MUST, `gh pr checks <N>` green, `seo-check` not FAIL.
 
 - APPROVED -> post `## Lead verdict: APPROVED — ready for the owner to merge.`
 - Still open after round 2:
@@ -117,5 +133,7 @@ or `No manual steps.`
 
 - Never merge. Never push to `main` or `release/*`. Never force-push. Never tag.
 - Never write code yourself — fixes go through `developer`.
-- Never run a 3rd fix round, never exceed 8 agent calls, never re-review the whole PR in round 2.
+- Never run a 3rd fix round, never exceed 10 agent calls, never re-review the whole PR in round 2.
+- Never re-run `seo-reviewer` in a re-review. Never add a 5th reviewer without redoing the
+  budget arithmetic above — 10 is derived from 4 reviewers, not a round number.
 - Never let `developer` commit `.claude/commands/` or `.claude/agents/` unless the PR is about them.
