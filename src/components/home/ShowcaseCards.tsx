@@ -5,19 +5,12 @@ import type { MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRightIcon, ArrowUpRightIcon } from "@/components/home/Icons";
+import { showcaseParagraphs } from "@/lib/home";
 import type { HomeShowcase } from "@/lib/showcases";
 
 // The popup's height on wider screens. The box that scrolls inside it needs
 // the same cap, so it is written once.
 const DESKTOP_MAX_HEIGHT = "md:max-h-[calc(100dvh-4rem)]";
-
-// The text is plain: a blank line starts a new paragraph.
-function paragraphs(body: string) {
-  return body
-    .split(/\n\s*\n/)
-    .map((text) => text.trim())
-    .filter(Boolean);
-}
 
 // „Вдъхнови се“: three finished decorations from /admin/showcases.
 // Each card opens a popup with its text and every photo, whole. Same place
@@ -180,7 +173,7 @@ function ShowcaseCard({ showcase }: { showcase: HomeShowcase }) {
             <h2 id={titleId} className="text-[26px] md:text-[32px]">
               {showcase.title}
             </h2>
-            {paragraphs(showcase.body).map((text, index) => (
+            {showcaseParagraphs(showcase.body).map((text, index) => (
               <p key={index} className="mt-3 text-base leading-relaxed whitespace-pre-line md:text-[17px]">
                 {text}
               </p>
@@ -202,6 +195,26 @@ function ShowcaseCard({ showcase }: { showcase: HomeShowcase }) {
                 />
               ))}
             </div>
+
+            {/* Its own page: a real link, so search engines find the story
+                (they don't open popups), and an address to share.
+                It replaces the popup's history entry, so Back from the page returns to the homepage in one step. */}
+            {showcase.slug && (
+              <Link
+                href={`/showcases/${showcase.slug}`}
+                replace
+                onClick={(event) => {
+                  // A plain click leaves through this link; a modified one opens a new
+                  // tab and the popup stays open here, so it must still clean up on close.
+                  if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+                    closedByBack.current = true;
+                  }
+                }}
+                className="mt-6 inline-flex items-center gap-2 border-b-2 border-balloon-pink py-2 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta"
+              >
+                Отвори като страница <ArrowRightIcon size={18} />
+              </Link>
+            )}
           </div>
         </div>
       </dialog>
