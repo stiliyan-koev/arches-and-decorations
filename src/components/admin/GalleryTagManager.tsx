@@ -119,9 +119,11 @@ function TagRow({
 }) {
   const [name, setName] = useState(tag.name);
   const [description, setDescription] = useState(tag.description);
+  // The server collapses spaces and line breaks, so compare the same way.
   const changed =
     name.trim() !== "" &&
-    (name.trim() !== tag.name || description.trim() !== tag.description);
+    (name.trim() !== tag.name ||
+      description.replace(/\s+/g, " ").trim() !== tag.description);
 
   return (
     <li className="rounded-item border border-border bg-bg px-2 py-1.5">

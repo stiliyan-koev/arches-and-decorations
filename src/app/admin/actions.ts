@@ -1297,6 +1297,7 @@ export async function saveGalleryTag(
   if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const tag = cleanTagName(name);
   if (!tag) return { ok: false, error: "Напишете име на етикета." };
+  if (typeof description !== "string") return { ok: false, error: "Невалиден текст." };
   // One paragraph: line breaks and runs of spaces become single spaces.
   const text = description.replace(/\s+/g, " ").trim();
   if (text.length > TAG_DESCRIPTION_MAX) {
