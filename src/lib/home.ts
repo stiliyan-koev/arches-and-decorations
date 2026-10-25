@@ -16,6 +16,15 @@ export const SHOWCASE_BODY_MAX = 1500;
 export const SHOWCASE_MAX_PHOTOS = 12;
 export const HOME_SHOWCASE_COUNT = 3;
 
+// A showcase's text is plain: a blank line starts a new paragraph. Shared by
+// the homepage popup and the showcase's own page.
+export function showcaseParagraphs(body: string) {
+  return body
+    .split(/\n\s*\n/)
+    .map((text) => text.trim())
+    .filter(Boolean);
+}
+
 export type HeroPhoto = {
   id: string;
   src: string | null; // full image URL, or null for a placeholder tile

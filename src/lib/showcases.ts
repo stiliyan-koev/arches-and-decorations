@@ -25,6 +25,7 @@ export type ShowcaseRow = {
   title: string;
   body: string;
   sort: number;
+  slug: string | null; // its page, /ukrasi/<slug>; null until migration-showcase-slug.sql
   showcase_photos: ShowcasePhotoRow[];
 };
 
@@ -33,10 +34,11 @@ export type HomeShowcase = {
   id: string;
   title: string;
   body: string;
+  slug: string | null; // its own page, /ukrasi/<slug>
   photos: string[]; // full image URLs, in order; the first is the cover
 };
 
-const COLUMNS = "id, title, body, sort, showcase_photos(id, photo_id, sort, photo:photos(path))";
+const COLUMNS = "id, title, body, sort, slug, showcase_photos(id, photo_id, sort, photo:photos(path))";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -94,10 +96,46 @@ export async function getHomeShowcases(): Promise<HomeShowcase[]> {
   return rows
     .filter((row) => row.showcase_photos.length > 0)
     .slice(0, HOME_SHOWCASE_COUNT)
-    .map((row) => ({
-      id: row.id,
-      title: row.title,
-      body: row.body,
-      photos: row.showcase_photos.map((photo) => imageUrl(photo.photo.path)),
-    }));
+    .map(toHomeShowcase);
+}
+
+function toHomeShowcase(row: ShowcaseRow): HomeShowcase {
+  return {
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    slug: row.slug,
+    photos: row.showcase_photos.map((photo) => imageUrl(photo.photo.path)),
+  };
+}
+
+// One showcase for its own page, /ukrasi/<slug>, or null when there is no
+// such slug or it has no photo yet (a page without photos isn't worth
+// showing). Null on a database error too: the page then says "not found".
+export async function getShowcaseBySlug(slug: string): Promise<HomeShowcase | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  const { data, error } = await createPublicClient()
+    .from("showcases")
+    .select(COLUMNS)
+    .eq("slug", slug)
+    .order("sort", { referencedTable: "showcase_photos" })
+    .order("id", { referencedTable: "showcase_photos" })
+    .maybeSingle();
+  if (error) {
+    console.error("getShowcaseBySlug: showing not found", error);
+    return null;
+  }
+  const row = data as unknown as ShowcaseRow | null;
+  if (!row || row.showcase_photos.length === 0) return null;
+  return toHomeShowcase(row);
+}
+
+// The addresses of every showcase page, for the sitemap: those with a slug
+// and at least one photo. Throws on a database error.
+export async function getShowcaseSlugs(): Promise<string[]> {
+  const rows = await readShowcaseRows(createPublicClient());
+  return rows
+    .filter((row) => row.slug && row.showcase_photos.length > 0)
+    .map((row) => row.slug as string);
 }

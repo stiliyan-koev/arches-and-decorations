@@ -845,6 +845,16 @@ export async function removeHeroPhoto(id: string): Promise<ActionResult> {
 
 const SHOWCASE_NOT_FOUND = "Украсата не е намерена.";
 
+// The slug of a new showcase's page, /ukrasi/<slug>: its title in Latin
+// letters, plus a bit of its id when another showcase has that already. Made
+// once, when the showcase is created; editing the title later keeps it, so
+// links that are out there keep working.
+async function newShowcaseSlug(supabase: Supabase, title: string, id: string) {
+  const base = slugify(title) || id.slice(0, 8);
+  const { data } = await supabase.from("showcases").select("id").eq("slug", base).limit(1);
+  return data && data.length > 0 ? `${base}-${id.slice(0, 4)}` : base;
+}
+
 // Creates (id null) or updates a showcase. A new one goes to the end of the
 // list. Returns the id, so the new-showcase form can open its edit page.
 export async function saveShowcase(
@@ -893,6 +903,7 @@ export async function saveShowcase(
     id: newId,
     title,
     body,
+    slug: await newShowcaseSlug(supabase, title, newId),
     sort: (lastRow?.sort ?? 0) + 1,
   });
   if (error) return { ok: false, error: error.message };

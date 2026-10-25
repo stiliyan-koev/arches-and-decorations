@@ -3,6 +3,7 @@ import { getCatalog, isSupabaseConfigured } from "@/lib/catalog";
 import { FALLBACK_GROUPS } from "@/lib/catalog-fallback";
 import { toPlpData } from "@/lib/catalog-plp";
 import { getPublicGalleryTags } from "@/lib/gallery-photos";
+import { getShowcaseSlugs } from "@/lib/showcases";
 import { galleryHref } from "@/lib/gallery";
 import { SITE_URL } from "@/lib/site";
 
@@ -22,15 +23,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     : toPlpData(groups).categories.map((category) => `/catalog/${category.slug}`);
 
   let tags: string[] = [];
+  let showcases: string[] = [];
   if (isSupabaseConfigured()) {
     try {
       tags = (await getPublicGalleryTags()).map((tag) => galleryHref(tag));
     } catch (error) {
       console.error("sitemap: leaving out the gallery tags", error);
     }
+    try {
+      showcases = (await getShowcaseSlugs()).map((slug) => `/ukrasi/${slug}`);
+    } catch (error) {
+      console.error("sitemap: leaving out the showcases", error);
+    }
   }
 
-  return [...pages, ...categories, ...tags].map((path) => ({
+  return [...pages, ...categories, ...tags, ...showcases].map((path) => ({
     url: `${SITE_URL}${path === "/" ? "" : path}`,
   }));
 }
