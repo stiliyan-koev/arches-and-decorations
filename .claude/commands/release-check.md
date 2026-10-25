@@ -1,5 +1,5 @@
 ---
-description: Test a whole release branch before you merge it into main. Build, lint, smoke, 3 reviewers on the full diff, one GO / NO-GO report. Changes nothing.
+description: Test a whole release branch before you merge it into main. Build, lint, seo-check, smoke, 4 reviewers on the full diff, one GO / NO-GO report. Changes nothing.
 argument-hint: "[branch]   — default: the current branch"
 ---
 You are the Tech Lead checking ONE release branch before the owner merges it into `main`.
@@ -10,10 +10,12 @@ If `gh` is not found in PowerShell: `$env:Path += ";C:\Program Files\GitHub CLI"
 
 ## Hard limits (never raise them)
 
-- **12 tool calls total for you** (agent calls count). Print `[N/12]` in front of each. At 12, report what you have.
-  Spend them like this: 1 call for step 1, 1 for step 2, up to 4 agents + lint in step 3,
-  at most 4 file reads in step 4, 1 to list `tests/smoke/` in step 5.
-- **At most 4 agents**: `qa`, `logic-reviewer`, `security-reviewer`, `performance-reviewer`. One run each. Never `developer`.
+- **13 tool calls total for you** (agent calls count). Print `[N/13]` in front of each. At 13, report what you have.
+  Spend them like this: 1 call for step 1, 1 for step 2 (`seo-check` chains into it, so it is
+  still one call), up to 5 agents + lint in step 3, at most 4 file reads in step 4,
+  1 to list `tests/smoke/` in step 5. That is 1+1+6+4+1 = 13.
+- **At most 5 agents**: `qa`, `logic-reviewer`, `security-reviewer`, `performance-reviewer`,
+  `seo-reviewer`. One run each. Never `developer`.
 - **Read-only.** No file edits, no commits, no pushes, no PR comments. The database is the live one:
   nobody presses „Изпрати запитване“, nobody logs into the admin, nobody writes data.
 - A command that fails twice: report it, don't research why.
@@ -31,7 +33,11 @@ Remember the branch you started on, and tell the owner at the end if you switche
 ## 2. Size it up
 
 One call, chained with `;`:
-`git fetch origin; git switch <branch>; git pull --ff-only; git rev-parse --short HEAD; git diff --stat origin/main...HEAD; git diff origin/main...HEAD -G"process\.env\." --stat`
+`git fetch origin; git switch <branch>; git pull --ff-only; git rev-parse --short HEAD; git diff --stat origin/main...HEAD; git diff origin/main...HEAD -G"process\.env\." --stat; npm run seo-check`
+
+`seo-check` runs last in the same call so it costs nothing extra and its output is in hand before
+step 3 starts. It is static and deterministic — exit 1 is a real regression, never an opinion.
+Keep the output: step 3 pastes it into `seo-reviewer`.
 
 `git switch` does nothing if you are already on the branch. The switch or the pull failed -> STOP
 and report it. No changes in the first stat -> STOP: "Same as main."
@@ -53,6 +59,8 @@ Start these in ONE message so they run in parallel:
 **`logic-reviewer`** — always.
 **`security-reviewer`** — whenever the diff touches `src/`, `*.sql`, `next.config.*` or `package.json`.
 **`performance-reviewer`** — same rule as `security-reviewer`.
+**`seo-reviewer`** — whenever the diff touches `src/app/`, `src/components/`, `robots.ts` or
+`sitemap.ts`. Skip it for a release that only changes `src/lib/`, SQL or config.
 File names can't show `"use server"`, `"use client"` or a query, so don't guess from them.
 
 Give each reviewer this prompt (fill in the branch):
@@ -69,7 +77,11 @@ Give each reviewer this prompt (fill in the branch):
 > Answer in `MUST|NICE — file:line — problem — fix`. End with `Not read: <files>` for every
 > changed file you did not read. At most 10 tool calls.
 
-While they run, you run `npm run lint` yourself (`qa` only builds).
+`seo-reviewer` gets the same prompt plus the `seo-check` output from step 2, and the line
+"the deterministic checks already ran — judge the content side only, never repeat their findings".
+
+While they run, you run `npm run lint` yourself (`qa` only builds). `seo-check` already ran in
+step 2; do not run it again.
 
 ## 4. Filter
 
@@ -96,7 +108,8 @@ Print this to the owner. Post it nowhere.
 ## Release check — <branch> @ <sha>  (N files, +N −N vs main)
 Verdict: GO | NO-GO
 
-Build: ok | FAILED      Lint: ok | N errors      Smoke: GREEN | RED | BLOCKED (N passed, N red)
+Build: ok | FAILED      Lint: ok | N errors      SEO: PASS | WARN | FAIL (N blocking)
+Smoke: GREEN | RED | BLOCKED (N passed, N red)
 
 ### MUST fix before merge
 1. path:line — problem — fix          (or the smoke line: BLOCKER — tests/smoke/<file> — ...)
@@ -121,14 +134,15 @@ Build: ok | FAILED      Lint: ok | N errors      Smoke: GREEN | RED | BLOCKED (N
 
 Row 3 only when the version is actually wrong — drop it when it matches.
 
-**NO-GO** when any of these is true: the build fails, lint has errors, smoke has a `BLOCKER` or
-`CRITICAL` finding, or one MUST is left ("(unconfirmed)" ones too). Smoke `BLOCKED` (specs couldn't run) is also
-NO-GO: nobody looked at the site. Otherwise **GO**. `MINOR` smoke findings and NICEs don't block.
+**NO-GO** when any of these is true: the build fails, lint has errors, `seo-check` is FAIL, smoke
+has a `BLOCKER` or `CRITICAL` finding, or one MUST is left ("(unconfirmed)" ones too). Smoke
+`BLOCKED` (specs couldn't run) is also NO-GO: nobody looked at the site. Otherwise **GO**.
+`MINOR` smoke findings, `seo-check` WARNs and NICEs don't block.
 
 The `### Next step` line is one of these:
 - NO-GO from a smoke `BLOCKER` or `CRITICAL` -> `/smoke-fix`, then `/ship-pr` into the release branch, then `/release-check` again.
 - Smoke `BLOCKED` -> fix the setup that `qa`'s `CANNOT RUN` line names, then `/release-check` again.
-- Build failed or lint errors -> fix, `/ship-pr`, `/release-check` again.
+- Build failed, lint errors or `seo-check` FAIL -> fix, `/ship-pr`, `/release-check` again.
 - NO-GO from a MUST -> fix it, `/ship-pr`, `/release-check` again.
 - GO -> "Do the follow-up actions, click through the preview, then merge (normal merge, not squash) and tag."
 
@@ -142,4 +156,5 @@ there is nothing.
 - Never fix, edit, commit, push, comment on a PR, merge or tag.
 - Never start `developer`. Never run an agent twice. Never re-run smoke "until it's green".
 - Never write to the database or submit a form. Never read or print `.env.local`.
-- Never raise the limits above.
+- Never raise the limits above. 13 is derived from 5 agents + lint + 7 own calls, not a round
+  number — a 6th agent means redoing that arithmetic, not bumping it by one.
