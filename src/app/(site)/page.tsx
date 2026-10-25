@@ -4,6 +4,8 @@ import FloatingBalloons from "@/components/FloatingBalloons";
 import HeroCarousel from "@/components/home/HeroCarousel";
 import OccasionCards from "@/components/home/OccasionCards";
 import ShowcaseCards from "@/components/home/ShowcaseCards";
+import Faq from "@/components/Faq";
+import { ArrowRightIcon } from "@/components/home/Icons";
 import { getHeroPhotos } from "@/lib/hero-photos";
 import { getHomeShowcases } from "@/lib/showcases";
 import { HOME_SHOWCASE_COUNT } from "@/lib/home";
@@ -120,6 +122,38 @@ export default async function HomePage() {
           )}
         </div>
       </div>
+
+      {/* The FAQ, the same component as on /faq, which the link opens. */}
+      <section className="mx-auto max-w-[1140px] px-5 pb-14 md:pb-24">
+        <div className="flex items-end justify-between gap-6">
+          <div>
+            <span className="text-xs font-extrabold tracking-[0.14em] text-cta uppercase md:text-[13px]">
+              Въпроси
+            </span>
+            <h2 className="mt-2 text-[26px] md:mt-2.5 md:text-[40px]">
+              Често задавани въпроси
+            </h2>
+          </div>
+          <Link
+            href="/faq"
+            className="hidden items-center gap-2 border-b-2 border-balloon-pink py-2.5 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta md:inline-flex"
+          >
+            Към страницата с въпроси <ArrowRightIcon size={18} />
+          </Link>
+        </div>
+        <Faq
+          groupHeading="h3"
+          className="mt-6 space-y-8 md:mt-9 md:grid md:grid-cols-2 md:gap-x-10 md:gap-y-10 md:space-y-0"
+        />
+        <div className="mt-6 flex justify-center md:hidden">
+          <Link
+            href="/faq"
+            className="inline-flex h-12 items-center rounded-full border-[1.5px] border-ink px-6 text-[15px] font-extrabold text-ink"
+          >
+            Към страницата с въпроси
+          </Link>
+        </div>
+      </section>
     </>
   );
 }
