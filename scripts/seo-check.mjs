@@ -28,8 +28,16 @@ const AS_JSON = process.argv.includes("--json");
 
 /** Routes that are intentionally kept out of search. Not findings. */
 const INTENTIONAL_NOINDEX = new Set(["/request", "/configurator"]);
-/** Trees that are private and never get SEO checks at all. */
+/** Trees that are private and never get SEO checks at all. Their links don't
+ * count as inbound links either: a crawler never sees an /admin page. */
 const PRIVATE_SEGMENTS = new Set(["admin", "api"]);
+/** Link helpers whose output the href scan can't read. For each one, the
+ * links it can build, written the way a literal href would be. Add a helper
+ * here when a public page starts linking through it. */
+const LINK_HELPERS = {
+  catalogHref: ["/catalog", "/catalog/${slug}"],
+  galleryHref: ["/gallery", "/gallery?tag=${slug}"],
+};
 
 const findings = [];
 const add = (sev, route, problem, fix) =>
@@ -87,8 +95,9 @@ function routeOf(pageFile) {
   return "/" + segs.join("/");
 }
 
-const isPrivate = (pageFile) =>
-  relative(APP, pageFile)
+/** True for any file under an admin/ or api/ folder in src/. */
+const isPrivate = (file) =>
+  relative(SRC, file)
     .split(sep)
     .some((s) => PRIVATE_SEGMENTS.has(s));
 
@@ -116,6 +125,7 @@ const sitemapSrc = stripComments(read(join(APP, "sitemap.ts")));
 const robotsSrc = stripComments(read(join(APP, "robots.ts")));
 const allSrc = walk(SRC).filter((p) => /\.(tsx?|jsx?)$/.test(p));
 const srcBlob = allSrc.map(read).join("\n");
+const publicSrcBlob = allSrc.filter((p) => !isPrivate(p)).map(read).join("\n");
 
 // ─── global invariants ────────────────────────────────────────────────────
 
@@ -269,9 +279,17 @@ for (const { route, file, body } of routes) {
 // A route that builds fine, renders fine, and has no inbound link is
 // invisible. Every other check passes on it. This is the one that matters.
 
+// Links are read from public files only, so a link on an /admin page doesn't
+// rescue an orphan.
 const hrefs = new Set();
-for (const m of srcBlob.matchAll(/href=\{?["'`]([^"'`}\s]+)/g)) hrefs.add(m[1]);
-for (const m of srcBlob.matchAll(/href=\{`([^`]+)`/g)) hrefs.add(m[1]);
+for (const m of publicSrcBlob.matchAll(/href=\{?["'`]([^"'`}\s]+)/g)) hrefs.add(m[1]);
+for (const m of publicSrcBlob.matchAll(/href=\{`([^`]+)`/g)) hrefs.add(m[1]);
+// href={catalogHref(...)} builds its URL at runtime; count what it can build.
+for (const [helper, links] of Object.entries(LINK_HELPERS)) {
+  if (new RegExp(`href=\\{${helper}\\(`).test(publicSrcBlob)) {
+    for (const link of links) hrefs.add(link);
+  }
+}
 
 for (const { route } of routes) {
   if (route === "/" || INTENTIONAL_NOINDEX.has(route)) continue;
