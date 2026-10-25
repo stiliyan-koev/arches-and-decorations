@@ -18,8 +18,10 @@ export async function generateMetadata({
   if (!match) return { title: "Каталог" };
 
   return {
-    title: match.name,
-    description: `${match.name} под наем във Варна — разгледайте наличните продукти, филтрирайте по цвят и цена и добавете към офертата.`,
+    title: `${match.name} във Варна`,
+    description: `${match.name} за празници във Варна — разгледайте наличните продукти с ориентировъчни цени, филтрирайте по цвят и добавете към офертата.`,
+    // Filters and sort only reorder this list, so every variant points here.
+    alternates: { canonical: `/catalog/${category}` },
   };
 }
 

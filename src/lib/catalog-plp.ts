@@ -471,3 +471,13 @@ export function buildQuery(state: FilterState) {
   const s = q.toString();
   return s ? `?${s}` : "";
 }
+
+// The address of a view. Exactly one category = its own page,
+// /catalog/arches, which is the URL search engines index for it; everything
+// else is /catalog plus the query string.
+export function catalogHref(state: FilterState) {
+  if (state.cats.length === 1) {
+    return `/catalog/${state.cats[0]}${buildQuery({ ...state, cats: [] })}`;
+  }
+  return `/catalog${buildQuery(state)}`;
+}

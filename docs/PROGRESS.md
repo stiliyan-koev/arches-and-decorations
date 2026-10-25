@@ -231,7 +231,10 @@ SEO and deploy are still open.
       `gallery_photos`, `gallery_tags`, `gallery_photo_tags`; files in `catalog` → `gallery/`
 - [x] `migration-gallery.sql` run on the live DB
 - [ ] Gallery photos uploaded **(her)**
-- [ ] SEO meta + Open Graph (link previews for Instagram/Facebook)
+- [x] SEO foundation: robots.txt, sitemap.xml (categories + gallery tags from the DB),
+      canonicals, Open Graph share picture, LocalBusiness JSON-LD, per-category and
+      per-tag titles/H1s, crawlable category links, cached homepage
+- [ ] SEO content: occasion pages, price guide, FAQ (needs her text and photos)
 - [ ] Responsive pass on a real phone
 - [ ] Push to GitHub → import to Netlify → add the two env vars → deploy
 - [ ] Point the domain at Netlify

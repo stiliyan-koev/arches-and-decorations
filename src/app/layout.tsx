@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Unbounded, Nunito, Playfair_Display } from "next/font/google";
+import { CONTACTS } from "@/lib/contacts";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 // Cyrillic subset is required — without it Bulgarian text renders as tofu boxes.
@@ -24,6 +26,15 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  // Turns the relative canonical links and the share picture into full URLs.
+  metadataBase: new URL(SITE_URL),
+  // The share picture itself is opengraph-image.tsx next to this file.
+  openGraph: {
+    type: "website",
+    locale: "bg_BG",
+    siteName: CONTACTS.brand,
+  },
+  twitter: { card: "summary_large_image" },
   title: {
     default: "Хубавото балонче — празнични украси във Варна",
     template: "%s · Хубавото балонче",

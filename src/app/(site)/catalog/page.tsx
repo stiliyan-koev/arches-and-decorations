@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   title: "Каталог",
   description:
     "Балонни декорации, арки, калъфи, фигурки и аксесоари под наем във Варна. Разгледайте каталога, филтрирайте по цвят и цена и добавете към офертата.",
+  // ?cat=, ?color=, ?sort= … are views of this one list.
+  alternates: { canonical: "/catalog" },
 };
 
 // The catalog listing (PLP). Server-rendered from the DB for SEO; the initial

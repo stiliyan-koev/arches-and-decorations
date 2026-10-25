@@ -1,4 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { imageUrl } from "@/lib/images";
 import { HOME_SHOWCASE_COUNT } from "@/lib/home";
@@ -42,7 +44,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 // Throws on a database error: the admin page should say so rather than show
 // an empty list.
 export async function getShowcaseRows(): Promise<ShowcaseRow[]> {
-  const supabase = await createClient();
+  return readShowcaseRows(await createClient());
+}
+
+// The query itself. The homepage passes the cookie-free client, so it can be
+// cached; the admin passes the session one.
+async function readShowcaseRows(supabase: SupabaseClient): Promise<ShowcaseRow[]> {
   const { data, error } = await supabase
     .from("showcases")
     .select(COLUMNS)
@@ -78,7 +85,7 @@ export async function getHomeShowcases(): Promise<HomeShowcase[]> {
 
   let rows: ShowcaseRow[];
   try {
-    rows = await getShowcaseRows();
+    rows = await readShowcaseRows(createPublicClient());
   } catch (error) {
     console.error("getHomeShowcases: showing the occasion cards instead", error);
     return [];

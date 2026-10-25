@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "За нас",
   description:
     "Кои сме ние и как работим — балонни декорации и арки под наем във Варна. Пишете ни по Messenger, Viber или през формата за контакт.",
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {

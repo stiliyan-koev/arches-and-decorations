@@ -1,4 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { imageUrl } from "@/lib/images";
 import { HERO_PLACEHOLDERS } from "@/lib/home";
@@ -20,7 +22,12 @@ export type HeroPhotoRow = {
 // Every hero photo row, in the order she set. Throws on a database error:
 // the admin page should say so rather than show an empty list.
 export async function getHeroPhotoRows(): Promise<HeroPhotoRow[]> {
-  const supabase = await createClient();
+  return readHeroPhotoRows(await createClient());
+}
+
+// The query itself. The homepage passes the cookie-free client, so it can be
+// cached; the admin passes the session one.
+async function readHeroPhotoRows(supabase: SupabaseClient): Promise<HeroPhotoRow[]> {
   const { data, error } = await supabase
     .from("hero_photos")
     .select("id, photo_id, path, crop, caption, sort, photo:photos(path, has_original)")
@@ -37,17 +44,19 @@ export async function getHeroPhotos(): Promise<HeroPhoto[]> {
 
   let rows: HeroPhotoRow[];
   try {
-    rows = await getHeroPhotoRows();
+    rows = await readHeroPhotoRows(createPublicClient());
   } catch (error) {
     console.error("getHeroPhotos: using the placeholder tiles", error);
     return HERO_PLACEHOLDERS;
   }
   if (rows.length === 0) return HERO_PLACEHOLDERS;
 
-  return rows.map((row) => ({
+  // Without a caption the alt still has to differ from photo to photo, or
+  // search engines read them as one image.
+  return rows.map((row, index) => ({
     id: row.id,
     src: imageUrl(row.path),
-    alt: row.caption || "Реализирана украса",
+    alt: row.caption || `Украса с балони във Варна, снимка ${index + 1}`,
     caption: row.caption,
   }));
 }

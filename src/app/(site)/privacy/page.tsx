@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Политика за поверителност",
   description:
     "Какви лични данни събираме чрез сайта, защо, колко дълго ги пазим и какви са правата ви.",
+  alternates: { canonical: "/privacy" },
 };
 
 // Bump this whenever the text below changes.
