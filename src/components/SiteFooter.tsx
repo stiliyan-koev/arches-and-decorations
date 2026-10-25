@@ -88,7 +88,7 @@ export default function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/vaprosi" className="opacity-85 hover:opacity-100">
+              <Link href="/faq" className="opacity-85 hover:opacity-100">
                 Въпроси
               </Link>
             </li>

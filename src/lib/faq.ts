@@ -1,5 +1,5 @@
 // The questions customers ask most, in the owner's words. Shown on the
-// homepage (after „Вдъхнови се“) and on /vaprosi, by the same component
+// homepage (after „Вдъхнови се“) and on /faq, by the same component
 // (components/Faq.tsx). Plain text; edit it here.
 
 export type FaqGroup = {

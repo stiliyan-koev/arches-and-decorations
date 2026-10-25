@@ -123,7 +123,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* The FAQ, the same component as on /vaprosi, which the link opens. */}
+      {/* The FAQ, the same component as on /faq, which the link opens. */}
       <section className="mx-auto max-w-[1140px] px-5 pb-14 md:pb-24">
         <div className="flex items-end justify-between gap-6">
           <div>
@@ -135,16 +135,24 @@ export default async function HomePage() {
             </h2>
           </div>
           <Link
-            href="/vaprosi"
+            href="/faq"
             className="hidden items-center gap-2 border-b-2 border-balloon-pink py-2.5 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta md:inline-flex"
           >
-            Всички въпроси <ArrowRightIcon size={18} />
+            Към страницата с въпроси <ArrowRightIcon size={18} />
           </Link>
         </div>
         <Faq
           groupHeading="h3"
           className="mt-6 space-y-8 md:mt-9 md:grid md:grid-cols-2 md:gap-x-10 md:gap-y-10 md:space-y-0"
         />
+        <div className="mt-6 flex justify-center md:hidden">
+          <Link
+            href="/faq"
+            className="inline-flex h-12 items-center rounded-full border-[1.5px] border-ink px-6 text-[15px] font-extrabold text-ink"
+          >
+            Към страницата с въпроси
+          </Link>
+        </div>
       </section>
     </>
   );

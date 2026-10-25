@@ -2,7 +2,7 @@ import { FAQ_GROUPS } from "@/lib/faq";
 
 // The FAQ, grouped. One component for both places it shows: the homepage
 // (group titles are h3 under its „Често задавани въпроси“ h2, two columns on
-// desktop) and /vaprosi (h2 under the page's h1, one column). Each question
+// desktop) and /faq (h2 under the page's h1, one column). Each question
 // is a native <details>: it opens without JavaScript, and the answer is in
 // the HTML for search engines even while it's closed.
 export default function Faq({

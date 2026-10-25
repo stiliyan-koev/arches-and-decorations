@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "Често задавани въпроси",
   description:
     "Резервация, капаро, плащане, монтаж, наем на арки и калъфи: отговори на най-честите въпроси за украсата с балони във Варна.",
-  alternates: { canonical: "/vaprosi" },
+  alternates: { canonical: "/faq" },
 };
 
 // The same questions as on the homepage, on a page of their own: a link to
