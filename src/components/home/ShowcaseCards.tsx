@@ -203,8 +203,12 @@ function ShowcaseCard({ showcase }: { showcase: HomeShowcase }) {
               <Link
                 href={`/ukrasi/${showcase.slug}`}
                 replace
-                onClick={() => {
-                  closedByBack.current = true;
+                onClick={(event) => {
+                  // A plain click leaves through this link; a modified one opens a new
+                  // tab and the popup stays open here, so it must still clean up on close.
+                  if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+                    closedByBack.current = true;
+                  }
                 }}
                 className="mt-6 inline-flex items-center gap-2 border-b-2 border-balloon-pink py-2 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta"
               >
