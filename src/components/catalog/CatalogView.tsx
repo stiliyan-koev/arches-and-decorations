@@ -428,8 +428,11 @@ function PillButton({
       href={href}
       aria-current={active ? "page" : undefined}
       onClick={(event) => {
-        // Ctrl/Cmd/Shift-click still opens a new tab or window.
-        if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+        // Ctrl/Cmd/Shift/Alt-click keeps the browser's own behaviour (new tab,
+        // window, download).
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+          return;
+        }
         event.preventDefault();
         onClick();
       }}

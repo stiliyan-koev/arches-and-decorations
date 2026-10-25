@@ -15,10 +15,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-// Served from the CDN and rebuilt at most once an hour. Admin writes refresh
-// it straight away (revalidatePath in admin/actions.ts), so this is only the
-// safety net. Works because the reads below use the cookie-free client.
-export const revalidate = 3600;
+// Served from the CDN and rebuilt at most every 5 minutes. Admin writes refresh
+// it straight away (revalidatePath in admin/actions.ts). The short window also
+// means a database hiccup that showed the placeholder tiles heals within
+// minutes. Works because the reads below use the cookie-free client.
+export const revalidate = 300;
 
 // The homepage: photos of finished work, a call to open the catalog, and three
 // finished decorations up close (the showcases from /admin/showcases). Until

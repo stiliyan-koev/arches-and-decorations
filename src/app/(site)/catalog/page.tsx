@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import CatalogView from "@/components/catalog/CatalogView";
 import { getCatalog } from "@/lib/catalog";
-import { parseState, toPlpData } from "@/lib/catalog-plp";
+import { catalogHref, parseState, toPlpData } from "@/lib/catalog-plp";
 import { getLabourPrice } from "@/lib/settings";
 
 export const metadata: Metadata = {
@@ -25,6 +26,13 @@ export default async function CatalogPage({
   ]);
   const data = toPlpData(groups);
   const initialState = parseState(params, data);
+
+  // One category has its own page, /catalog/<slug>. Old ?cat= links move there,
+  // so search engines see one address for it. Unknown slugs are already dropped
+  // by parseState, so a bogus ?cat= still shows the full catalog.
+  if (initialState.cats.length === 1) {
+    permanentRedirect(catalogHref(initialState));
+  }
 
   return (
     <CatalogView
