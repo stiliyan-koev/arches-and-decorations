@@ -22,7 +22,8 @@ export async function generateStaticParams() {
 function summary(body: string) {
   const text = body.replace(/\s+/g, " ").trim();
   if (text.length <= 155) return text;
-  return `${text.slice(0, text.lastIndexOf(" ", 152))}…`;
+  const cut = text.lastIndexOf(" ", 152);
+  return `${text.slice(0, cut > 0 ? cut : 152)}…`;
 }
 
 export async function generateMetadata({

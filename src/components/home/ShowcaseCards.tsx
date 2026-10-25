@@ -197,10 +197,15 @@ function ShowcaseCard({ showcase }: { showcase: HomeShowcase }) {
             </div>
 
             {/* Its own page: a real link, so search engines find the story
-                (they don't open popups), and an address to share. */}
+                (they don't open popups), and an address to share.
+                It replaces the popup's history entry, so Back from the page returns to the homepage in one step. */}
             {showcase.slug && (
               <Link
                 href={`/ukrasi/${showcase.slug}`}
+                replace
+                onClick={() => {
+                  closedByBack.current = true;
+                }}
                 className="mt-6 inline-flex items-center gap-2 border-b-2 border-balloon-pink py-2 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta"
               >
                 Отвори като страница <ArrowRightIcon size={18} />

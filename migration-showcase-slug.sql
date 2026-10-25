@@ -9,8 +9,10 @@ alter table showcases add column if not exists slug text;
 -- does it in the app: Cyrillic to Latin, then anything else becomes "-".
 -- Multi-letter sounds first, single letters after. Capitals are mapped too,
 -- because lower() leaves Cyrillic alone under some database locales.
+-- A title with no letters or digits falls back to a bit of the id, as
+-- newShowcaseSlug in src/app/admin/actions.ts does.
 update showcases
-set slug = trim(both '-' from regexp_replace(
+set slug = coalesce(nullif(trim(both '-' from regexp_replace(
   translate(
     replace(replace(replace(replace(replace(replace(replace(replace(
     replace(replace(replace(replace(replace(replace(replace(replace(
@@ -21,7 +23,7 @@ set slug = trim(both '-' from regexp_replace(
       'я', 'ya'), 'Я', 'ya'), 'ь', 'y'), 'Ь', 'y'),
     'абвгдезийклмнопрстуфхъАБВГДЕЗИЙКЛМНОПРСТУФХЪ',
     'abvgdeziyklmnoprstufhaabvgdeziyklmnoprstufha'),
-  '[^a-z0-9]+', '-', 'g'))
+  '[^a-z0-9]+', '-', 'g')), ''), left(id::text, 8))
 where slug is null;
 
 -- Two showcases with the same title: the later one gets a bit of its id.
