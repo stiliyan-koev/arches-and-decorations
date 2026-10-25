@@ -115,6 +115,7 @@ create table showcases (
   title      text not null,
   body       text not null default '',   -- plain text; a blank line starts a new paragraph
   sort       int  not null default 0,    -- the first three by sort show on the homepage
+  slug       text unique,                -- its page, /showcases/<slug>; made from the title once, then kept
   created_at timestamptz not null default now()
 );
 
