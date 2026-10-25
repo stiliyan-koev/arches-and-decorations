@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
 import { FALLBACK_GROUPS } from "@/lib/catalog-fallback";
 import type { CatalogGroup } from "@/lib/types";
 
@@ -9,13 +10,33 @@ export function isSupabaseConfigured() {
   );
 }
 
-// Reads the whole catalog in one go — it's a handful of rows and the homepage
-// configurator needs all of it. Returns categories with their products and
-// each product's colours, ordered by the `sort` columns from schema.sql.
+// The catalog for every page that shows it. With no database, no rows, or a
+// database error, the hardcoded catalog stands in. The error is thrown inside
+// the cache below and caught here, so a hiccup is never cached as the catalog.
 export async function getCatalog(): Promise<CatalogGroup[]> {
   if (!isSupabaseConfigured()) return FALLBACK_GROUPS;
 
-  const supabase = await createClient();
+  try {
+    const groups = await readCatalog();
+    if (groups.length) return groups;
+    console.error("getCatalog: using the hardcoded catalog", "no rows");
+  } catch (error) {
+    // Without this line a missing table reads as "no products yet" on the page.
+    console.error("getCatalog: using the hardcoded catalog", error);
+  }
+  return FALLBACK_GROUPS;
+}
+
+// Reads the whole catalog in one go — it's a handful of rows and the homepage
+// configurator needs all of it. Returns categories with their products and
+// each product's colours, ordered by the `sort` columns from schema.sql.
+//
+// Cached for 5 minutes across visits, so /catalog doesn't wait on the database
+// every time. An admin write clears it at once (revalidatePath in
+// admin/actions.ts). The cookie-free client, because a cached read can't touch
+// cookies(); the catalog tables are public-read anyway.
+const readCatalog = unstable_cache(async (): Promise<CatalogGroup[]> => {
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("categories")
     .select(
@@ -35,11 +56,7 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     .order("sort")
     .order("sort", { referencedTable: "products" });
 
-  if (error || !data?.length) {
-    // Without this line a missing table reads as "no products yet" on the page.
-    console.error("getCatalog: using the hardcoded catalog", error ?? "no rows");
-    return FALLBACK_GROUPS;
-  }
+  if (error) throw error;
 
   const groups: CatalogGroup[] = data.map((category) => ({
     id: category.id,
@@ -104,6 +121,5 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
   }));
 
   // A category with no products has nothing to configure.
-  const usable = groups.filter((group) => group.products.length > 0);
-  return usable.length ? usable : FALLBACK_GROUPS;
-}
+  return groups.filter((group) => group.products.length > 0);
+}, ["catalog"], { revalidate: 300 });
