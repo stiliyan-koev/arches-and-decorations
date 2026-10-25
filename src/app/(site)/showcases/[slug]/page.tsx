@@ -28,7 +28,7 @@ function summary(body: string) {
 
 export async function generateMetadata({
   params,
-}: PageProps<"/ukrasi/[slug]">): Promise<Metadata> {
+}: PageProps<"/showcases/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   const showcase = await loadShowcase(slug);
   if (!showcase) return { title: "Украсата не е намерена" };
@@ -40,7 +40,7 @@ export async function generateMetadata({
   return {
     title: showcase.title,
     description: summary(showcase.body),
-    alternates: { canonical: `/ukrasi/${showcase.slug}` },
+    alternates: { canonical: `/showcases/${showcase.slug}` },
     openGraph: {
       type: "article",
       locale: "bg_BG",
@@ -56,7 +56,7 @@ export async function generateMetadata({
 // be found in search and shared as a link. Ends with a way to ask for one.
 export default async function ShowcasePage({
   params,
-}: PageProps<"/ukrasi/[slug]">) {
+}: PageProps<"/showcases/[slug]">) {
   const { slug } = await params;
   const showcase = await loadShowcase(slug);
   if (!showcase) notFound();

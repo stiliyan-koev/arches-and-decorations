@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       console.error("sitemap: leaving out the gallery tags", error);
     }
     try {
-      showcases = (await getShowcaseSlugs()).map((slug) => `/ukrasi/${slug}`);
+      showcases = (await getShowcaseSlugs()).map((slug) => `/showcases/${slug}`);
     } catch (error) {
       console.error("sitemap: leaving out the showcases", error);
     }

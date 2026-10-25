@@ -201,7 +201,7 @@ function ShowcaseCard({ showcase }: { showcase: HomeShowcase }) {
                 It replaces the popup's history entry, so Back from the page returns to the homepage in one step. */}
             {showcase.slug && (
               <Link
-                href={`/ukrasi/${showcase.slug}`}
+                href={`/showcases/${showcase.slug}`}
                 replace
                 onClick={(event) => {
                   // A plain click leaves through this link; a modified one opens a new

@@ -25,7 +25,7 @@ export type ShowcaseRow = {
   title: string;
   body: string;
   sort: number;
-  slug: string | null; // its page, /ukrasi/<slug>; null until migration-showcase-slug.sql
+  slug: string | null; // its page, /showcases/<slug>; null until migration-showcase-slug.sql
   showcase_photos: ShowcasePhotoRow[];
 };
 
@@ -34,7 +34,7 @@ export type HomeShowcase = {
   id: string;
   title: string;
   body: string;
-  slug: string | null; // its own page, /ukrasi/<slug>
+  slug: string | null; // its own page, /showcases/<slug>
   photos: string[]; // full image URLs, in order; the first is the cover
 };
 
@@ -109,7 +109,7 @@ function toHomeShowcase(row: ShowcaseRow): HomeShowcase {
   };
 }
 
-// One showcase for its own page, /ukrasi/<slug>, or null when there is no
+// One showcase for its own page, /showcases/<slug>, or null when there is no
 // such slug or it has no photo yet (a page without photos isn't worth
 // showing). Null on a database error too: the page then says "not found".
 export async function getShowcaseBySlug(slug: string): Promise<HomeShowcase | null> {

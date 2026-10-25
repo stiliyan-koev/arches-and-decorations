@@ -1,4 +1,4 @@
--- Each showcase gets its own page, /ukrasi/<slug>, besides the popup on the
+-- Each showcase gets its own page, /showcases/<slug>, besides the popup on the
 -- homepage. The slug is made from the title once and then kept, so editing a
 -- title later doesn't break links Google or customers already have.
 -- Run once in the Supabase SQL editor, BEFORE this code goes live: the

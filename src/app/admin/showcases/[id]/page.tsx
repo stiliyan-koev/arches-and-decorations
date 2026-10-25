@@ -24,7 +24,7 @@ export default async function EditShowcasePage({
         <Link
           href={
             showcase.slug && showcase.showcase_photos.length > 0
-              ? `/ukrasi/${showcase.slug}`
+              ? `/showcases/${showcase.slug}`
               : "/"
           }
           className="ml-auto text-[0.85rem] font-bold text-muted hover:text-cta"

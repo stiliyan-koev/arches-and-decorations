@@ -845,7 +845,7 @@ export async function removeHeroPhoto(id: string): Promise<ActionResult> {
 
 const SHOWCASE_NOT_FOUND = "Украсата не е намерена.";
 
-// The slug of a new showcase's page, /ukrasi/<slug>: its title in Latin
+// The slug of a new showcase's page, /showcases/<slug>: its title in Latin
 // letters, plus a bit of its id when another showcase has that already. Made
 // once, when the showcase is created; editing the title later keeps it, so
 // links that are out there keep working.
