@@ -53,10 +53,14 @@ export function shownFromParam(value: string | string[] | undefined) {
   return Math.min(pages, MAX_PAGES) * GALLERY_PAGE_SIZE;
 }
 
-// Alt text for a photo: its tag names, e.g. "Украса: Рожден ден · Frozen".
-export function photoAlt(photo: GalleryPhoto, tags: GalleryTag[]) {
+// Alt text for a photo: what it shows plus its tag names, numbered by its
+// place on the page, e.g. "Украса с балони: Рожден ден · Frozen, снимка 3".
+// The number keeps two photos with the same tags from sharing one alt, which
+// screen readers and image search both treat as the same picture.
+export function photoAlt(photo: GalleryPhoto, tags: GalleryTag[], position: number) {
   const names = tags.filter((tag) => photo.tagIds.includes(tag.id)).map((tag) => tag.name);
-  return names.length ? `Украса: ${names.join(" · ")}` : "Реализирана украса";
+  const what = names.length ? `Украса с балони: ${names.join(" · ")}` : "Украса с балони";
+  return `${what}, снимка ${position}`;
 }
 
 // The public gallery URL for a tag. The filter lives in the URL, so a
