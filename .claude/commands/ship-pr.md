@@ -110,7 +110,7 @@ DISAGREE -> you decide in one line: accept the reason (drop it) or keep it as MU
   "did the canonical get added, is the route linked now" better than an agent would. For its
   judgment items (H1 wording, thin copy), one file read from your step 3 allowance settles it.
   Then back to step 3 as round 2.
-- **After fix round 2:** do NOT run reviewers. Read the fix diff yourself and check CI.
+- **After fix round 2:** do NOT run reviewers. Read the fix diff yourself, check CI, and re-run `npm run seo-check`.
 
 ## 6. Verdict
 

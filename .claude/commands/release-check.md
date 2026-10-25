@@ -156,5 +156,5 @@ there is nothing.
 - Never fix, edit, commit, push, comment on a PR, merge or tag.
 - Never start `developer`. Never run an agent twice. Never re-run smoke "until it's green".
 - Never write to the database or submit a form. Never read or print `.env.local`.
-- Never raise the limits above. 13 is derived from 5 agents + lint + 6 own calls, not a round
+- Never raise the limits above. 13 is derived from 5 agents + lint + 7 own calls, not a round
   number — a 6th agent means redoing that arithmetic, not bumping it by one.

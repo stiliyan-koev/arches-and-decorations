@@ -57,6 +57,28 @@ function read(p) {
   }
 }
 
+/** Drops line (//) and block comments, so a word in a comment never counts
+ * as code. The [^:] keeps the // in "https://" from being read as a comment. */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+/** True when sitemap.ts lists the route: a quoted literal ("/about") for a
+ * static route, a template literal building the child path
+ * (`/catalog/${category.slug}`) for a dynamic one. A bare substring would also
+ * match imports like "@/lib/catalog", so it is not enough. */
+function inSitemapSrc(route) {
+  if (isDynamic(route)) {
+    const prefix = route.slice(0, route.indexOf("[")).replace(/\/$/, "");
+    return sitemapSrc.includes("`" + prefix + "/${");
+  }
+  return (
+    sitemapSrc.includes(`"${route}"`) ||
+    sitemapSrc.includes(`'${route}'`) ||
+    (route === "/" && /["']\/["']/.test(sitemapSrc))
+  );
+}
+
 /** src/app/(site)/catalog/[category]/page.tsx -> /catalog/[category] */
 function routeOf(pageFile) {
   const rel = relative(APP, pageFile).split(sep);
@@ -90,8 +112,8 @@ const routes = publicPages.map((p) => ({
 }));
 
 const rootLayout = read(join(APP, "layout.tsx"));
-const sitemapSrc = read(join(APP, "sitemap.ts"));
-const robotsSrc = read(join(APP, "robots.ts"));
+const sitemapSrc = stripComments(read(join(APP, "sitemap.ts")));
+const robotsSrc = stripComments(read(join(APP, "robots.ts")));
 const allSrc = walk(SRC).filter((p) => /\.(tsx?|jsx?)$/.test(p));
 const srcBlob = allSrc.map(read).join("\n");
 
@@ -127,10 +149,15 @@ if (!/(LocalBusiness|Organization)/.test(srcBlob)) {
 }
 
 // robots.ts: a blanket disallow is correct on a Netlify preview and wrong on
-// production. Only flag an UNGUARDED one.
+// production. Only flag an UNGUARDED one. robotsSrc has its comments stripped,
+// and the guard must be a condition (an `if (...)` or a `? :`) on the deploy
+// context — a variable that is declared but never tested guards nothing.
 if (robotsSrc) {
   const blanket = /disallow:\s*["']\/["']/.test(robotsSrc);
-  const guarded = /CONTEXT|isPreview|NODE_ENV|VERCEL_ENV|preview/i.test(robotsSrc);
+  const ctx = String.raw`(isPreview|process\.env\.(CONTEXT|NODE_ENV|VERCEL_ENV))`;
+  const guarded =
+    new RegExp(String.raw`if\s*\([^)]*` + ctx).test(robotsSrc) ||
+    new RegExp(ctx + String.raw`[^;?]*\?`).test(robotsSrc);
   if (blanket && !guarded) {
     add(
       "BLOCK",
@@ -151,11 +178,7 @@ if (sitemapSrc) {
     if (INTENTIONAL_NOINDEX.has(route)) continue;
 
     if (!isDynamic(route)) {
-      const listed =
-        sitemapSrc.includes(`"${route}"`) ||
-        sitemapSrc.includes(`'${route}'`) ||
-        (route === "/" && /["']\/["']/.test(sitemapSrc));
-      if (!listed) {
+      if (!inSitemapSrc(route)) {
         add(
           "BLOCK",
           route,
@@ -164,13 +187,9 @@ if (sitemapSrc) {
         );
       }
     } else {
-      // /catalog/[category] -> look for a template building /catalog/...
+      // /catalog/[category] -> needs a template literal building `/catalog/${...}`
       const prefix = route.slice(0, route.indexOf("[")).replace(/\/$/, "");
-      const hasBranch =
-        sitemapSrc.includes(`${prefix}/$`) ||
-        sitemapSrc.includes(`${prefix}/`) ||
-        new RegExp(`${prefix.replace(/\//g, "\\/")}`).test(sitemapSrc);
-      if (!hasBranch) {
+      if (!inSitemapSrc(route)) {
         add(
           "BLOCK",
           route,
@@ -209,7 +228,8 @@ for (const { route, file, body } of routes) {
     add("WARN", route, "expected to be noindex but is not", "restore the noindex, or drop it from INTENTIONAL_NOINDEX");
   }
 
-  if (!intentional && hasMetadata && !/alternates\s*:/.test(body) && !/canonical/.test(body)) {
+  const code = stripComments(body);
+  if (!intentional && hasMetadata && !/alternates\s*:/.test(code) && !/canonical\s*:/.test(code)) {
     add("BLOCK", route, "no alternates.canonical", `add alternates: { canonical: "${route}" }`);
   }
 
@@ -228,7 +248,7 @@ for (const { route, file, body } of routes) {
     }
   }
 
-  // Exactly one h1 per route.
+  // More than one h1 on a route is flagged (none is not checked here).
   const h1s = (body.match(/<h1[\s>]/g) || []).length;
   if (h1s > 1) add("WARN", route, `${h1s} <h1> elements`, "keep one h1 per page");
 
@@ -239,7 +259,7 @@ for (const { route, file, body } of routes) {
     add(
       "WARN",
       route,
-      `${dupes.length + 1} images share the alt "${dupes[0]}"`,
+      `${alts.filter((a) => a === dupes[0]).length} images share the alt "${dupes[0]}"`,
       "derive alt from each item's own caption or title"
     );
   }
@@ -258,7 +278,7 @@ for (const { route } of routes) {
 
   let linked = false;
   if (isDynamic(route)) {
-    // A template literal link counts: /ukrasi/${slug} covers /ukrasi/[slug].
+    // A template literal link counts: /showcases/${slug} covers /showcases/[slug].
     const prefix = route.slice(0, route.indexOf("[")).replace(/\/$/, "");
     for (const h of hrefs) {
       if (h.startsWith(prefix + "/")) {
@@ -271,7 +291,7 @@ for (const { route } of routes) {
   }
 
   if (!linked) {
-    const inSitemap = sitemapSrc.includes(route.replace(/\/\[.*$/, ""));
+    const inSitemap = inSitemapSrc(route);
     add(
       inSitemap ? "WARN" : "BLOCK",
       route,
