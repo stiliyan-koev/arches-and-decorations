@@ -53,11 +53,11 @@ export default async function GalleryPage({ searchParams }: PageProps<"/gallery"
 
   // An unknown or empty tag shows every photo.
   const { tags, activeTag, photos, total, hasMore } = await getPublicGallery(tagSlug, shown);
-  const items = photos.map((photo) => ({
+  const items = photos.map((photo, index) => ({
     id: photo.id,
     tileUrl: photo.tileUrl,
     fullUrl: photo.fullUrl,
-    alt: photoAlt(photo, tags),
+    alt: photoAlt(photo, tags, index + 1),
     tags: tags
       .filter((tag) => photo.tagIds.includes(tag.id))
       .map((tag) => ({ name: tag.name, slug: tag.slug })),
