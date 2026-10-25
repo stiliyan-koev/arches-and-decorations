@@ -21,7 +21,7 @@ export async function getGalleryTags(): Promise<GalleryTag[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("gallery_tags")
-    .select("id, name, slug, gallery_photo_tags(count)")
+    .select("id, name, slug, description, gallery_photo_tags(count)")
     .order("name");
   if (error) throw error;
 
@@ -29,6 +29,7 @@ export async function getGalleryTags(): Promise<GalleryTag[]> {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    description: row.description,
     count: row.gallery_photo_tags[0]?.count ?? 0,
   }));
 }

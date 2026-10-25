@@ -33,7 +33,10 @@ export async function generateMetadata({
   }
   return {
     title: `${tag.name} · Галерия`,
-    description: `${tag.name}: снимки от украси с балони и арки, които сме направили във Варна. Вижте идеи и поискайте подобна украса.`,
+    // Her own text for the tag when she has written one.
+    description:
+      tag.description ||
+      `${tag.name}: снимки от украси с балони и арки, които сме направили във Варна. Вижте идеи и поискайте подобна украса.`,
     alternates: { canonical: galleryHref(tag) },
   };
 }
@@ -68,9 +71,10 @@ export default async function GalleryPage({ searchParams }: PageProps<"/gallery"
       <h1 className="text-4xl font-bold text-ink">
         {activeTag ? `Галерия: ${activeTag.name}` : "Галерия"}
       </h1>
+      {/* A tag with its own text shows it; otherwise the general line. */}
       <p className="mt-3 max-w-[620px] text-muted">
-        Украси, които вече сме направили. Изберете повод, за да видите само
-        него, и отворете снимка, за да я разгледате на цял екран.
+        {activeTag?.description ||
+          "Украси, които вече сме направили. Изберете повод, за да видите само него, и отворете снимка, за да я разгледате на цял екран."}
       </p>
 
       {tags.length > 0 && <GalleryFilters tags={tags} activeTag={activeTag} />}

@@ -10,7 +10,7 @@ import {
   SHOWCASE_MAX_PHOTOS,
   SHOWCASE_TITLE_MAX,
 } from "@/lib/home";
-import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
+import { MAX_BULK, TAG_DESCRIPTION_MAX, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
 import type { PhotoRef } from "@/lib/photo-library";
@@ -1274,7 +1274,7 @@ export async function createGalleryTag(
   const { data, error } = await supabase
     .from("gallery_tags")
     .insert(tag)
-    .select("id, name, slug")
+    .select("id, name, slug, description")
     .single();
   if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
   if (error) return { ok: false, error: error.message };
@@ -1283,20 +1283,30 @@ export async function createGalleryTag(
   return { ok: true, tag: { ...data, count: 0 } };
 }
 
+// Saves a tag's name and its text (shown on /gallery?tag=… and in Google).
 // Renaming changes the slug too, so an old /gallery?tag=… link falls back to
 // all photos rather than pointing at a name that no longer exists.
-export async function renameGalleryTag(id: string, name: string): Promise<ActionResult> {
+export async function saveGalleryTag(
+  id: string,
+  name: string,
+  description: string,
+): Promise<ActionResult> {
   const denied = await requireAdmin();
   if (denied) return denied;
 
   if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const tag = cleanTagName(name);
   if (!tag) return { ok: false, error: "Напишете име на етикета." };
+  // One paragraph: line breaks and runs of spaces become single spaces.
+  const text = description.replace(/\s+/g, " ").trim();
+  if (text.length > TAG_DESCRIPTION_MAX) {
+    return { ok: false, error: `Текстът може да е до ${TAG_DESCRIPTION_MAX} знака.` };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("gallery_tags")
-    .update(tag)
+    .update({ ...tag, description: text })
     .eq("id", id)
     .select("id");
   if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
