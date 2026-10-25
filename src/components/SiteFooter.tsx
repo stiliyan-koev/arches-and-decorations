@@ -87,6 +87,11 @@ export default function SiteFooter() {
                 За нас
               </Link>
             </li>
+            <li>
+              <Link href="/vaprosi" className="opacity-85 hover:opacity-100">
+                Въпроси
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

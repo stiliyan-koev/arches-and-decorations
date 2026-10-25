@@ -10,7 +10,7 @@ import { SITE_URL } from "@/lib/site";
 // database so a new category or gallery tag shows up on its own. /request
 // and /configurator are noindex and the admin is private, so they're not here.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages = ["/", "/catalog", "/gallery", "/about", "/privacy"];
+  const pages = ["/", "/catalog", "/gallery", "/about", "/vaprosi", "/privacy"];
 
   // On a DB error getCatalog() hands back the seed snapshot, whose slugs may
   // not exist on the live site, so leave the categories out this time. Without
