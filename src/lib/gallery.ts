@@ -16,6 +16,11 @@ const MAX_PAGES = 40;
 // enough to stay one chip.
 export const TAG_NAME_MAX = 40;
 
+// The longest tag text (shown on /gallery?tag=…, and Google's snippet).
+// One or two sentences; Google cuts a description at about 155 characters
+// anyway, the rest still shows on the page.
+export const TAG_DESCRIPTION_MAX = 300;
+
 // The most photos one bulk action (tag, untag, delete) takes. The admin grid
 // lets her pick at most this many; the server refuses more.
 export const MAX_BULK = 200;
@@ -24,6 +29,7 @@ export type GalleryTag = {
   id: string;
   name: string;
   slug: string;
+  description: string; // under the heading on /gallery?tag=…; '' = the generic text
   count: number; // photos with this tag
 };
 

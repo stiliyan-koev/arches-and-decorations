@@ -145,7 +145,8 @@ create table gallery_photos (
 create table gallery_tags (
   id   uuid primary key default gen_random_uuid(),
   name text not null,         -- the filter chip, e.g. "Рожден ден"
-  slug text not null unique   -- the URL, /gallery?tag=rozhden-den
+  slug text not null unique,  -- the URL, /gallery?tag=rozhden-den
+  description text not null default ''  -- shown on /gallery?tag=… and in Google; '' = the generic text
 );
 
 create table gallery_photo_tags (

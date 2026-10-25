@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { TAG_NAME_MAX } from "@/lib/gallery";
+import { TAG_DESCRIPTION_MAX, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import {
   createGalleryTag,
   deleteGalleryTag,
-  renameGalleryTag,
+  saveGalleryTag,
 } from "@/app/admin/actions";
 import { SAVE_FAILED } from "@/lib/upload-photo";
 
@@ -16,8 +16,9 @@ const INPUT =
 const SAVE_BUTTON =
   "shrink-0 cursor-pointer rounded-full bg-cta px-4 text-[0.8rem] font-extrabold text-white hover:bg-cta-strong disabled:cursor-default disabled:opacity-40";
 
-// The tags she files photos under: add, rename, remove. Every change is saved
-// at once. A tag with no photos stays here but is not shown on the site.
+// The tags she files photos under: add, rename, write a text, remove. Every
+// change is saved at once. A tag with no photos stays here but is not shown
+// on the site.
 export default function GalleryTagManager({ tags }: { tags: GalleryTag[] }) {
   const router = useRouter();
   const [newName, setNewName] = useState("");
@@ -83,10 +84,13 @@ export default function GalleryTagManager({ tags }: { tags: GalleryTag[] }) {
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {tags.map((tag) => (
             <TagRow
-              key={`${tag.id}-${tag.name}`}
+              // A saved change gives a new key, so the row starts over from it.
+              key={`${tag.id}-${tag.name}-${tag.description}`}
               tag={tag}
               disabled={Boolean(busy)}
-              onRename={(name) => run("Запазване…", () => renameGalleryTag(tag.id, name))}
+              onSave={(name, description) =>
+                run("Запазване…", () => saveGalleryTag(tag.id, name, description))
+              }
               onDelete={() => {
                 const photos = tag.count === 1 ? "1 снимка" : `${tag.count} снимки`;
                 if (!confirm(`Да изтрия етикета „${tag.name}“? Снимките остават (${photos}), само губят етикета.`)) return;
@@ -100,52 +104,68 @@ export default function GalleryTagManager({ tags }: { tags: GalleryTag[] }) {
   );
 }
 
-// One tag: its name (editable), how many photos it has, delete.
+// One tag: its name and its text (both editable, saved together), how many
+// photos it has, delete.
 function TagRow({
   tag,
   disabled,
-  onRename,
+  onSave,
   onDelete,
 }: {
   tag: GalleryTag;
   disabled: boolean;
-  onRename: (name: string) => void;
+  onSave: (name: string, description: string) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(tag.name);
-  const changed = name.trim() !== tag.name && name.trim() !== "";
+  const [description, setDescription] = useState(tag.description);
+  // The server collapses spaces and line breaks, so compare the same way.
+  const changed =
+    name.trim() !== "" &&
+    (name.trim() !== tag.name ||
+      description.replace(/\s+/g, " ").trim() !== tag.description);
 
   return (
-    <li className="flex items-center gap-2 rounded-item border border-border bg-bg px-2 py-1.5">
+    <li className="rounded-item border border-border bg-bg px-2 py-1.5">
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (changed) onRename(name);
+          if (changed) onSave(name, description);
         }}
-        className="flex min-w-0 flex-1 gap-1.5"
       >
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={TAG_NAME_MAX}
-          aria-label={`Име на етикет ${tag.name}`}
-          className="min-w-0 flex-1 rounded-item border border-border-strong bg-surface px-2 py-1.5 text-[0.85rem]"
+        <div className="flex items-center gap-1.5">
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={TAG_NAME_MAX}
+            aria-label={`Име на етикет ${tag.name}`}
+            className="min-w-0 flex-1 rounded-item border border-border-strong bg-surface px-2 py-1.5 text-[0.85rem]"
+          />
+          <button type="submit" disabled={disabled || !changed} className={`${SAVE_BUTTON} py-1.5`}>
+            Запази
+          </button>
+          <span className="shrink-0 text-[0.75rem] font-bold text-muted tabular-nums">
+            {tag.count} сн.
+          </span>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={disabled}
+            className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
+          >
+            Изтрий
+          </button>
+        </div>
+        <textarea
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          maxLength={TAG_DESCRIPTION_MAX}
+          rows={2}
+          placeholder="Текст за страницата на етикета (1–2 изречения). Празно = общият текст на галерията."
+          aria-label={`Текст за етикет ${tag.name}`}
+          className="mt-1.5 w-full rounded-item border border-border-strong bg-surface px-2 py-1.5 text-[0.85rem]"
         />
-        <button type="submit" disabled={disabled || !changed} className={SAVE_BUTTON}>
-          Запази
-        </button>
       </form>
-      <span className="shrink-0 text-[0.75rem] font-bold text-muted tabular-nums">
-        {tag.count} сн.
-      </span>
-      <button
-        type="button"
-        onClick={onDelete}
-        disabled={disabled}
-        className="shrink-0 cursor-pointer text-[0.75rem] font-extrabold text-booked hover:underline disabled:opacity-50"
-      >
-        Изтрий
-      </button>
     </li>
   );
 }
