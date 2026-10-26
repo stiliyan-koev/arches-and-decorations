@@ -24,10 +24,10 @@ export default function Faq({
           key={group.title}
           className="group/section rounded-card border border-border bg-surface px-5"
         >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-ink hover:text-cta focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta [&::-webkit-details-marker]:hidden">
-            <GroupHeading className="text-lg md:text-xl">{group.title}</GroupHeading>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-2.5 text-ink hover:text-cta focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta [&::-webkit-details-marker]:hidden">
+            <GroupHeading className="text-base md:text-lg">{group.title}</GroupHeading>
             <span className="shrink-0 text-cta transition-transform group-open/section:rotate-180 motion-reduce:transition-none">
-              <ChevronDownIcon size={22} />
+              <ChevronDownIcon size={20} />
             </span>
           </summary>
           <div className="border-t border-border">
