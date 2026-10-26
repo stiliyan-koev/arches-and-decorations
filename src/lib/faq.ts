@@ -29,7 +29,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
     ],
   },
   {
-    title: "Цена и плащане",
+    title: "Цена и заплащане",
     items: [
       {
         question: "Окончателна ли е цената от каталога?",

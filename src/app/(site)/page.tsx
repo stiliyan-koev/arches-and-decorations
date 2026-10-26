@@ -126,14 +126,7 @@ export default async function HomePage() {
       {/* The FAQ, the same component as on /faq, which the link opens. */}
       <section className="mx-auto max-w-[1140px] px-5 pb-14 md:pb-24">
         <div className="flex items-end justify-between gap-6">
-          <div>
-            <span className="text-xs font-extrabold tracking-[0.14em] text-cta uppercase md:text-[13px]">
-              Въпроси
-            </span>
-            <h2 className="mt-2 text-[26px] md:mt-2.5 md:text-[40px]">
-              Често задавани въпроси
-            </h2>
-          </div>
+          <h2 className="text-[26px] md:text-[40px]">Често задавани въпроси</h2>
           <Link
             href="/faq"
             className="hidden items-center gap-2 border-b-2 border-balloon-pink py-2.5 font-extrabold text-ink transition-colors hover:border-cta hover:text-cta md:inline-flex"
@@ -143,7 +136,7 @@ export default async function HomePage() {
         </div>
         <Faq
           groupHeading="h3"
-          className="mt-6 space-y-8 md:mt-9 md:grid md:grid-cols-2 md:gap-x-10 md:gap-y-10 md:space-y-0"
+          className="mt-6 space-y-3 md:mt-9 md:grid md:grid-cols-2 md:items-start md:gap-4 md:space-y-0"
         />
         <div className="mt-6 flex justify-center md:hidden">
           <Link

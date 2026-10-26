@@ -1,10 +1,11 @@
 import { FAQ_GROUPS } from "@/lib/faq";
+import { ChevronDownIcon } from "@/components/home/Icons";
 
 // The FAQ, grouped. One component for both places it shows: the homepage
 // (group titles are h3 under its „Често задавани въпроси“ h2, two columns on
-// desktop) and /faq (h2 under the page's h1, one column). Each question
-// is a native <details>: it opens without JavaScript, and the answer is in
-// the HTML for search engines even while it's closed.
+// desktop) and /faq (h2 under the page's h1, one column). Each group and
+// each question in it is a native <details>: they open without JavaScript,
+// and the answers are in the HTML for search engines even while closed.
 export default function Faq({
   groupHeading,
   className = "",
@@ -17,11 +18,24 @@ export default function Faq({
   return (
     <div className={className}>
       {FAQ_GROUPS.map((group) => (
-        <section key={group.title}>
-          <GroupHeading className="text-lg md:text-xl">{group.title}</GroupHeading>
-          <div className="mt-3 border-t border-border">
+        // Named group, so opening a section doesn't also turn the pluses
+        // of the questions inside it (they use the plain `group`).
+        <details
+          key={group.title}
+          className="group/section rounded-card border border-border bg-surface px-5"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-ink hover:text-cta focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta [&::-webkit-details-marker]:hidden">
+            <GroupHeading className="text-lg md:text-xl">{group.title}</GroupHeading>
+            <span className="shrink-0 text-cta transition-transform group-open/section:rotate-180 motion-reduce:transition-none">
+              <ChevronDownIcon size={22} />
+            </span>
+          </summary>
+          <div className="border-t border-border">
             {group.items.map((item) => (
-              <details key={item.question} className="group border-b border-border">
+              <details
+                key={item.question}
+                className="group border-b border-border last:border-b-0"
+              >
                 <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-4 font-bold text-ink hover:text-cta focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta [&::-webkit-details-marker]:hidden">
                   {item.question}
                   {/* A plus that turns into a cross when the answer is open. */}
@@ -36,7 +50,7 @@ export default function Faq({
               </details>
             ))}
           </div>
-        </section>
+        </details>
       ))}
     </div>
   );
