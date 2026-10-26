@@ -93,6 +93,12 @@ export default function CatalogView({
 
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
+  // Nothing under „Украса с монтаж“, but the same choice has products under
+  // „Само под наем“: they are rent-only, and the empty state says so.
+  const onlyForRent =
+    visible.length === 0 &&
+    state.mode === "service" &&
+    visibleProducts(data.products, { ...state, mode: "rent" }).length > 0;
   const activeCount = activeFilterCount(state);
   const filtersActive = hasActiveFilters(state);
 
@@ -350,6 +356,21 @@ export default function CatalogView({
                 място и дата.
               </p>
             </>
+          ) : onlyForRent ? (
+            <div className="flex flex-col items-center gap-3.5 rounded-card border border-dashed border-border bg-surface px-10 py-16 text-center">
+              <h3 className="text-xl font-semibold">Тези продукти са само под наем</h3>
+              <p className="max-w-[420px] text-sm text-muted">
+                Не ги монтираме — взимате ги и ги връщате сами. Превключете на
+                „Само под наем“, за да ги видите.
+              </p>
+              <button
+                type="button"
+                onClick={() => setMode("rent")}
+                className="min-h-[44px] rounded-full bg-cta px-6 text-sm font-extrabold text-white hover:bg-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+              >
+                Покажи под наем
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-3.5 rounded-card border border-dashed border-border bg-surface px-10 py-16 text-center">
               <h3 className="text-xl font-semibold">

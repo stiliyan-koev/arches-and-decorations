@@ -344,6 +344,13 @@ export function baseList(products: PlpProduct[], state: FilterState) {
     : products.filter((product) => product.setupPossible);
 }
 
+// A category she only rents out: nothing in it is set up by her, so
+// „Украса с монтаж“ would show it empty. Its page opens in „Само под наем“.
+export function isRentOnlyCategory(products: PlpProduct[], slug: string) {
+  const inCategory = products.filter((product) => product.categorySlug === slug);
+  return inCategory.length > 0 && !inCategory.some((product) => product.setupPossible);
+}
+
 // Apply the active facets. `skip` leaves one facet out so that facet's own
 // counts stay useful: picking "Арки" must not zero the count next to "Калъфи".
 export function narrow(

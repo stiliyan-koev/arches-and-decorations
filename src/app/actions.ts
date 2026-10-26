@@ -250,21 +250,28 @@ export async function submitRequest(
   // an insert would be rejected.
   const bookingId = crypto.randomUUID();
 
-  // Only an estimate for the admin to read; anything that isn't a sane number
-  // is stored as "unknown" rather than as-is.
-  const estimatedTotal =
-    Number.isFinite(payload.estimatedTotal) &&
-    payload.estimatedTotal >= 0 &&
-    payload.estimatedTotal <= MAX_ESTIMATE
-      ? payload.estimatedTotal
-      : null;
-
   // „Труд за украса“ in the email is her own price from the settings table,
   // never the browser's number. The browser only says whether the basket went
   // with the label (a positive labourPrice).
   const sentLabour = payload.labourPrice;
   const withLabour = typeof sentLabour === "number" && Number.isFinite(sentLabour) && sentLabour > 0;
   const labourPrice = withLabour ? await getLabourPrice() : 0;
+
+  // Only an estimate for the admin to read; anything that isn't a sane number
+  // is stored as "unknown" rather than as-is. The browser's total has its own
+  // labour figure in it, which can be up to 5 minutes old (the catalog is
+  // cached), so that one is swapped for hers: the labour line and the total
+  // in the email then add up.
+  const sentTotal =
+    Number.isFinite(payload.estimatedTotal) &&
+    payload.estimatedTotal >= 0 &&
+    payload.estimatedTotal <= MAX_ESTIMATE
+      ? payload.estimatedTotal
+      : null;
+  const estimatedTotal =
+    sentTotal !== null && withLabour
+      ? Math.max(0, sentTotal - sentLabour + labourPrice)
+      : sentTotal;
 
   const { error: bookingError } = await supabase.from("bookings").insert({
     id: bookingId,

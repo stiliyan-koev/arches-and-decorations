@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import CatalogView from "@/components/catalog/CatalogView";
 import { getCatalog } from "@/lib/catalog";
-import { parseState, toPlpData } from "@/lib/catalog-plp";
+import { isRentOnlyCategory, parseState, toPlpData } from "@/lib/catalog-plp";
 import { getLabourPrice } from "@/lib/settings";
 
 // Shared per-request so generateMetadata and the page don't both hit the DB.
@@ -44,7 +44,11 @@ export default async function CategoryPage({
   const known = data.categories.some((c) => c.slug === category);
   if (!known) notFound();
 
-  const initialState = { ...parseState(sp, data), cats: [category] };
+  // A rent-only category opens in „Само под наем“, so its page (the one
+  // search engines index) lists its products instead of nothing.
+  const parsed = parseState(sp, data);
+  const mode = isRentOnlyCategory(data.products, category) ? "rent" : parsed.mode;
+  const initialState = { ...parsed, mode, cats: [category] };
 
   return (
     <CatalogView
