@@ -19,6 +19,7 @@ export type CategorySummary = {
   slug: string;
   name: string;
   sort: number;
+  description?: string | null; // only the categories admin reads it
 };
 
 export type Category = {

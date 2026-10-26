@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getShowcaseBySlug } from "@/lib/showcases";
+import { getShowcaseBySlug, getShowcaseLinks } from "@/lib/showcases";
 import { showcaseParagraphs } from "@/lib/home";
 import { CONTACTS } from "@/lib/contacts";
 
@@ -61,6 +61,15 @@ export default async function ShowcasePage({
   const showcase = await loadShowcase(slug);
   if (!showcase) notFound();
 
+  // The other showcase pages. The homepage links only its three, so this is
+  // how the rest are reached. A database error just leaves the list out.
+  let others: { slug: string; title: string }[] = [];
+  try {
+    others = (await getShowcaseLinks()).filter((link) => link.slug !== showcase.slug);
+  } catch (error) {
+    console.error("ShowcasePage: leaving out „Още украси“", error);
+  }
+
   return (
     <article className="mx-auto max-w-[760px] px-5 pt-10 pb-16 md:pt-14">
       <nav className="text-[0.8rem] text-muted">
@@ -116,6 +125,26 @@ export default async function ShowcasePage({
           </Link>
         </div>
       </div>
+
+      {others.length > 0 && (
+        <nav aria-labelledby="more-showcases" className="mt-10">
+          <h2 id="more-showcases" className="text-xl md:text-2xl">
+            Още украси
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {others.map((link) => (
+              <li key={link.slug}>
+                <Link
+                  href={`/showcases/${link.slug}`}
+                  className="font-bold text-ink underline decoration-border-strong underline-offset-4 hover:text-cta"
+                >
+                  {link.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </article>
   );
 }

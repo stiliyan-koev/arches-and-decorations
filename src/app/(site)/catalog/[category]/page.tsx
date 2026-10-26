@@ -19,7 +19,10 @@ export async function generateMetadata({
 
   return {
     title: `${match.name} във Варна`,
-    description: `${match.name} за празници във Варна — разгледайте наличните продукти с ориентировъчни цени, филтрирайте по цвят и добавете към офертата.`,
+    // Her own text for the category (admin → Категории) when she has one.
+    description:
+      match.description ||
+      `${match.name} за празници във Варна — разгледайте наличните продукти с ориентировъчни цени, филтрирайте по цвят и добавете към офертата.`,
     // Filters and sort only reorder this list, so every variant points here.
     alternates: { canonical: `/catalog/${category}` },
   };

@@ -201,10 +201,10 @@ export default function CatalogView({
           <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">
             {onlyCategory ? onlyCategory.name : "Каталог"}
           </h1>
+          {/* A category with its own text shows it; otherwise the general line. */}
           <p className="max-w-[640px] text-[0.95rem] text-muted">
-            Всичко, което може да влезе в украсата ви. Изберете каквото ви
-            харесва и го добавете към офертата — цената остава ориентировъчна до
-            личната среща.
+            {onlyCategory?.description ||
+              "Всичко, което може да влезе в украсата ви. Изберете каквото ви харесва и го добавете към офертата — цената остава ориентировъчна до личната среща."}
           </p>
         </div>
         <div ref={pillRef}>

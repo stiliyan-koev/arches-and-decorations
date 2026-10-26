@@ -131,11 +131,13 @@ export async function getShowcaseBySlug(slug: string): Promise<HomeShowcase | nu
   return toHomeShowcase(row);
 }
 
-// The addresses of every showcase page, for the sitemap: those with a slug
-// and at least one photo. Throws on a database error.
-export async function getShowcaseSlugs(): Promise<string[]> {
+// Every showcase page there is, in her order: those with a slug and at least
+// one photo. For the sitemap, and for „Още украси“ on each showcase page, so
+// the ones past the homepage's three are linked from the site too. Throws on
+// a database error.
+export async function getShowcaseLinks(): Promise<{ slug: string; title: string }[]> {
   const rows = await readShowcaseRows(createPublicClient());
   return rows
     .filter((row) => row.slug && row.showcase_photos.length > 0)
-    .map((row) => row.slug as string);
+    .map((row) => ({ slug: row.slug as string, title: row.title }));
 }

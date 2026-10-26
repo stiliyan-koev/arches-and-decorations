@@ -51,12 +51,14 @@ function CategoryRow({
   const [name, setName] = useState(category.name);
   const [slug, setSlug] = useState(category.slug);
   const [sort, setSort] = useState(String(category.sort));
+  const [description, setDescription] = useState(category.description ?? "");
   const [busy, setBusy] = useState(false);
 
   const dirty =
     name !== category.name ||
     slug !== category.slug ||
-    sort !== String(category.sort);
+    sort !== String(category.sort) ||
+    description !== (category.description ?? "");
 
   async function handleSave() {
     setBusy(true);
@@ -67,6 +69,7 @@ function CategoryRow({
       name,
       slug,
       sort: Number(sort) || 0,
+      description,
     });
 
     setBusy(false);
@@ -128,6 +131,15 @@ function CategoryRow({
       >
         Изтрий
       </button>
+      <textarea
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        maxLength={300}
+        rows={2}
+        placeholder="Текст под заглавието в каталога, напр. „Калъфи за арките ни — по един за всяка арка.“"
+        aria-label="Текст за категорията"
+        className={`${FIELD} w-full text-[0.9rem]`}
+      />
     </div>
   );
 }

@@ -13,9 +13,10 @@ export const metadata: Metadata = {
 // The same questions as on the homepage, on a page of their own: a link to
 // send a customer, and a page search engines can show for a question.
 export default function FaqPage() {
-  // schema.org FAQPage: the questions and answers in a form search engines
-  // and AI assistants read directly. Only here, not on the homepage too: the
-  // same FAQ marked up twice confuses them.
+  // schema.org FAQPage: the questions and answers as structured data. Google
+  // stopped showing FAQ rich results in 2026, so don't count on a search
+  // benefit from it; it does no harm, and the visible <details> are what
+  // matters. Only here, not on the homepage too: one FAQ, marked up once.
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
