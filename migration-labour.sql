@@ -7,7 +7,9 @@
 -- src/lib/settings.ts) and saving the price in admin fails.
 --
 -- `settings` holds site-wide values she edits in admin. Exactly one row
--- (id = 1); a new setting is a new column.
+-- (id = 1); a new setting is a new column. The whole row is public-read by
+-- design (the catalog shows the labour price), so a private value never goes
+-- here: it gets a table of its own with no public policy.
 
 create table if not exists settings (
   id           int primary key default 1 check (id = 1),

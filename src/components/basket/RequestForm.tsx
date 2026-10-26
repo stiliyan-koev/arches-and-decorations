@@ -102,16 +102,18 @@ export default function RequestForm({
   // Once per product, even when it's in the basket in two colours.
   const notRentableNames = namesOf(notRentable);
   const notSetUpNames = namesOf(notSetUp);
-  const activeMode: Mode = !canService && canRent ? "rental" : canRent ? mode : "service";
+  // A basket that can rent goes as a rental when it can't be set up, or when
+  // the visitor picked „Само под наем“. Everything else goes as a service.
+  let activeMode: Mode = "service";
+  if (canRent && (!canService || mode === "rental")) activeMode = "rental";
   // Forget a rental choice once the basket can't rent, so it doesn't come back
   // on its own when the basket qualifies again. Guarded, so it runs once. Only
   // in the browser: the server/hydration render sees an empty basket, which
   // would throw away a ?mode=rent from the catalog.
   if (inBrowser && !canRent && mode === "rental") setMode("service");
-  // hasLabour() settles on the same mode as activeMode, so the label shows
-  // exactly when the request goes as „Украса с монтаж“.
+  // The label shows exactly when the request goes as „Украса с монтаж“.
   const labour =
-    labourPrice > 0 && hasLabour(items, mode === "service") ? labourPrice : 0;
+    labourPrice > 0 && hasLabour(items, activeMode === "service") ? labourPrice : 0;
   const grandTotal = total + labour;
 
   // The dates the request occupies: one day for a service, pickup→return for a

@@ -185,7 +185,13 @@ export type CategoryInput = {
   slug: string;
   name: string;
   sort: number;
+  // The text under /catalog/<slug>'s heading, also its search snippet (and the
+  // hidden configurator's hint line). Left out = unchanged.
+  description?: string;
 };
+
+// About what a search snippet shows.
+const CATEGORY_DESCRIPTION_MAX = 300;
 
 export async function saveCategory(input: CategoryInput): Promise<ActionResult> {
   const denied = await requireAdmin();
@@ -194,12 +200,21 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
+  if (input.description !== undefined) {
+    if (typeof input.description !== "string") return { ok: false, error: "Невалиден текст." };
+    if (input.description.trim().length > CATEGORY_DESCRIPTION_MAX) {
+      return { ok: false, error: `Текстът може да е до ${CATEGORY_DESCRIPTION_MAX} знака.` };
+    }
+  }
 
   const supabase = await createClient();
   const row = {
     slug: input.slug.trim(),
     name: input.name.trim(),
     sort: input.sort,
+    ...(input.description !== undefined && {
+      description: input.description.trim() || null,
+    }),
   };
 
   const { error } = input.id
@@ -906,6 +921,11 @@ export async function saveShowcase(
     slug: await newShowcaseSlug(supabase, title, newId),
     sort: (lastRow?.sort ?? 0) + 1,
   });
+  // The slug's unique index: the title and the bit of id are both taken. Rare,
+  // and a click again makes a new id.
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Вече има украса с такова заглавие. Опитайте пак или сменете заглавието." };
+  }
   if (error) return { ok: false, error: error.message };
 
   revalidateCatalog();

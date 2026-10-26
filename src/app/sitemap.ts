@@ -3,13 +3,17 @@ import { getCatalog, isSupabaseConfigured } from "@/lib/catalog";
 import { FALLBACK_GROUPS } from "@/lib/catalog-fallback";
 import { toPlpData } from "@/lib/catalog-plp";
 import { getPublicGalleryTags } from "@/lib/gallery-photos";
-import { getShowcaseSlugs } from "@/lib/showcases";
+import { getShowcaseLinks } from "@/lib/showcases";
 import { galleryHref } from "@/lib/gallery";
 import { SITE_URL } from "@/lib/site";
 
 // /sitemap.xml: every page search engines should know about, read from the
 // database so a new category or gallery tag shows up on its own. /request
 // and /configurator are noindex and the admin is private, so they're not here.
+// Rebuilt at most every 5 minutes, like the pages it lists: without this Next
+// would build it once, at deploy, and miss everything added since.
+export const revalidate = 300;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages = ["/", "/catalog", "/gallery", "/about", "/faq", "/privacy"];
 
@@ -31,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       console.error("sitemap: leaving out the gallery tags", error);
     }
     try {
-      showcases = (await getShowcaseSlugs()).map((slug) => `/showcases/${slug}`);
+      showcases = (await getShowcaseLinks()).map((link) => `/showcases/${link.slug}`);
     } catch (error) {
       console.error("sitemap: leaving out the showcases", error);
     }

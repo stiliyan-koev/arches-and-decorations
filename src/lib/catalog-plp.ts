@@ -47,7 +47,11 @@ export type PlpProduct = {
   createdAt: string | null; // for the "Най-нови" sort
 };
 
-export type PlpCategory = { slug: string; name: string };
+export type PlpCategory = {
+  slug: string;
+  name: string;
+  description: string; // her text under /catalog/<slug>'s heading; "" when none
+};
 export type PlpColor = { slug: string; name: string; hex: string | null };
 
 export type PlpData = {
@@ -108,7 +112,11 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
 
   for (const group of groups) {
     if (group.products.length === 0) continue;
-    categories.push({ slug: group.slug, name: group.name });
+    categories.push({
+      slug: group.slug,
+      name: group.name,
+      description: group.description?.trim() ?? "",
+    });
 
     for (const product of group.products) {
       for (const color of product.colors) {
@@ -326,12 +334,21 @@ const SORT_KEYS = SORTS.map((s) => s.value);
 
 // ---------------------------------------------------------------- filter + sort
 
-// "Само под наем" is not cosmetic — it drops products that can't be rented on
-// their own (balloons are sold, not loaned).
+// The mode switch is not cosmetic. "Само под наем" drops products that can't
+// be rented on their own (balloons are sold, not loaned); "Украса с монтаж"
+// drops the rent-only ones she doesn't set up, so adding one can't quietly
+// take „Труд за украса“ off the basket.
 export function baseList(products: PlpProduct[], state: FilterState) {
   return state.mode === "rent"
     ? products.filter((product) => product.rentable)
-    : products;
+    : products.filter((product) => product.setupPossible);
+}
+
+// A category she only rents out: nothing in it is set up by her, so
+// „Украса с монтаж“ would show it empty. Its page opens in „Само под наем“.
+export function isRentOnlyCategory(products: PlpProduct[], slug: string) {
+  const inCategory = products.filter((product) => product.categorySlug === slug);
+  return inCategory.length > 0 && !inCategory.some((product) => product.setupPossible);
 }
 
 // Apply the active facets. `skip` leaves one facet out so that facet's own

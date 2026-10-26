@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { sendOwnerEmail } from "@/lib/mail";
 import { formatDate, formatPrice, formatTotal, QUOTE_LABEL } from "@/lib/format";
+import { getLabourPrice } from "@/lib/settings";
 
 export type RequestItem = {
   productId: string;
@@ -43,6 +44,10 @@ const MAX_QTY = 20; // booking_items.qty feeds reserved_qty() once confirmed. = 
 const MAX_SHORT_TEXT = 200; // name, phone, city
 const MAX_NOTE = 3000; // same as the note textarea's maxLength
 const MAX_CUSTOM_TEXT = 1000; // same as the modal's text box maxLength and REQUIREMENTS_MAX in selection.ts
+// 30 lines × 20 pieces of her dearest product stays far below this; a bigger
+// "estimate" is a hand-built call and is stored as unknown.
+const MAX_ESTIMATE = 100_000;
+const HH_MM = /^\d{2}:\d{2}(:\d{2})?$/; // what <input type="time"> sends
 
 const SEND_FAILED = "Нещо се обърка при изпращането. Моля, опитайте отново.";
 
@@ -195,6 +200,21 @@ export async function submitRequest(
     return { ok: false, error: "Моля, изберете дата." };
   }
 
+  // The date and time inputs only send yyyy-mm-dd and hh:mm, so anything else
+  // is a hand-built call. Checked here, before the insert: the email formats
+  // them later, inside after(), where a throw would lose it.
+  const dates = isRental ? [payload.startDate, payload.endDate] : [payload.eventDate];
+  if (!dates.every((date) => typeof date === "string" && ISO_DATE.test(date))) {
+    return { ok: false, error: SEND_FAILED };
+  }
+  if (
+    !isRental &&
+    payload.eventTime &&
+    !(typeof payload.eventTime === "string" && HH_MM.test(payload.eventTime))
+  ) {
+    return { ok: false, error: SEND_FAILED };
+  }
+
   if (payload.items.length === 0) {
     return { ok: false, error: "Моля, изберете поне един артикул." };
   }
@@ -230,12 +250,28 @@ export async function submitRequest(
   // an insert would be rejected.
   const bookingId = crypto.randomUUID();
 
+  // „Труд за украса“ in the email is her own price from the settings table,
+  // never the browser's number. The browser only says whether the basket went
+  // with the label (a positive labourPrice).
+  const sentLabour = payload.labourPrice;
+  const withLabour = typeof sentLabour === "number" && Number.isFinite(sentLabour) && sentLabour > 0;
+  const labourPrice = withLabour ? await getLabourPrice() : 0;
+
   // Only an estimate for the admin to read; anything that isn't a sane number
-  // is stored as "unknown" rather than as-is.
-  const estimatedTotal =
-    Number.isFinite(payload.estimatedTotal) && payload.estimatedTotal >= 0
+  // is stored as "unknown" rather than as-is. The browser's total has its own
+  // labour figure in it, which can be up to 5 minutes old (the catalog is
+  // cached), so that one is swapped for hers: the labour line and the total
+  // in the email then add up.
+  const sentTotal =
+    Number.isFinite(payload.estimatedTotal) &&
+    payload.estimatedTotal >= 0 &&
+    payload.estimatedTotal <= MAX_ESTIMATE
       ? payload.estimatedTotal
       : null;
+  const estimatedTotal =
+    sentTotal !== null && withLabour
+      ? Math.max(0, sentTotal - sentLabour + labourPrice)
+      : sentTotal;
 
   const { error: bookingError } = await supabase.from("bookings").insert({
     id: bookingId,
@@ -286,10 +322,10 @@ export async function submitRequest(
   const ip = await callerIp();
   after(async () => {
     let emailed = false;
-    if (allowSend(requestSends, ip)) {
+    if (allowSend(requestSends, ip, REQUEST_PER_IP_SENDS)) {
       emailed = await sendOwnerEmail(
         requestEmailSubject(payload, estimatedTotal),
-        await requestEmailText(supabase, payload, estimatedTotal),
+        await requestEmailText(supabase, payload, estimatedTotal, labourPrice),
       );
     }
     if (!emailed) {
@@ -324,6 +360,7 @@ async function requestEmailText(
   supabase: Supabase,
   payload: RequestPayload,
   estimatedTotal: number | null,
+  labourPrice: number, // from the settings table; 0 = no label
 ) {
   const productIds = [...new Set(payload.items.map((item) => item.productId))];
   const { data } = await supabase
@@ -377,10 +414,8 @@ async function requestEmailText(
     if (requirements) lines.push(`  Изисквания: ${requirements}`);
   }
 
-  // From the browser too, like linePrice: only a real number is printed.
-  const labour = payload.labourPrice;
-  if (typeof labour === "number" && Number.isFinite(labour) && labour > 0) {
-    lines.push(`• Труд за украса — ${formatPrice(labour)}`);
+  if (labourPrice > 0) {
+    lines.push(`• Труд за украса — ${formatPrice(labourPrice)}`);
   }
 
   // formatTotal, like the site: an all-„по запитване“ basket sums to 0, and
@@ -436,6 +471,10 @@ const PLAIN_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 // a runaway loop or a casual script, not a determined attacker.
 const PER_IP_WINDOW_MS = 10 * 60 * 1000;
 const PER_IP_SENDS = 3;
+// Higher for requests: a customer told to split a basket („Само под наем“ and
+// „Украса с монтаж“ in one go can't be sent) may send two or three in a row,
+// and retry one. A 4th within 10 minutes still deserves an email.
+const REQUEST_PER_IP_SENDS = 10;
 const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
 const GLOBAL_SENDS = 60;
 
@@ -455,7 +494,7 @@ async function callerIp() {
 
 // true when this send is within both caps — and then counts it. Drops expired
 // timestamps on every call, so the Map never holds more than the last hour.
-function allowSend(sends: Map<string, number[]>, ip: string) {
+function allowSend(sends: Map<string, number[]>, ip: string, perIpSends: number) {
   const now = Date.now();
   let total = 0;
   for (const [key, times] of sends) {
@@ -468,7 +507,7 @@ function allowSend(sends: Map<string, number[]>, ip: string) {
 
   const mine = sends.get(ip) ?? [];
   const inWindow = mine.filter((at) => now - at < PER_IP_WINDOW_MS);
-  if (inWindow.length >= PER_IP_SENDS) return false;
+  if (inWindow.length >= perIpSends) return false;
 
   sends.set(ip, [...mine, now]);
   return true;
@@ -505,7 +544,7 @@ export async function submitContactMessage(
 
   // Counted only here, where a send is actually about to happen: a bot that
   // tripped the honeypot above never reaches this line, so it costs nothing.
-  if (!allowSend(contactSends, await callerIp())) {
+  if (!allowSend(contactSends, await callerIp(), PER_IP_SENDS)) {
     return { ok: false, error: WRITE_TO_US };
   }
 

@@ -5,7 +5,7 @@ export default async function AdminCategoriesPage() {
   const supabase = await createClient();
 
   const [categoriesResult, productsResult] = await Promise.all([
-    supabase.from("categories").select("id, slug, name, sort").order("sort"),
+    supabase.from("categories").select("id, slug, name, sort, description").order("sort"),
     supabase.from("products").select("category_id"),
   ]);
   if (categoriesResult.error || productsResult.error) throw categoriesResult.error ?? productsResult.error;
@@ -23,7 +23,9 @@ export default async function AdminCategoriesPage() {
     <>
       <h1 className="text-2xl">Категории</h1>
       <p className="mt-1 mb-6 text-[0.9rem] text-muted">
-        Подредбата определя реда на табовете в конфигуратора.
+        Подредбата определя реда на табовете в конфигуратора. Текстът стои под
+        заглавието на страницата на категорията в каталога и е описанието ѝ в
+        Google.
       </p>
 
       <CategoryManager categories={categoriesResult.data ?? []} counts={counts} />
