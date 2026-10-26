@@ -46,7 +46,7 @@ export default function FaqPage() {
         намирате отговор, пишете ни — ще отговорим лично.
       </p>
 
-      <Faq groupHeading="h2" className="mt-10 space-y-10" />
+      <Faq groupHeading="h2" className="mt-10 space-y-3" />
 
       <p className="mt-12 text-center">
         <Link
