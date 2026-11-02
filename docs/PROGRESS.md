@@ -184,7 +184,7 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       sits in `src/components/catalog/Filters.tsx`; wire it when step 5 lands.
 - [ ] ~~`/product/[slug]` — PDP~~ — dropped for now (owner, 24 Sep 2026); catalog cards stay unlinked
 - [x] Colour swatches that swap the photo — on the catalog card (per `catalog-and-images.md`)
-- [ ] Image carousel when a product has more than one photo
+- [ ] ~~Image carousel when a product has more than one photo~~ — dropped with the PDP
 - [x] `/configurator` as its own page (moved there by homepage v2; hidden backup)
 
 ## Step 4 — Admin: login + requests inbox 🟡
@@ -234,7 +234,6 @@ Done, and deployed to Netlify at ukrasivarna.com.
       canonicals, Open Graph share picture, LocalBusiness JSON-LD, per-category and
       per-tag titles/H1s, crawlable category links, cached homepage
 - [x] SEO content: showcase pages (`/showcases/<slug>`), gallery tag texts, `/faq`
-- [ ] Responsive pass on a real phone
 - [x] Push to GitHub → import to Netlify → add the env vars → deploy
 - [x] Point the domain at Netlify (ukrasivarna.com, Netlify DNS)
 
@@ -349,6 +348,7 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
 - [ ] Replace the contact placeholders in `src/lib/contacts.ts` (phone, email, socials)
 - [x] ~~Replace the placeholder prices in `seed.sql`~~ — dropped (19 Oct 2026): live prices are set in admin (see „Re-price every product in admin“ above), and `seed.sql` only seeds a brand-new database; it refuses to run on one that has products.
 - [ ] Upgrade Node 20.9 → 22 LTS (Supabase warns on every build)
+- [ ] Responsive pass on a real phone
 
 ## Out of scope for v1
 

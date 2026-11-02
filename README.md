@@ -41,8 +41,8 @@ The dependency list is kept short on purpose: no state library, no CMS, no UI ki
 - **The basket is `useSyncExternalStore` over localStorage.** It isn't a library and it isn't a
   context. Old saved formats are upgraded when they are read.
 - **Privacy by design.** No cookies, no third-party scripts and self-hosted fonts mean the site
-  needs no consent banner. A nightly pg_cron job removes customers' names and phone numbers
-  12 months after their event ([migration-retention.sql](migration-retention.sql)).
+  needs no consent banner. [migration-retention.sql](migration-retention.sql) schedules a nightly
+  pg_cron job that removes names and phone numbers 12 months after the event.
 - **SEO.** Every category, gallery tag and showcase has its own page. The site also has a sitemap
   built from the database, JSON-LD (LocalBusiness, FAQPage), a share image drawn at build time and
   a homepage regenerated every 5 minutes (ISR).
@@ -54,7 +54,7 @@ and real code review:
 
 - A **developer** agent builds one chunk of the plan on its own branch and opens a PR.
 - **Security, performance, logic and SEO reviewer** agents each read the diff on their own. They
-  have read-only tools, so they can report but not fix.
+  have no edit or write tools. Their job is to report, and the developer agent fixes.
 - A **lead** session checks every "must fix" finding against the code before posting a single
   review. The developer then gets at most two fix rounds before a human decides.
 - Hard rules (no force-push, no pushing to `main` or release branches, no deleting remote refs)
