@@ -8,25 +8,25 @@ and visible.
 
 Legend: `[x]` done · `[ ]` not started · **(you)** = your job, not Claude's.
 
-**Last verified against the running app + live Supabase: 19 Sep 2026.**
+**Status refreshed against the code: 2 Nov 2026.** The site is live at ukrasivarna.com.
 
 ---
 
 ## Where we are in one line
 
-Steps 0–2 are done and verified against real Postgres. **The catalog PLP (`/catalog` +
-`/catalog/[category]`) is now built and verified against live data (21 Sep 2026); the PDP
-(`/product/[slug]`) is the main piece of step 3 still open.**
+The public site is live: catalog, basket, request, gallery, showcases, FAQ, privacy notice
+and SEO. The admin manages the whole catalog and every photo. **What's left is the admin's
+requests inbox (step 4) and the calendar (step 5)**; until then each request arrives by email.
 
 | Step | What | State |
 |------|------|-------|
 | 0 | Supabase project, schema, seed, storage, users | ✅ done + verified |
 | 1 | Scaffold, tokens, Supabase clients, public shell | ✅ done |
 | 2 | Configurator → booking request (homepage until v2, now hidden at `/configurator`) | ✅ done + verified |
-| 3 | Catalog PLP + PDP, real photos | 🟡 PLP (list + filters) built + verified; PDP not built |
-| 4 | Admin auth + requests inbox | 🟡 auth done, inbox not started |
+| 3 | Catalog PLP + PDP, real photos | ✅ PLP, basket and `/request` live; no PDP, on purpose |
+| 4 | Admin auth + requests inbox | 🟡 auth + request emails done, inbox not started |
 | 5 | Admin calendar + availability | ⬜ not started |
-| 6 | Admin CRUD, gallery, deploy | 🟡 product/category CRUD done |
+| 6 | Admin CRUD, gallery, deploy | ✅ CRUD, photo library, gallery, showcases, SEO, live on Netlify |
 
 ---
 
@@ -138,7 +138,7 @@ P1 (quick-add morph, swatches on the tile, badges, info line) and the rest of P2
 
 ---
 
-## Step 3 — Catalog (PLP + PDP) 🟡
+## Step 3 — Catalog (PLP + PDP) ✅ (no PDP, on purpose)
 
 **Photo plumbing is done** (19 Sep 2026) — `product_images` now flows from the DB through
 `getCatalog()` into the configurator tiles, so uploading a photo makes it appear on the
@@ -182,7 +182,7 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO
       sits in `src/components/catalog/Filters.tsx`; wire it when step 5 lands.
-- [ ] `/product/[slug]` — PDP (the card image + name already link here)
+- [ ] ~~`/product/[slug]` — PDP~~ — dropped for now (owner, 24 Sep 2026); catalog cards stay unlinked
 - [x] Colour swatches that swap the photo — on the catalog card (per `catalog-and-images.md`)
 - [ ] Image carousel when a product has more than one photo
 - [x] `/configurator` as its own page (moved there by homepage v2; hidden backup)
@@ -210,10 +210,9 @@ catalog pages get built. The requests inbox is still untouched.
 - [ ] Green/red at-a-glance colours (tokens already in `globals.css`)
 - [ ] `blackout_dates` — table + RLS exist, nothing in the app touches it yet
 
-## Step 6 — Admin CRUD, gallery, deploy 🟡
+## Step 6 — Admin CRUD, gallery, deploy ✅
 
-The product-management half is done (pulled forward with step 4). The gallery is built;
-SEO and deploy are still open.
+Done, and deployed to Netlify at ukrasivarna.com.
 
 - [x] `/admin/products` — add/edit/hide products, `/admin/categories` for categories
 - [x] Edit prices and quantities without touching Supabase
@@ -234,10 +233,10 @@ SEO and deploy are still open.
 - [x] SEO foundation: robots.txt, sitemap.xml (categories + gallery tags from the DB),
       canonicals, Open Graph share picture, LocalBusiness JSON-LD, per-category and
       per-tag titles/H1s, crawlable category links, cached homepage
-- [ ] SEO content: occasion pages, price guide, FAQ (needs her text and photos)
+- [x] SEO content: showcase pages (`/showcases/<slug>`), gallery tag texts, `/faq`
 - [ ] Responsive pass on a real phone
-- [ ] Push to GitHub → import to Netlify → add the two env vars → deploy
-- [ ] Point the domain at Netlify
+- [x] Push to GitHub → import to Netlify → add the env vars → deploy
+- [x] Point the domain at Netlify (ukrasivarna.com, Netlify DNS)
 
 ## Privacy (GDPR) 🟡
 
@@ -268,7 +267,7 @@ consent banner first** and updating `/privacy`.
 
 ---
 
-## Smoke tests 🟡 built, one run so far
+## Smoke tests 🟡 built
 
 Seven read-only Playwright specs in `tests/smoke/`. They browse like a visitor and never submit
 a request, because the database is the live one. `/smoke-test` reports, `/smoke-fix` fixes one red
@@ -345,14 +344,8 @@ spec (uncommitted), `/ship-pr` ships the fix. How it works: `.claude/README.md`.
       „Труд за украса“ price (starts at 50 €). Not blocking: the site falls back to 50 €.
 - [ ] **Re-price every product in admin (you).** The site switched from лв to € by
       relabelling only: the numbers were entered as лв and now show as € (60 лв → 60,00 €).
-- [ ] **Commit the configurator work** — only 2 commits exist and the last one predates the
-      whole refactor. ~674 insertions / 500 deletions sit uncommitted, plus 6 untracked
-      files (`src/components/configurator/*`, `src/lib/format.ts`) and 2 untracked docs.
-      There is no git remote.
 - [ ] Delete `src/lib/catalog-fallback.ts` — live data is confirmed working, so it's dead
       weight now. (`Product.images` is optional purely because this file has none.)
-- [ ] `CLAUDE.md` is stale — its "Current state" still calls Steps 3–6 "not started",
-      though the catalog and most of `/admin` have shipped. Refresh that section.
 - [ ] Replace the contact placeholders in `src/lib/contacts.ts` (phone, email, socials)
 - [x] ~~Replace the placeholder prices in `seed.sql`~~ — dropped (19 Oct 2026): live prices are set in admin (see „Re-price every product in admin“ above), and `seed.sql` only seeds a brand-new database; it refuses to run on one that has products.
 - [ ] Upgrade Node 20.9 → 22 LTS (Supabase warns on every build)
