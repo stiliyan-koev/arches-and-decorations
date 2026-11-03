@@ -10,6 +10,7 @@ const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 // Loads the Google tag and counts clicks on contact links. Renders nothing
 // without NEXT_PUBLIC_GOOGLE_ADS_ID, or until the visitor says yes in the cookie
 // banner (CookieBanner.tsx).
+// Someone who accepts after leaving the ?gclid= landing page isn't tied to the ad click, so the Ads numbers are a lower bound.
 //
 // One listener on the document instead of an onClick on each link: the links
 // stay plain <a> tags in Server Components, and a new tel:, Viber or Messenger
@@ -41,7 +42,9 @@ export default function GoogleAdsTag() {
         strategy="afterInteractive"
       />
       {/* This only runs after a yes, and the yes covers measuring conversions,
-          not personalised ads. /privacy says the same. */}
+          not personalised ads. /privacy says the same.
+          Keep enhanced conversions off in the Ads account: they could read the
+          form's email and phone, and /privacy says those don't reach Google Ads. */}
       <Script id="google-ads-init" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
 window.gtag = function () { window.dataLayer.push(arguments); };

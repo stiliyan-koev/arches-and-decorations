@@ -5,7 +5,7 @@ import { setConsent, useConsent } from "@/lib/consent";
 
 // Both buttons look the same on purpose: saying no has to be as easy as saying yes.
 const BUTTON =
-  "flex-1 rounded-full bg-ink px-5 py-2.5 font-bold text-white transition-opacity hover:opacity-85 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:flex-none";
+  "flex-1 cursor-pointer rounded-full bg-ink px-5 py-2.5 font-bold text-white transition-opacity hover:opacity-85 focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta sm:flex-none";
 
 // Asks before the Google tag loads. Without NEXT_PUBLIC_GOOGLE_ADS_ID there's
 // nothing to ask about, so it renders nothing. It doesn't block the page.

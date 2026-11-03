@@ -14,7 +14,7 @@ export default function CookieSettingsLink() {
       <button
         type="button"
         onClick={resetConsent}
-        className="underline-offset-2 hover:underline"
+        className="cursor-pointer underline-offset-2 hover:underline"
       >
         Бисквитки
       </button>

@@ -30,9 +30,20 @@ function notify() {
   for (const listener of listeners) listener();
 }
 
+// Consent withdrawn in another tab: the tag running here can only be stopped by
+// reloading, same as in resetConsent().
+function handleStorage(event: StorageEvent) {
+  if (event.key !== KEY) return;
+  if (choice === "granted" && event.newValue !== "granted") location.reload();
+}
+
 function subscribe(listener: () => void) {
+  if (listeners.size === 0) window.addEventListener("storage", handleStorage);
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) window.removeEventListener("storage", handleStorage);
+  };
 }
 
 function getSnapshot() {
