@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import GoogleAdsTag from "@/components/GoogleAdsTag";
 import { Unbounded, Nunito, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -38,7 +39,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="bg"
       className={`${unbounded.variable} ${nunito.variable} ${playfair.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <GoogleAdsTag />
+      </body>
     </html>
   );
 }

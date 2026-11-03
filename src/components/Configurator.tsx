@@ -26,6 +26,7 @@ import {
 } from "@/app/actions";
 import { formatDate, formatPrice, QUOTE_LABEL } from "@/lib/format";
 import { carouselImages, resolvePreviewImage } from "@/lib/images";
+import { trackContact } from "@/lib/tracking";
 import type { CatalogGroup, Product } from "@/lib/types";
 
 // One confirmed selection. A category can hold several, so items carry their own
@@ -383,8 +384,12 @@ export default function Configurator({ groups }: { groups: CatalogGroup[] }) {
     });
     setSubmitting(false);
 
-    if (result.ok) setSubmitted(true);
-    else setError(result.error);
+    if (result.ok) {
+      trackContact("inquiry");
+      setSubmitted(true);
+    } else {
+      setError(result.error);
+    }
   }
 
   function handleSubmit(formEvent: FormEvent) {

@@ -18,6 +18,7 @@ import SummaryRail, {
   type SummaryLine,
 } from "@/components/configurator/SummaryRail";
 import MobileSummaryBar from "@/components/configurator/MobileSummaryBar";
+import { trackContact } from "@/lib/tracking";
 import {
   getRequestAvailability,
   submitRequest,
@@ -209,6 +210,7 @@ export default function RequestForm({ products }: { products: PlpProduct[] }) {
       if (result.ok) {
         setSent({ total, hasQuote });
         selection.clear();
+        trackContact("inquiry");
       } else {
         setError(result.error);
       }
