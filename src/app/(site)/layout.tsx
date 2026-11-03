@@ -1,3 +1,4 @@
+import CookieBanner from "@/components/CookieBanner";
 import GoogleAdsTag from "@/components/GoogleAdsTag";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -10,6 +11,7 @@ export default function SiteLayout({ children }: LayoutProps<"/">) {
       <SiteHeader />
       <main className="flex-1">{children}</main>
       <SiteFooter />
+      <CookieBanner />
       <GoogleAdsTag />
     </>
   );

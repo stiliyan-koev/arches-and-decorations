@@ -1,5 +1,6 @@
-// Google Ads conversions. The tag itself is loaded by GoogleAdsTag.tsx, and only
-// when NEXT_PUBLIC_GOOGLE_ADS_ID is set, so without it nothing here does anything.
+// Google Ads conversions. The tag itself is loaded by GoogleAdsTag.tsx, only when
+// NEXT_PUBLIC_GOOGLE_ADS_ID is set and the visitor accepted the cookie banner.
+// Otherwise nothing here does anything.
 
 export type ContactChannel = "viber" | "messenger" | "phone" | "inquiry";
 
