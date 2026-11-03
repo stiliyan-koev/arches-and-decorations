@@ -33,3 +33,32 @@ const readLabourPrice = unstable_cache(async (): Promise<number | null> => {
   if (error) throw error;
   return data ? Number(data.labour_price) : null;
 }, ["labour-price"], { revalidate: 300 });
+
+// Whether the site offers „Под наем“ at all. She switches it at the top of
+// „Каталог“ in admin. On while the column doesn't exist yet
+// (migration-rent-toggle.sql) or can't be read, which is how the site has
+// always worked.
+export async function getRentEnabled(): Promise<boolean> {
+  if (!isSupabaseConfigured()) return true;
+
+  try {
+    const enabled = await readRentEnabled();
+    if (enabled !== null) return enabled;
+  } catch (error) {
+    console.error("getRentEnabled: leaving it on", error);
+  }
+  return true;
+}
+
+// Cached the same way as the labour price. Its own query, so the labour price
+// keeps working on a database that hasn't had the migration yet.
+const readRentEnabled = unstable_cache(async (): Promise<boolean | null> => {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("settings")
+    .select("rent_enabled")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? data.rent_enabled : null;
+}, ["rent-enabled"], { revalidate: 300 });

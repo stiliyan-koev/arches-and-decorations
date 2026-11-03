@@ -222,7 +222,7 @@ export default function CatalogView({
         </div>
       </div>
 
-      <ModeSwitch mode={state.mode} onMode={setMode} />
+      {data.rentEnabled && <ModeSwitch mode={state.mode} onMode={setMode} />}
 
       {/* Mobile category pill row, sticky under the site header */}
       <div className="sticky top-14 z-30 -mx-5 mb-4 border-b border-border bg-bg/95 px-5 py-2.5 backdrop-blur lg:hidden">

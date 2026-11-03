@@ -178,6 +178,9 @@ homepage with no code change. See **"Adding product photos"** at the bottom of t
       mini-basket, on `/request`, in the sum and in the owner's email. Price set at the top
       of admin → Каталог. Needs `migration-labour.sql` (below); until then it is a fixed
       50 € and saving it in admin fails.
+- [x] „Под наем“ switch at the top of admin → Каталог (4 Nov 2026): off hides the rent mode on
+      `/catalog` and `/request` and the rent-only products. Needs `migration-rent-toggle.sql`;
+      until then rent stays on and saving the switch fails.
 - [ ] Date / „Скрий заетите" availability filter on the PLP — **deliberately hidden**
       (brief): a date filter must reflect real per-date availability or be omitted, and
       `getReservedQuantities()` is unverified against live Postgres + fails open. The TODO

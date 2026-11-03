@@ -3,7 +3,7 @@ import { permanentRedirect } from "next/navigation";
 import CatalogView from "@/components/catalog/CatalogView";
 import { getCatalog } from "@/lib/catalog";
 import { catalogHref, parseState, toPlpData } from "@/lib/catalog-plp";
-import { getLabourPrice } from "@/lib/settings";
+import { getLabourPrice, getRentEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "Каталог",
@@ -19,12 +19,13 @@ export const metadata: Metadata = {
 export default async function CatalogPage({
   searchParams,
 }: PageProps<"/catalog">) {
-  const [groups, params, labourPrice] = await Promise.all([
+  const [groups, params, labourPrice, rentEnabled] = await Promise.all([
     getCatalog(),
     searchParams,
     getLabourPrice(),
+    getRentEnabled(),
   ]);
-  const data = toPlpData(groups);
+  const data = toPlpData(groups, rentEnabled);
   const initialState = parseState(params, data);
 
   // One category has its own page, /catalog/<slug>. Old ?cat= links move there,

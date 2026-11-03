@@ -46,10 +46,12 @@ type RequestMode = "service" | "rental";
 export default function RequestForm({
   products,
   labourPrice,
+  rentEnabled,
   initialMode,
 }: {
   products: PlpProduct[];
   labourPrice: number;
+  rentEnabled: boolean; // false = „Под наем“ is off in admin: no choice to make
   initialMode: RequestMode;
 }) {
   const lines = useBasket();
@@ -98,7 +100,7 @@ export default function RequestForm({
   // (a rent-only item next to a setup-only one) can't be sent as it is.
   const notRentable = items.filter((item) => !item.product.rentable);
   const notSetUp = items.filter((item) => !item.product.setupPossible);
-  const canRent = items.length > 0 && notRentable.length === 0;
+  const canRent = rentEnabled && items.length > 0 && notRentable.length === 0;
   const canService = notSetUp.length === 0;
   const noMode = items.length > 0 && !canRent && !canService;
   // Once per product, even when it's in the basket in two colours.
@@ -359,47 +361,49 @@ export default function RequestForm({
         <BasketLines items={items} notes={notes} />
         {labour > 0 && <LabourLabel price={labour} />}
 
-        <fieldset className="mt-6">
-          <legend className="mb-2 text-[1.05rem] font-extrabold">
-            Как да е?
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            <ModeButton
-              active={!noMode && activeMode === "service"}
-              disabled={!canService}
-              onClick={() => setMode("service")}
-            >
-              Украса с монтаж от нас
-            </ModeButton>
-            <ModeButton
-              active={activeMode === "rental"}
-              disabled={!canRent}
-              onClick={() => setMode("rental")}
-            >
-              Под наем
-            </ModeButton>
-          </div>
-          {noMode ? (
-            <p className="mt-2 text-[0.8rem] font-bold text-rose-ink">
-              {quoted(notSetUpNames)}{" "}
-              {notSetUpNames.length === 1 ? "се предлага" : "се предлагат"} само
-              под наем, а {quoted(notRentableNames)} само с монтаж. Изпратете ги в
-              отделни запитвания.
-            </p>
-          ) : !canRent ? (
-            <p className="mt-2 text-[0.8rem] text-muted">
-              Под наем не може, защото {quoted(notRentableNames)}{" "}
-              {notRentableNames.length === 1 ? "се предлага" : "се предлагат"} само
-              с монтаж.
-            </p>
-          ) : !canService ? (
-            <p className="mt-2 text-[0.8rem] text-muted">
-              С монтаж не може, защото {quoted(notSetUpNames)}{" "}
-              {notSetUpNames.length === 1 ? "се предлага" : "се предлагат"} само
-              под наем.
-            </p>
-          ) : null}
-        </fieldset>
+        {rentEnabled && (
+          <fieldset className="mt-6">
+            <legend className="mb-2 text-[1.05rem] font-extrabold">
+              Как да е?
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              <ModeButton
+                active={!noMode && activeMode === "service"}
+                disabled={!canService}
+                onClick={() => setMode("service")}
+              >
+                Украса с монтаж от нас
+              </ModeButton>
+              <ModeButton
+                active={activeMode === "rental"}
+                disabled={!canRent}
+                onClick={() => setMode("rental")}
+              >
+                Под наем
+              </ModeButton>
+            </div>
+            {noMode ? (
+              <p className="mt-2 text-[0.8rem] font-bold text-rose-ink">
+                {quoted(notSetUpNames)}{" "}
+                {notSetUpNames.length === 1 ? "се предлага" : "се предлагат"} само
+                под наем, а {quoted(notRentableNames)} само с монтаж. Изпратете ги в
+                отделни запитвания.
+              </p>
+            ) : !canRent ? (
+              <p className="mt-2 text-[0.8rem] text-muted">
+                Под наем не може, защото {quoted(notRentableNames)}{" "}
+                {notRentableNames.length === 1 ? "се предлага" : "се предлагат"} само
+                с монтаж.
+              </p>
+            ) : !canService ? (
+              <p className="mt-2 text-[0.8rem] text-muted">
+                С монтаж не може, защото {quoted(notSetUpNames)}{" "}
+                {notSetUpNames.length === 1 ? "се предлага" : "се предлагат"} само
+                под наем.
+              </p>
+            ) : null}
+          </fieldset>
+        )}
 
         <EventDetails
           mode={activeMode}
