@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/slug";
 import { deleteCategory, saveCategory } from "@/app/admin/actions";
+import { CATEGORY_DESCRIPTION_MAX } from "@/lib/catalog-plp";
 import type { CategorySummary } from "@/lib/types";
 
 const FIELD = "rounded-item border border-border-strong bg-bg px-3 py-2";
@@ -134,7 +135,7 @@ function CategoryRow({
       <textarea
         value={description}
         onChange={(event) => setDescription(event.target.value)}
-        maxLength={300}
+        maxLength={CATEGORY_DESCRIPTION_MAX}
         rows={2}
         placeholder="Текст под заглавието в каталога, напр. „Калъфи за арките ни — по един за всяка арка.“"
         aria-label="Текст за категорията"

@@ -254,7 +254,11 @@ export async function submitRequest(
   // never the browser's number. The browser only says whether the basket went
   // with the label (a positive labourPrice).
   const sentLabour = payload.labourPrice;
-  const withLabour = typeof sentLabour === "number" && Number.isFinite(sentLabour) && sentLabour > 0;
+  const withLabour =
+    typeof sentLabour === "number" &&
+    Number.isFinite(sentLabour) &&
+    sentLabour > 0 &&
+    sentLabour <= MAX_ESTIMATE;
   const labourPrice = withLabour ? await getLabourPrice() : 0;
 
   // Only an estimate for the admin to read; anything that isn't a sane number
@@ -270,7 +274,7 @@ export async function submitRequest(
       : null;
   const estimatedTotal =
     sentTotal !== null && withLabour
-      ? Math.max(0, sentTotal - sentLabour + labourPrice)
+      ? Math.min(MAX_ESTIMATE, Math.max(0, sentTotal - sentLabour + labourPrice))
       : sentTotal;
 
   const { error: bookingError } = await supabase.from("bookings").insert({

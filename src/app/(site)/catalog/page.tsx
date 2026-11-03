@@ -19,11 +19,7 @@ export const metadata: Metadata = {
 export default async function CatalogPage({
   searchParams,
 }: PageProps<"/catalog">) {
-  const [groups, params, labourPrice] = await Promise.all([
-    getCatalog(),
-    searchParams,
-    getLabourPrice(),
-  ]);
+  const [groups, params] = await Promise.all([getCatalog(), searchParams]);
   const data = toPlpData(groups);
   const initialState = parseState(params, data);
 
@@ -33,6 +29,9 @@ export default async function CatalogPage({
   if (initialState.cats.length === 1) {
     permanentRedirect(catalogHref(initialState));
   }
+
+  // After the redirect: a legacy ?cat= hit never needs the price.
+  const labourPrice = await getLabourPrice();
 
   return (
     <CatalogView

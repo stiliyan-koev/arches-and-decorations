@@ -204,8 +204,9 @@ export default function CatalogView({
               "Каталог"
             )}
           </nav>
+          {/* The same noun phrase as the page's <title>: „Арки във Варна“. */}
           <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">
-            {onlyCategory ? onlyCategory.name : "Каталог"}
+            {onlyCategory ? `${onlyCategory.name} във Варна` : "Каталог"}
           </h1>
           {/* A category with its own text shows it; otherwise the general line. */}
           <p className="max-w-[640px] text-[0.95rem] text-muted">
@@ -361,7 +362,7 @@ export default function CatalogView({
               <h3 className="text-xl font-semibold">Тези продукти са само под наем</h3>
               <p className="max-w-[420px] text-sm text-muted">
                 Не ги монтираме — взимате ги и ги връщате сами. Превключете на
-                „Само под наем“, за да ги видите.
+                „Под наем“, за да ги видите.
               </p>
               <button
                 type="button"

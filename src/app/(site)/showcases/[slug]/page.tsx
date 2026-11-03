@@ -38,7 +38,8 @@ export async function generateMetadata({
   // locale are repeated here.
   const photo = { url: showcase.photos[0], alt: showcase.title };
   return {
-    title: showcase.title,
+    // The story's name plus what it is and where; the H1 keeps the name alone.
+    title: `${showcase.title} — украса с балони във Варна`,
     description: summary(showcase.body),
     alternates: { canonical: `/showcases/${showcase.slug}` },
     openGraph: {
@@ -98,7 +99,10 @@ export default async function ShowcasePage({
             width={1600}
             height={2000}
             sizes="(min-width: 800px) 720px, 100vw"
+            // This is the page's LCP, and `preload` no longer sets
+            // fetchpriority, so ask for it too (as the hero carousel does).
             preload={index === 0}
+            fetchPriority={index === 0 ? "high" : undefined}
             className="h-auto w-full rounded-item bg-surface-2"
           />
         ))}

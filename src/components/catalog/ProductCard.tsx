@@ -78,6 +78,8 @@ export default function ProductCard({
       ? "border-cta bg-cta text-white"
       : "border-balloon-pink bg-surface text-cta hover:border-cta hover:bg-cta hover:text-white";
 
+  const cover = coverLabel(product);
+
   function add(requirements: string) {
     const accepted = selection.add(product.slug, color, requirements);
     onAdd(accepted ? lineKey(product.slug, color) : null, !accepted);
@@ -155,10 +157,8 @@ export default function ProductCard({
           {product.name}
         </p>
         {product.spec && <SpecLine spec={product.spec} title={product.name} />}
-        {coverLabel(product) && (
-          <p className="text-[0.78rem] leading-snug font-bold text-ink">
-            {coverLabel(product)}
-          </p>
+        {cover && (
+          <p className="text-[0.78rem] leading-snug font-bold text-ink">{cover}</p>
         )}
         {swatch && (
           <div className="pt-2">
