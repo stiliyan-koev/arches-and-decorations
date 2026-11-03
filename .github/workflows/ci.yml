@@ -4,7 +4,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main, 'release/**']
+    branches: [main, 'release/**', 'agentic/release-*']
 
 # Read-only token: CI only needs to check out the code.
 permissions:
