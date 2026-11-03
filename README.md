@@ -103,6 +103,7 @@ the admin you need a Supabase project: [GETTING-STARTED.md](GETTING-STARTED.md) 
 | `npm run build` | Production build (also type-checks) |
 | `npm run lint` | ESLint |
 | `npm run seo-check` | Static SEO checks on the source (metadata, canonicals, alt text) |
+| `npm run db-check` | Read-only check that every `migration-*.sql` has been run on the database in `.env.local` |
 | `npm run smoke` | Read-only Playwright smoke tests against the production build |
 
 ## Docs

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seo-check": "node scripts/seo-check.mjs",
+    "db-check": "node --env-file=.env.local scripts/db-check.mjs",
     "smoke": "playwright test"
   },
   "dependencies": {
