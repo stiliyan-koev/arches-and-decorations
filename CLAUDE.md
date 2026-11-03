@@ -56,7 +56,10 @@ npm run smoke   # Playwright smoke specs against the production build (run npm r
 
 - **Steps 1–2 are done**: scaffold, tokens, Supabase clients, public shell, and the configurator (built from `getCatalog()`, submits to `bookings`/`booking_items`). It was the homepage until v2; now it sits at the hidden `/configurator`.
 - **Step 0 (Supabase project, `schema.sql` + `seed.sql`, the `catalog` Storage bucket, admin users) is done** — the live database has been in use since 19 Sep 2026. **Never run `seed.sql` or `schema.sql` on it again:** both are for a brand-new project only, and the live database gets its changes as `migration-*.sql` files.
-- **Steps 3–6 (catalog PLP/PDP, admin auth + requests, calendar + availability, CRUD + gallery + deploy) are not started.** Don't build steps 4–6 before 1–3 are real and visible.
+- **Step 3 is done without the PDP**: `/catalog` + `/catalog/[category]`, the basket and `/request`. There is deliberately no `/product/[slug]` for now (owner's call, 24 Sep 2026).
+- **Step 4 is half done**: admin login and the guard on `/admin/*` work, and every request is emailed to the owner. `/admin/requests` (list, confirm, final price) is not built; `/admin` redirects to `/admin/products`.
+- **Step 5 (calendar + availability view) is not started.** The SQL side (`reserved_qty`) exists; nothing in the admin shows it yet.
+- **Step 6 is done**: product/category/colour CRUD, the photo library, `/admin/home`, `/admin/showcases`, `/admin/gallery`, SEO, and the deploy to Netlify at ukrasivarna.com.
 
 ## Follow-up actions — end every task with the table
 
