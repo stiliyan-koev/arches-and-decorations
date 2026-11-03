@@ -38,7 +38,9 @@ export default function ContactMessageForm() {
         website,
       });
       if (result.ok) {
-        trackContact("inquiry");
+        // A filled honeypot also comes back ok (see actions.ts), and a bot is
+        // not a conversion.
+        if (!website.trim()) trackContact("inquiry");
         setSent(true);
       } else {
         setError(result.error);

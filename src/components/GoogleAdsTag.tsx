@@ -7,7 +7,8 @@ import { contactChannelOf, trackContact } from "@/lib/tracking";
 const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 
 // Loads the Google tag and counts clicks on contact links. Renders nothing
-// without NEXT_PUBLIC_GOOGLE_ADS_ID.
+// without NEXT_PUBLIC_GOOGLE_ADS_ID. Don't set that ID until the consent banner
+// exists, and the banner must gate this render.
 //
 // One listener on the document instead of an onClick on each link: the links
 // stay plain <a> tags in Server Components, and a new tel:, Viber or Messenger
