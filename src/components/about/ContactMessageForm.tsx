@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { submitContactMessage } from "@/app/actions";
+import { trackContact } from "@/lib/tracking";
 
 // Same field styling as the configurator's ContactForm, so the two forms on
 // the site look like one form.
@@ -37,6 +38,9 @@ export default function ContactMessageForm() {
         website,
       });
       if (result.ok) {
+        // A filled honeypot also comes back ok (see actions.ts), and a bot is
+        // not a conversion.
+        if (!website.trim()) trackContact("inquiry");
         setSent(true);
       } else {
         setError(result.error);
