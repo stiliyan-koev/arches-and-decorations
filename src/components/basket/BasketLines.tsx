@@ -30,6 +30,7 @@ export default function BasketLines({
         const photo = swatch?.images[0]?.path ?? product.imagePath;
         // The colour, for the labels: "„Калъф за арка“ … — Червен".
         const colorSuffix = swatch ? ` — ${swatch.name}` : "";
+        const cover = coverLabel(product);
         return (
           <li key={key} className="flex gap-3 py-3.5">
             <div
@@ -71,10 +72,8 @@ export default function BasketLines({
                   ? product.categoryName
                   : `${formatPrice(product.price)} / бр.`}
               </p>
-              {coverLabel(product) && (
-                <p className="text-[0.78rem] font-bold text-ink">
-                  {coverLabel(product)}
-                </p>
+              {cover && (
+                <p className="text-[0.78rem] font-bold text-ink">{cover}</p>
               )}
 
               <div className="mt-auto flex items-center gap-2 pt-1">

@@ -5,6 +5,7 @@ import { toPlpData } from "@/lib/catalog-plp";
 import { getPublicGalleryTags } from "@/lib/gallery-photos";
 import { getShowcaseLinks } from "@/lib/showcases";
 import { galleryHref } from "@/lib/gallery";
+import { HOME_SHOWCASE_COUNT } from "@/lib/home";
 import { SITE_URL } from "@/lib/site";
 
 // /sitemap.xml: every page search engines should know about, read from the
@@ -35,7 +36,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       console.error("sitemap: leaving out the gallery tags", error);
     }
     try {
-      showcases = (await getShowcaseLinks()).map((link) => `/showcases/${link.slug}`);
+      // „Вдъхнови се“ on the homepage is the only way in, and it appears only
+      // once three showcases have photos. Below that, submitting these pages
+      // would offer search engines something nothing on the site links to.
+      const links = await getShowcaseLinks();
+      if (links.length >= HOME_SHOWCASE_COUNT) {
+        showcases = links.map((link) => `/showcases/${link.slug}`);
+      }
     } catch (error) {
       console.error("sitemap: leaving out the showcases", error);
     }

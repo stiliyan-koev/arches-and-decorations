@@ -52,6 +52,10 @@ export type PlpCategory = {
   name: string;
   description: string; // her text under /catalog/<slug>'s heading; "" when none
 };
+
+// How long that text may be — about what a search snippet shows. The admin
+// textarea and saveCategory() both read it from here, so the two can't drift.
+export const CATEGORY_DESCRIPTION_MAX = 300;
 export type PlpColor = { slug: string; name: string; hex: string | null };
 
 export type PlpData = {

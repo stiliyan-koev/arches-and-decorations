@@ -72,7 +72,7 @@ export default async function GalleryPage({ searchParams }: PageProps<"/gallery"
   return (
     <div className="mx-auto max-w-[1120px] px-5 pt-14 pb-16">
       <h1 className="text-4xl font-bold text-ink">
-        {activeTag ? `${activeTag.name}: украса с балони` : "Галерия"}
+        {activeTag ? `${activeTag.name}: украса с балони във Варна` : "Галерия"}
       </h1>
       {/* A tag with its own text shows it; otherwise the general line. */}
       <p className="mt-3 max-w-[620px] text-muted">

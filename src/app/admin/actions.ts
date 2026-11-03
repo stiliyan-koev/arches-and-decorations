@@ -10,6 +10,7 @@ import {
   SHOWCASE_MAX_PHOTOS,
   SHOWCASE_TITLE_MAX,
 } from "@/lib/home";
+import { CATEGORY_DESCRIPTION_MAX } from "@/lib/catalog-plp";
 import { MAX_BULK, TAG_DESCRIPTION_MAX, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
@@ -189,9 +190,6 @@ export type CategoryInput = {
   // hidden configurator's hint line). Left out = unchanged.
   description?: string;
 };
-
-// About what a search snippet shows.
-const CATEGORY_DESCRIPTION_MAX = 300;
 
 export async function saveCategory(input: CategoryInput): Promise<ActionResult> {
   const denied = await requireAdmin();

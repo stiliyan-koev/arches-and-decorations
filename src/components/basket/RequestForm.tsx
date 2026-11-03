@@ -34,7 +34,9 @@ import {
   type PlpProduct,
 } from "@/lib/catalog-plp";
 
-type Mode = "service" | "rental";
+// „Само под наем“ is "rental" here, not the catalog's "rent": /request/page.tsx
+// translates between the two. Named apart so `mode` is never ambiguous.
+type RequestMode = "service" | "rental";
 
 // The order summary behind the mini-basket's „Продължи“. Same job as the
 // configurator's two steps, on one page: the basket (still editable), when and
@@ -48,7 +50,7 @@ export default function RequestForm({
 }: {
   products: PlpProduct[];
   labourPrice: number;
-  initialMode: Mode;
+  initialMode: RequestMode;
 }) {
   const lines = useBasket();
   // The basket lives in localStorage, so the server always renders it empty.
@@ -61,7 +63,7 @@ export default function RequestForm({
   );
   const { items, total, hasQuote } = basketView(lines, products);
 
-  const [mode, setMode] = useState<Mode>(initialMode);
+  const [mode, setMode] = useState<RequestMode>(initialMode);
   const [event, setEvent] = useState<EventFields>({
     city: "Варна",
     date: "",
@@ -104,7 +106,7 @@ export default function RequestForm({
   const notSetUpNames = namesOf(notSetUp);
   // A basket that can rent goes as a rental when it can't be set up, or when
   // the visitor picked „Само под наем“. Everything else goes as a service.
-  let activeMode: Mode = "service";
+  let activeMode: RequestMode = "service";
   if (canRent && (!canService || mode === "rental")) activeMode = "rental";
   // Forget a rental choice once the basket can't rent, so it doesn't come back
   // on its own when the basket qualifies again. Guarded, so it runs once. Only
@@ -206,15 +208,15 @@ export default function RequestForm({
       ? "Офертата е празна."
       : noMode
         ? "Артикулите само под наем и тези само с монтаж се изпращат поотделно."
-      : returnBeforePickup
-        ? "Връщането е преди вземането."
-        : !datesReady
-          ? activeMode === "rental"
-            ? "Изберете дати за вземане и връщане."
-            : "Изберете дата на събитието."
-          : !contact.phone.trim()
-            ? "Попълнете телефон, за да изпратим."
-            : null;
+        : returnBeforePickup
+          ? "Връщането е преди вземането."
+          : !datesReady
+            ? activeMode === "rental"
+              ? "Изберете дати за вземане и връщане."
+              : "Изберете дата на събитието."
+            : !contact.phone.trim()
+              ? "Попълнете телефон, за да изпратим."
+              : null;
 
   const ctaDisabled = submitting || hint !== null;
   const ctaLabel = submitting ? "Изпращане…" : "Изпрати запитване";
