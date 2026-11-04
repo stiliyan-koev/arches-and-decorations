@@ -11,15 +11,15 @@ export const metadata: Metadata = {
 };
 
 // Bump this whenever the text below changes.
-const UPDATED = "19 октомври 2026 г.";
+const UPDATED = "4 ноември 2026 г.";
 
 // The GDPR notice (чл. 13): who keeps the customer's data, what, why, for how
 // long, who else sees it, and their rights. It has to stay true to the code:
 // - the 12 months match forget_old_requests() in schema.sql;
 // - the request's email copy in Gmail is deleted by hand (owner item in PROGRESS.md);
-// - „no tracking, no banner“ holds only while nothing on the public site sets
-//   a cookie or loads a third-party script. Adding analytics or a pixel means a
-//   consent banner first, and this page changes with it.
+// - the cookie section lists everything that sets a cookie or loads a third-party
+//   script. Only Google Ads does, and only after a yes in CookieBanner. Anything
+//   new goes behind that banner too, and this page changes with it.
 // No email address on purpose, same as /about (see contacts.ts).
 export default function PrivacyPage() {
   const controller = CONTACTS.legalName || CONTACTS.brand;
@@ -36,7 +36,8 @@ export default function PrivacyPage() {
       <div className="mt-8 space-y-4 text-muted">
         <p className="text-lg">
           Събираме само данните, без които не можем да ви се обадим за украсата —
-          и нищо повече. Сайтът няма онлайн плащане, регистрация и проследяване.
+          и нищо повече. Сайтът няма онлайн плащане и регистрация, а проследяване
+          има само ако го приемете.
         </p>
       </div>
 
@@ -108,8 +109,9 @@ export default function PrivacyPage() {
 
       <Section title="Кой още вижда данните">
         <p>
-          Не продаваме данните ви и не ги даваме за реклама. Освен нас ги
-          обработват само доставчиците, чрез които работи сайтът:
+          Не продаваме данните ви, а това, което ни пишете във формите, не
+          даваме за реклама. Освен нас ги обработват само доставчиците, чрез
+          които работи сайтът:
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
@@ -126,7 +128,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong className="font-semibold text-ink">Google (Gmail)</strong> —
-            пощенската кутия, в която получаваме тези имейли.
+            пощенската кутия, в която получаваме тези имейли;
+          </li>
+          <li>
+            <strong className="font-semibold text-ink">Google Ads</strong> — само
+            ако приемете бисквитките, вижте „Бисквитки и проследяване“.
           </li>
         </ul>
         <p>
@@ -139,10 +145,9 @@ export default function PrivacyPage() {
 
       <Section title="Бисквитки и проследяване">
         <p>
-          Сайтът не използва бисквитки за статистика, реклама или проследяване и
-          не зарежда нищо от Google, Facebook или други трети страни, докато го
-          разглеждате. Затова няма и банер за бисквитки — няма за какво да искаме
-          съгласието ви.
+          Без вашето съгласие сайтът не използва бисквитки за статистика, реклама
+          или проследяване и не зарежда нищо от Google, Facebook или други трети
+          страни.
         </p>
         <p>Използваме само това, без което сайтът не работи:</p>
         <ul className="list-disc space-y-1.5 pl-5">
@@ -153,14 +158,30 @@ export default function PrivacyPage() {
             изчиства, когато изпратите запитването.
           </li>
           <li>
+            <code className={CODE}>consent.v1</code> в локалното хранилище на
+            браузъра — помни отговора ви за бисквитките, за да не ви питаме при
+            всяко отваряне. Остава само във вашия браузър.
+          </li>
+          <li>
             бисквитки за вход (<code className={CODE}>sb-…-auth-token</code>) —
             само при вход в администрацията на сайта. Посетителите не ги
             получават.
           </li>
         </ul>
         <p>
-          Ако някога добавим статистика или реклама, ще поискаме съгласието ви,
-          преди да заредим каквото и да е, и ще обновим тази страница.
+          Ако приемете в прозореца за бисквитки, зареждаме и Google Ads. Така
+          виждаме колко хора след клик върху наша реклама са ни се обадили, писали
+          са ни по Viber или Messenger или са изпратили запитване. Google записва
+          свои бисквитки (например <code className={CODE}>_gcl_au</code>, която се
+          пази около 90 дни) и получава адреса на страницата, IP адреса и данни за
+          браузъра ви. Името, телефонът и текстът на запитването ви не стигат до
+          Google Ads. Не използваме бисквитките за персонализирана реклама.
+        </p>
+        <p>
+          Основанието е вашето съгласие. Без него сайтът работи по същия начин.
+          Можете да го оттеглите по всяко време от връзката „Бисквитки“ в долния
+          край на всяка страница. Тогава изтриваме бисквитките{" "}
+          <code className={CODE}>_gcl…</code> от нашия сайт и ви питаме отново.
         </p>
       </Section>
 

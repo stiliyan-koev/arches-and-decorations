@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CookieSettingsLink from "@/components/CookieSettingsLink";
 import { CONTACTS } from "@/lib/contacts";
 import {
   FacebookIcon,
@@ -104,6 +105,7 @@ export default function SiteFooter() {
         <Link href="/privacy" className="underline-offset-2 hover:underline">
           Поверителност
         </Link>
+        <CookieSettingsLink />
       </div>
     </footer>
   );
