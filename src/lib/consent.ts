@@ -72,12 +72,24 @@ export function setConsent(next: ConsentChoice) {
 }
 
 // Google's _gcl_* cookies sit on the site's domain, or on the host on localhost.
+//
+// gtag writes them on the registrable domain, so from www. — or any Netlify
+// alias — clearing the exact hostname alone leaves them in place, and /privacy
+// promises they go. Three attempts: no domain, this host, and the host minus
+// its first label (www.ukrasivarna.com → .ukrasivarna.com). The last is
+// skipped when it would be a public suffix like .com, and a domain that isn't
+// ours the browser ignores anyway.
 function deleteAdCookies() {
+  const host = location.hostname;
+  const parent = host.split(".").slice(1).join(".");
+  const domains = ["", host, ...(parent.includes(".") ? [`.${parent}`] : [])];
+
   for (const cookie of document.cookie.split("; ")) {
     const name = cookie.split("=")[0];
     if (!name.startsWith("_gcl")) continue;
-    document.cookie = `${name}=; Max-Age=0; path=/`;
-    document.cookie = `${name}=; Max-Age=0; path=/; domain=${location.hostname}`;
+    for (const domain of domains) {
+      document.cookie = `${name}=; Max-Age=0; path=/${domain ? `; domain=${domain}` : ""}`;
+    }
   }
 }
 

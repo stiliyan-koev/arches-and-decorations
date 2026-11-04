@@ -7,7 +7,7 @@ import { saveLabourPrice } from "@/app/admin/actions";
 const FIELD = "rounded-item border border-border-strong bg-bg px-3 py-2";
 
 // „Труд за украса“ at the top of the admin catalog: one price, added once to
-// every basket going as „Украса с монтаж“. 0 = no label at all.
+// every basket going as „Украса с монтаж от нас“. 0 = no label at all.
 export default function LabourPriceForm({ price }: { price: number }) {
   const router = useRouter();
   const [value, setValue] = useState(String(price));

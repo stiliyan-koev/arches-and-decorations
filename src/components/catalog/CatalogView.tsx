@@ -28,6 +28,11 @@ import {
 // catalog shows in full; a larger catalog gets a show-more instead of pagination.
 const PAGE = 24;
 
+// The page's own noun phrase, deliberately not the homepage's „Украса с балони
+// и арки във Варна“ — the two shouldn't compete for the same words. Matches the
+// <title> in app/(site)/catalog/page.tsx.
+const CATALOG_HEADING = "Каталог — балони, арки и калъфи за украса във Варна";
+
 function toggle(list: string[], id: string) {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
@@ -93,8 +98,8 @@ export default function CatalogView({
 
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
-  // Nothing under „Украса с монтаж“, but the same choice has products under
-  // „Само под наем“: they are rent-only, and the empty state says so.
+  // Nothing under „Украса с монтаж от нас“, but the same choice has products under
+  // „Под наем“: they are rent-only, and the empty state says so.
   const onlyForRent =
     visible.length === 0 &&
     state.mode === "service" &&
@@ -177,6 +182,31 @@ export default function CatalogView({
     </span>
   );
 
+  // Nothing in the catalog at all: no database yet, or the read failed (and a
+  // category page can't tell that from an unknown slug). Filters have nothing
+  // to filter and the basket nothing to price, so the page says „Очаквайте
+  // скоро“, the way /gallery does without photos.
+  if (data.products.length === 0) {
+    return (
+      <div className="mx-auto max-w-[1140px] px-5 pt-14 pb-16">
+        <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">{CATALOG_HEADING}</h1>
+        <div className="mt-8 flex flex-col items-center gap-3.5 rounded-card border border-dashed border-border bg-surface px-10 py-16 text-center">
+          <h2 className="text-xl font-semibold">Очаквайте скоро</h2>
+          <p className="max-w-[420px] text-sm text-muted">
+            Подреждаме каталога със снимки и цени. Пишете ни и ще ви кажем какво
+            можем за вашия празник.
+          </p>
+          <Link
+            href="/about"
+            className="inline-flex min-h-[44px] items-center rounded-full bg-cta px-6 text-sm font-extrabold text-white hover:bg-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+          >
+            Свържете се с нас
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-[1140px] px-5 pt-6 pb-16">
       <p className="mb-5 flex items-center gap-2.5 rounded-item border border-border bg-surface-2 px-4 py-3 text-[0.82rem] text-muted">
@@ -204,9 +234,10 @@ export default function CatalogView({
               "Каталог"
             )}
           </nav>
-          {/* The same noun phrase as the page's <title>: „Арки във Варна“. */}
+          {/* A category's own <title> phrase („Арки във Варна“), or the
+              catalog's own (CATALOG_HEADING above). */}
           <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">
-            {onlyCategory ? `${onlyCategory.name} във Варна` : "Каталог"}
+            {onlyCategory ? `${onlyCategory.name} във Варна` : CATALOG_HEADING}
           </h1>
           {/* A category with its own text shows it; otherwise the general line. */}
           <p className="max-w-[640px] text-[0.95rem] text-muted">

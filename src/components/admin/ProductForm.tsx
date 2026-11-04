@@ -240,6 +240,13 @@ export default function ProductForm({ product, categories, colorCount = 0 }: Pro
             <option value="both">С монтаж от нас</option>
             <option value="setup">Само с монтаж от нас</option>
           </select>
+          {/* The three read like loose hints, but the choice decides which
+              catalog mode lists the product, whether „Труд за украса“ lands on
+              a basket holding it, and what it can be sent next to. */}
+          <span className="mt-1 block text-[0.8rem] text-muted">
+            „Може под наем“ = само наем, не го монтираме. „С монтаж от нас“ = и
+            наем, и монтаж. „Само с монтаж от нас“ = не се дава под наем.
+          </span>
         </label>
 
         <label>

@@ -52,10 +52,14 @@ export default async function CategoryPage({
     if (!data.rentEnabled && groups.some((group) => group.slug === category)) {
       redirect("/catalog");
     }
-    notFound();
+    // An empty catalog — no database, or a read error — can't tell an unknown
+    // slug from no catalog at all, and a 404 is the one answer that makes
+    // search engines drop the URL. So only a healthy read 404s; otherwise the
+    // page falls through and shows the same „Очаквайте скоро“ as /catalog.
+    if (data.categories.length > 0) notFound();
   }
 
-  // A rent-only category opens in „Само под наем“, so its page (the one
+  // A rent-only category opens in „Под наем“, so its page (the one
   // search engines index) lists its products instead of nothing.
   const parsed = parseState(sp, data);
   const mode = isRentOnlyCategory(data.products, category) ? "rent" : parsed.mode;

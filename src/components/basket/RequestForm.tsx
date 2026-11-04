@@ -35,7 +35,7 @@ import {
   type PlpProduct,
 } from "@/lib/catalog-plp";
 
-// „Само под наем“ is "rental" here, not the catalog's "rent": /request/page.tsx
+// „Под наем“ is "rental" here, not the catalog's "rent": /request/page.tsx
 // translates between the two. Named apart so `mode` is never ambiguous.
 type RequestMode = "service" | "rental";
 
@@ -43,7 +43,7 @@ type RequestMode = "service" | "rental";
 // configurator's two steps, on one page: the basket (still editable), when and
 // where, how to reach the customer, then submitRequest(). No payment — it's a
 // request she confirms in person. It starts in the mode picked on the catalog,
-// and „Украса с монтаж“ adds „Труд за украса“ once.
+// and „Украса с монтаж от нас“ adds „Труд за украса“ once.
 export default function RequestForm({
   products,
   labourPrice,
@@ -95,8 +95,8 @@ export default function RequestForm({
     labour: number;
   } | null>(null);
 
-  // „Само под наем“ only makes sense when everything in the basket can be loaned
-  // out on its own, and „Украса с монтаж“ when she may set all of it up. A
+  // „Под наем“ only makes sense when everything in the basket can be loaned
+  // out on its own, and „Украса с монтаж от нас“ when she may set all of it up. A
   // basket that can do only one of them gets that one; one that can do neither
   // (a rent-only item next to a setup-only one) can't be sent as it is.
   const notRentable = items.filter((item) => !item.product.rentable);
@@ -108,7 +108,7 @@ export default function RequestForm({
   const notRentableNames = namesOf(notRentable);
   const notSetUpNames = namesOf(notSetUp);
   // A basket that can rent goes as a rental when it can't be set up, or when
-  // the visitor picked „Само под наем“. Everything else goes as a service.
+  // the visitor picked „Под наем“. Everything else goes as a service.
   let activeMode: RequestMode = "service";
   if (canRent && (!canService || mode === "rental")) activeMode = "rental";
   // Forget a rental choice once the basket can't rent, so it doesn't come back
@@ -116,7 +116,7 @@ export default function RequestForm({
   // in the browser: the server/hydration render sees an empty basket, which
   // would throw away a ?mode=rent from the catalog.
   if (inBrowser && !canRent && mode === "rental") setMode("service");
-  // The label shows exactly when the request goes as „Украса с монтаж“.
+  // The label shows exactly when the request goes as „Украса с монтаж от нас“.
   const labour =
     labourPrice > 0 && hasLabour(items, activeMode === "service") ? labourPrice : 0;
   const grandTotal = total + labour;

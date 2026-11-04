@@ -321,10 +321,9 @@ language sql set search_path = public as $$
          < (current_date - interval '12 months')::date;
 $$;
 
-revoke execute on function forget_old_requests() from public, anon, authenticated;
+revoke execute on function forget_old_requests() from public, anon, authenticated, service_role;
 
-create extension if not exists pg_cron;
-select cron.schedule('forget-old-requests', '15 3 * * *', 'select forget_old_requests()');
+-- The nightly schedule is at the very END of this file, after the policies.
 
 -- ---------- Who the admin is ----------
 -- One row per admin user. The "admin all …" policies below key off this table,
@@ -420,3 +419,13 @@ create policy "admin all gallery_photos"     on gallery_photos     for all using
 create policy "admin all gallery_tags"       on gallery_tags       for all using ((select is_admin())) with check ((select is_admin()));
 create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using ((select is_admin())) with check ((select is_admin()));
 create policy "admin all settings"           on settings           for all using ((select is_admin())) with check ((select is_admin()));
+
+-- ---------- The nightly GDPR job (last on purpose) ----------
+-- `create extension` fails where pg_cron is missing or the role may not create
+-- it: plain Postgres, a restricted role, a local `supabase start`. Keeping it
+-- last means such a failure leaves a database with its RLS and policies in
+-- place, instead of one that looks installed and has no RLS at all. Supabase
+-- ships pg_cron, so on the intended target this runs. Same two lines as
+-- migration-retention.sql, which is how the live database got them.
+create extension if not exists pg_cron;
+select cron.schedule('forget-old-requests', '15 3 * * *', 'select forget_old_requests()');

@@ -23,9 +23,11 @@ begin
     alter table products add column offer_mode text not null default 'both';
     alter table products add constraint products_offer_mode_check
       check (offer_mode in ('rent', 'both', 'setup'));
-    -- Whatever couldn't be rented until now is setup-only; the rest keeps
+    -- Whatever could not be rented until now, and whatever she had ticked
+    -- „Само с монтаж от нас“, is setup-only; the rest keeps
     -- both ways, as the site treated it so far.
-    update products set offer_mode = 'setup' where rentable = false;
+    update products set offer_mode = 'setup'
+     where rentable = false or service_only = true;
   end if;
 
   if not exists (

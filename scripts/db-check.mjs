@@ -47,6 +47,12 @@ const CHECKS = {
   "migration-hero-photos.sql": [{ table: "hero_photos", select: "*" }],
   "migration-labour.sql": [{ table: "settings", select: "*" }],
   "migration-offer-mode.sql": [{ table: "products", select: "offer_mode,covers_needed" }],
+  "migration-offer-mode-service-only.sql": {
+    // Data only, no new column to probe: it corrects rows the offer_mode
+    // back-fill already wrote from `rentable` alone.
+    manual:
+      "in the SQL editor: select count(*) from products where service_only = true and offer_mode <> 'setup';  -- expect 0",
+  },
   "migration-photo-library.sql": [
     { table: "photos", select: "*" },
     { table: "product_images", select: "photo_id" },

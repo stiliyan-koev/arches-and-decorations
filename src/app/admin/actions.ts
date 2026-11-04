@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
@@ -169,8 +169,20 @@ async function replaceTile(
 
 // Admin pages are server-rendered from the same tables the public site reads,
 // so a write has to invalidate both.
+//
+// Two steps, because they clear different things. revalidatePath re-renders the
+// pages; the tag clears the unstable_cache entries behind them (the catalog,
+// the labour price, „Под наем“), which revalidatePath only reaches for entries
+// created while rendering the paths it names — so without the tag /request and
+// /faq could serve a five-minute-old price after she saved.
+//
+// updateTag, not revalidateTag: in Next 16 it is the one that expires straight
+// away and gives read-your-own-writes, so the admin page she lands on after
+// saving shows her own value. It may only be called from a Server Action, and
+// every caller here is one ("use server" at the top of this file).
 function revalidateCatalog() {
   revalidatePath("/", "layout");
+  updateTag("catalog");
 }
 
 export async function signOut() {

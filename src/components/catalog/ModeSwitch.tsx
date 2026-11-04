@@ -17,10 +17,10 @@ const OPTIONS: { value: Mode; title: string; sub: string; icon: "balloon" | "box
   },
 ];
 
-// The big switch at the top of the catalog: „Украса с монтаж“ or „Само под
-// наем“. It decides what the catalog lists (rent drops what can't be rented on
-// its own) and whether the basket gets „Труд за украса“. The pink pill slides
-// under the chosen side.
+// The big switch at the top of the catalog: „Украса с монтаж от нас“ or
+// „Под наем“. It decides what the catalog lists (rent drops what can't be
+// rented on its own) and whether the basket gets „Труд за украса“. The pink
+// pill slides under the chosen side.
 export default function ModeSwitch({
   mode,
   onMode,

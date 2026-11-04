@@ -1,18 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Faq from "@/components/Faq";
-import { FAQ_GROUPS } from "@/lib/faq";
+import { visibleFaqGroups } from "@/lib/faq";
+import { getRentEnabled } from "@/lib/settings";
 
-export const metadata: Metadata = {
-  title: "Често задавани въпроси",
-  description:
-    "Резервация, капаро, плащане, монтаж, наем на арки и калъфи: отговори на най-честите въпроси за украсата с балони във Варна.",
-  alternates: { canonical: "/faq" },
-};
+// „наем на арки и калъфи“ only belongs here while the site offers renting,
+// the same reason the rental questions themselves come and go below.
+export async function generateMetadata(): Promise<Metadata> {
+  const rentEnabled = await getRentEnabled();
+
+  return {
+    title: { absolute: "Често задавани въпроси за украса с балони във Варна" },
+    description: rentEnabled
+      ? "Резервация, капаро, плащане, монтаж, наем на арки и калъфи: отговори на най-честите въпроси за украсата с балони във Варна."
+      : "Резервация, капаро, плащане и монтаж: отговори на най-честите въпроси за украсата с балони във Варна.",
+    alternates: { canonical: "/faq" },
+  };
+}
 
 // The same questions as on the homepage, on a page of their own: a link to
 // send a customer, and a page search engines can show for a question.
-export default function FaqPage() {
+export default async function FaqPage() {
+  const rentEnabled = await getRentEnabled();
+  // One list for the markup and the visible accordion, so the structured data
+  // can never promise a rental the page below no longer mentions.
+  const groups = visibleFaqGroups(rentEnabled);
+
   // schema.org FAQPage: the questions and answers as structured data. Google
   // stopped showing FAQ rich results in 2026, so don't count on a search
   // benefit from it; it does no harm, and the visible <details> are what
@@ -20,7 +33,7 @@ export default function FaqPage() {
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: FAQ_GROUPS.flatMap((group) =>
+    mainEntity: groups.flatMap((group) =>
       group.items.map((item) => ({
         "@type": "Question",
         name: item.question,
@@ -42,11 +55,13 @@ export default function FaqPage() {
         Често задавани въпроси
       </h1>
       <p className="mt-3 max-w-[620px] text-muted">
-        Как протичат резервацията, плащането, монтажът и наемът. Ако не
-        намирате отговор, пишете ни — ще отговорим лично.
+        {rentEnabled
+          ? "Как протичат резервацията, плащането, монтажът и наемът."
+          : "Как протичат резервацията, плащането и монтажът."}{" "}
+        Ако не намирате отговор, пишете ни — ще отговорим лично.
       </p>
 
-      <Faq groupHeading="h2" className="mt-10 space-y-3" />
+      <Faq groupHeading="h2" rentEnabled={rentEnabled} className="mt-10 space-y-3" />
 
       <p className="mt-12 text-center">
         <Link

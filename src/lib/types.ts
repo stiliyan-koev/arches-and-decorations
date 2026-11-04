@@ -72,8 +72,9 @@ export type Product = {
   // Empty when the product's „Има варианти по цвят“ is off. When it's on,
   // `quantity` above is the sum of the colours' counts.
   colors: ProductColor[];
-  // Optional only because catalog-fallback.ts has no photos. Once that file is
-  // deleted this can become required.
+  // Optional for historical reasons: the deleted catalog-fallback.ts had no
+  // photos. Every row getCatalog() builds sets it, so this could become
+  // required in a follow-up.
   images?: ProductImage[];
   // Variation photos for the carousel, in her order. Already empty when the
   // carousel is switched off; the two flags say where it is shown. Optional
@@ -82,8 +83,9 @@ export type Product = {
   carousel_in_configurator?: boolean;
   carousel_in_catalog?: boolean;
   // Used by the catalog page (PLP): the spec line under a card and the "Най-нови"
-  // sort. Optional because the temporary fallback has neither; the configurator
-  // ignores both. Once catalog-fallback.ts is deleted these can become required.
+  // sort. Optional for historical reasons (the deleted catalog-fallback.ts had
+  // neither) and because the configurator ignores both; they could become
+  // required in a follow-up.
   description?: string | null; // BG spec line, e.g. "Метална основа · ⌀ 180 см"
   created_at?: string | null; // ISO timestamp, for newest-first sorting
   // „Прозорец за изисквания“: „Добави“ in the catalog first asks the customer

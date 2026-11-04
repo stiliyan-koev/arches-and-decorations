@@ -7,6 +7,7 @@ import {
   ViberIcon,
 } from "@/components/SocialIcons";
 import ContactMessageForm from "@/components/about/ContactMessageForm";
+import { getRentEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "За нас",
@@ -15,7 +16,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const rentEnabled = await getRentEnabled();
   return (
     <div className="mx-auto max-w-[1120px] px-5 pt-14 pb-8">
       <h1 className="text-4xl font-bold text-ink">За нас</h1>
@@ -34,8 +36,10 @@ export default function AboutPage() {
             Работим във {CONTACTS.city} и до около 50 км от града — за адреси
             извън града се начислява такса за път. Идваме на място, подреждаме
             украсата за около два часа и след празника прибираме всичко —
-            балоните остават за вас. Ако предпочитате да подредите сами, даваме
-            под наем арки, калъфи, фигурки герои и аксесоари за три дни.
+            балоните остават за вас.
+            {/* Goes with „Под наем“ in admin, like the rental FAQ questions. */}
+            {rentEnabled &&
+              " Ако предпочитате да подредите сами, даваме под наем арки, калъфи, фигурки герои и аксесоари за три дни."}
           </p>
           <p>
             Видели сте идея някъде? Изпратете ни снимка. Почти винаги можем да

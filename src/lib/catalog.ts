@@ -1,6 +1,5 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
-import { FALLBACK_GROUPS } from "@/lib/catalog-fallback";
 import type { CatalogGroup } from "@/lib/types";
 
 export function isSupabaseConfigured() {
@@ -10,21 +9,27 @@ export function isSupabaseConfigured() {
   );
 }
 
-// The catalog for every page that shows it. With no database, no rows, or a
-// database error, the hardcoded catalog stands in. The error is thrown inside
-// the cache below and caught here, so a hiccup is never cached as the catalog.
+// The catalog for every page that shows it. With no database, or on a database
+// error, it is empty and the pages say „Очаквайте скоро“.
+//
+// There used to be a hardcoded stand-in here (catalog-fallback.ts, a snapshot
+// of seed.sql). It is gone, as CLAUDE.md asks once the real database is live:
+// the live catalog has been edited through the admin since September 2026, so
+// the snapshot had drifted into showing customers products and prices that no
+// longer exist — and its ids are slugs rather than UUIDs, so submitRequest
+// rejected every request built from it anyway. An empty catalog is visibly
+// wrong; a stale one is not. The error is thrown inside the cache below and
+// caught here, so a hiccup is never cached as the catalog.
 export async function getCatalog(): Promise<CatalogGroup[]> {
-  if (!isSupabaseConfigured()) return FALLBACK_GROUPS;
+  if (!isSupabaseConfigured()) return [];
 
   try {
-    const groups = await readCatalog();
-    if (groups.length) return groups;
-    console.error("getCatalog: using the hardcoded catalog", "no rows");
+    return await readCatalog();
   } catch (error) {
     // Without this line a missing table reads as "no products yet" on the page.
-    console.error("getCatalog: using the hardcoded catalog", error);
+    console.error("getCatalog: showing an empty catalog", error);
+    return [];
   }
-  return FALLBACK_GROUPS;
 }
 
 // Reads the whole catalog in one go — it's a handful of rows and the homepage
@@ -32,9 +37,12 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
 // each product's colours, ordered by the `sort` columns from schema.sql.
 //
 // Cached for 5 minutes across visits, so /catalog doesn't wait on the database
-// every time. An admin write clears it at once (revalidatePath in
-// admin/actions.ts). The cookie-free client, because a cached read can't touch
-// cookies(); the catalog tables are public-read anyway.
+// every time. An admin write clears it at once through the "catalog" tag below
+// (revalidateCatalog in admin/actions.ts, via updateTag) — the tag rather than
+// revalidatePath alone, which only reaches entries created while rendering the
+// paths it names.
+// The cookie-free client, because a cached read can't touch cookies(); the
+// catalog tables are public-read anyway.
 const readCatalog = unstable_cache(async (): Promise<CatalogGroup[]> => {
   const supabase = createPublicClient();
   const { data, error } = await supabase
@@ -122,4 +130,4 @@ const readCatalog = unstable_cache(async (): Promise<CatalogGroup[]> => {
 
   // A category with no products has nothing to configure.
   return groups.filter((group) => group.products.length > 0);
-}, ["catalog"], { revalidate: 300 });
+}, ["catalog"], { revalidate: 300, tags: ["catalog"] });

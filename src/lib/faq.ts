@@ -2,9 +2,20 @@
 // homepage (after „Вдъхнови се“) and on /faq, by the same component
 // (components/Faq.tsx). Plain text; edit it here.
 
+export type FaqItem = {
+  question: string;
+  answer: string;
+  // Hidden while „Под наем“ is off (settings.rent_enabled, her switch at the
+  // top of „Каталог“): true only on a question that promises renting.
+  rentalOnly?: boolean;
+};
+
 export type FaqGroup = {
   title: string;
-  items: { question: string; answer: string }[];
+  // Used instead of `title` while „Под наем“ is off, for a group whose name
+  // would otherwise promise rentals the page no longer shows.
+  titleRentOff?: string;
+  items: FaqItem[];
 };
 
 export const FAQ_GROUPS: FaqGroup[] = [
@@ -73,19 +84,23 @@ export const FAQ_GROUPS: FaqGroup[] = [
   },
   {
     title: "Наем и украса",
+    titleRentOff: "Украса по ваша идея",
     items: [
       {
         question: "За колко време се наемат арките и калъфите?",
         answer:
           "Наемът е за три дни: един ден преди събитието, за да огледате всичко спокойно и да планирате подредбата; денят на самото събитие; и един ден след него, за да върнете всичко без напрежение.",
+        rentalOnly: true,
       },
       {
         question: "Има ли депозит за наетите артикули?",
         answer: "Да. Размерът му зависи от артикула. При повреда депозитът се задържа.",
+        rentalOnly: true,
       },
       {
         question: "Откъде се вземат и връщат?",
         answer: "От адрес, уговорен предварително и удобен и за двете страни.",
+        rentalOnly: true,
       },
       {
         question: "Може ли украса по моя идея, в мои цветове или с име?",
@@ -95,3 +110,19 @@ export const FAQ_GROUPS: FaqGroup[] = [
     ],
   },
 ];
+
+// The groups to show, given „Под наем“. With the switch off the catalog hides
+// everything rentable, so the questions promising three-day rentals and a
+// deposit go with it — otherwise the site answers a question it no longer
+// offers. Both places that show the FAQ and /faq's FAQPage JSON-LD read the
+// groups through here, so the structured data can never claim more than the
+// page says. A group left with no questions drops out entirely.
+export function visibleFaqGroups(rentEnabled: boolean): FaqGroup[] {
+  if (rentEnabled) return FAQ_GROUPS;
+
+  return FAQ_GROUPS.flatMap((group) => {
+    const items = group.items.filter((item) => !item.rentalOnly);
+    if (items.length === 0) return [];
+    return [{ ...group, title: group.titleRentOff ?? group.title, items }];
+  });
+}

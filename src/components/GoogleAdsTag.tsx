@@ -16,11 +16,16 @@ const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID;
 // stay plain <a> tags in Server Components, and a new tel:, Viber or Messenger
 // link anywhere on the site is counted without anyone having to remember it.
 // It never calls preventDefault, so the link opens as usual.
+//
+// The listener is bound only after a yes. Without that gate it would exist for
+// a visitor who declined — inert today only because trackContact() bails when
+// window.gtag is undefined, which stops being true the moment anything else on
+// the site defines it.
 export default function GoogleAdsTag() {
   const consent = useConsent();
 
   useEffect(() => {
-    if (!GOOGLE_ADS_ID) return;
+    if (!GOOGLE_ADS_ID || consent !== "granted") return;
 
     function handleClick(event: MouseEvent) {
       if (!(event.target instanceof Element)) return;
@@ -31,7 +36,7 @@ export default function GoogleAdsTag() {
 
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
-  }, []);
+  }, [consent]);
 
   if (!GOOGLE_ADS_ID || consent !== "granted") return null;
 
@@ -39,13 +44,13 @@ export default function GoogleAdsTag() {
     <>
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
       {/* This only runs after a yes, and the yes covers measuring conversions,
           not personalised ads. /privacy says the same.
           Keep enhanced conversions off in the Ads account: they could read the
           form's email and phone, and /privacy says those don't reach Google Ads. */}
-      <Script id="google-ads-init" strategy="afterInteractive">
+      <Script id="google-ads-init" strategy="lazyOnload">
         {`window.dataLayer = window.dataLayer || [];
 window.gtag = function () { window.dataLayer.push(arguments); };
 window.gtag("consent", "default", {

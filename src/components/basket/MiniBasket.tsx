@@ -21,7 +21,7 @@ type Props = {
   products: PlpProduct[];
   lastAdded: string | null; // line key of the product (and colour) just added, for the confirmation line
   full: boolean; // an add was refused because the basket already holds MAX_LINES products
-  mode: Mode; // the catalog's switch: „Украса с монтаж“ adds „Труд за украса“
+  mode: Mode; // the catalog's switch: „Украса с монтаж от нас“ adds „Труд за украса“
   labourPrice: number;
 };
 

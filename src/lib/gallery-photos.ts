@@ -98,7 +98,7 @@ export async function getGalleryPhotos(options: {
 export const getPublicGalleryTags = unstable_cache(
   async () => (await getGalleryTags()).filter((tag) => tag.count > 0),
   ["gallery-public-tags"],
-  { revalidate: 300 },
+  { revalidate: 300, tags: ["catalog"] },
 );
 
 // One page of public photos: all, or one tag's. The arguments are part of the
@@ -106,7 +106,7 @@ export const getPublicGalleryTags = unstable_cache(
 const getPublicGalleryPhotos = unstable_cache(
   async (tagId: string | null, limit: number) => getGalleryPhotos({ tagId, limit }),
   ["gallery-public-photos"],
-  { revalidate: 300 },
+  { revalidate: 300, tags: ["catalog"] },
 );
 
 // The public page: the tags that have photos, the one picked (if the slug
