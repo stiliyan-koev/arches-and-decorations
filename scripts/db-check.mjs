@@ -63,6 +63,7 @@ const CHECKS = {
     { table: "product_colors", select: "quantity" },
     { rpc: "reserved_qty_by_color", args: { p_from: "1900-01-01", p_to: "1900-01-01" } },
   ],
+  "migration-rent-toggle.sql": [{ table: "settings", select: "rent_enabled" }],
   "migration-requirements.sql": [{ table: "products", select: "asks_requirements" }],
   "migration-retention.sql": {
     // Calling forget_old_requests() would run the wipe, and anon is (rightly)

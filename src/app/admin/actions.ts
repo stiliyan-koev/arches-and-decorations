@@ -272,6 +272,32 @@ export async function saveLabourPrice(price: number): Promise<ActionResult> {
   return { ok: true };
 }
 
+// ---------- Rent switch ----------
+
+// Whether the site offers „Под наем“ at all (migration-rent-toggle.sql). Upsert
+// for the same reason as the labour price.
+export async function saveRentEnabled(enabled: boolean): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ id: 1, rent_enabled: enabled });
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.code === "42703" || error.code === "PGRST204"
+          ? "Липсва колоната rent_enabled — пуснете migration-rent-toggle.sql в Supabase."
+          : error.message,
+    };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
 // ---------- Products ----------
 
 export type ProductInput = {

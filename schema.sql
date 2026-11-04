@@ -212,7 +212,8 @@ create table blackout_dates (
 -- its own with no public policy.
 create table settings (
   id           int primary key default 1 check (id = 1),
-  labour_price numeric(10,2) not null default 50 check (labour_price >= 0) -- „Труд за украса“, EUR; 0 = none
+  labour_price numeric(10,2) not null default 50 check (labour_price >= 0), -- „Труд за украса“, EUR; 0 = none
+  rent_enabled boolean not null default true -- false = the site doesn't offer „Под наем“
 );
 
 insert into settings (id) values (1);

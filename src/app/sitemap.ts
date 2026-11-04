@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { getCatalog, isSupabaseConfigured } from "@/lib/catalog";
 import { FALLBACK_GROUPS } from "@/lib/catalog-fallback";
 import { toPlpData } from "@/lib/catalog-plp";
+import { getRentEnabled } from "@/lib/settings";
 import { getPublicGalleryTags } from "@/lib/gallery-photos";
 import { getShowcaseLinks } from "@/lib/showcases";
 import { galleryHref } from "@/lib/gallery";
@@ -21,11 +22,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // On a DB error getCatalog() hands back the seed snapshot, whose slugs may
   // not exist on the live site, so leave the categories out this time. Without
   // Supabase at all (local, no env) the snapshot is the catalog, so keep it.
-  const groups = await getCatalog();
+  const [groups, rentEnabled] = await Promise.all([getCatalog(), getRentEnabled()]);
   const dbFailed = isSupabaseConfigured() && groups === FALLBACK_GROUPS;
   const categories = dbFailed
     ? []
-    : toPlpData(groups).categories.map((category) => `/catalog/${category.slug}`);
+    : toPlpData(groups, rentEnabled).categories.map((category) => `/catalog/${category.slug}`);
 
   let tags: string[] = [];
   let showcases: string[] = [];

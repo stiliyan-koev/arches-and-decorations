@@ -62,6 +62,7 @@ export type PlpData = {
   products: PlpProduct[];
   categories: PlpCategory[];
   colors: PlpColor[];
+  rentEnabled: boolean; // false = she switched „Под наем“ off in admin
 };
 
 // Placeholder tint per category — no photos exist yet, so the thumbnail is a
@@ -105,7 +106,9 @@ function priceOf(product: {
 // Flatten the nested catalog into the shape the PLP consumes. Every category
 // that has products becomes a filterable category — the PLP shows the whole
 // catalog, not just the families that appear in the configurator.
-export function toPlpData(groups: CatalogGroup[]): PlpData {
+// rentEnabled is getRentEnabled(): with „Под наем“ off, the rent-only products
+// are left out, here, so no page can list them or keep them in a basket.
+export function toPlpData(groups: CatalogGroup[], rentEnabled: boolean): PlpData {
   const products: PlpProduct[] = [];
   const categories: PlpCategory[] = [];
   const colorBySlug = new Map<string, PlpColor>();
@@ -181,7 +184,23 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
     }
   }
 
-  return { products, categories, colors: [...colorBySlug.values()] };
+  const data = { products, categories, colors: [...colorBySlug.values()], rentEnabled };
+  return rentEnabled ? data : withoutRentOnly(data);
+}
+
+// Drops the rent-only products, and any category or colour only they had.
+function withoutRentOnly(data: PlpData): PlpData {
+  const products = data.products.filter((product) => product.setupPossible);
+  return {
+    ...data,
+    products,
+    categories: data.categories.filter((category) =>
+      products.some((product) => product.categorySlug === category.slug),
+    ),
+    colors: data.colors.filter((color) =>
+      products.some((product) => product.colors.includes(color.slug)),
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------- basket
@@ -472,7 +491,8 @@ export function parseState(
   const sort = first(params.sort) as SortKey | undefined;
 
   return {
-    mode: first(params.mode) === "rent" ? "rent" : "service",
+    // An old ?mode=rent link opens the normal catalog while rent is off.
+    mode: data.rentEnabled && first(params.mode) === "rent" ? "rent" : "service",
     cats: split(params.cat).filter((slug) => knownCats.has(slug)),
     colors: split(params.color).filter((slug) => knownColors.has(slug)),
     bands: split(params.price).filter((id) => knownBands.has(id)),

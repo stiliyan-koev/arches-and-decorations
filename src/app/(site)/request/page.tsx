@@ -3,7 +3,7 @@ import Link from "next/link";
 import RequestForm from "@/components/basket/RequestForm";
 import { getCatalog } from "@/lib/catalog";
 import { toPlpData } from "@/lib/catalog-plp";
-import { getLabourPrice } from "@/lib/settings";
+import { getLabourPrice, getRentEnabled } from "@/lib/settings";
 
 // The order summary behind the catalog's mini-basket. The basket itself lives in
 // the visitor's browser, so this page only hands the form the catalog to look
@@ -17,12 +17,13 @@ export const metadata: Metadata = {
 export default async function RequestPage({
   searchParams,
 }: PageProps<"/request">) {
-  const [groups, params, labourPrice] = await Promise.all([
+  const [groups, params, labourPrice, rentEnabled] = await Promise.all([
     getCatalog(),
     searchParams,
     getLabourPrice(),
+    getRentEnabled(),
   ]);
-  const { products } = toPlpData(groups);
+  const { products } = toPlpData(groups, rentEnabled);
 
   return (
     <div className="mx-auto max-w-[1140px] px-5 pt-6 pb-16">
@@ -47,7 +48,8 @@ export default async function RequestPage({
       <RequestForm
         products={products}
         labourPrice={labourPrice}
-        initialMode={params.mode === "rent" ? "rental" : "service"}
+        rentEnabled={rentEnabled}
+        initialMode={rentEnabled && params.mode === "rent" ? "rental" : "service"}
       />
     </div>
   );
