@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
@@ -80,8 +81,13 @@ export async function getShowcaseRow(id: string): Promise<ShowcaseRow | null> {
 }
 
 // The homepage cards: the first HOME_SHOWCASE_COUNT showcases that have a
-// photo. Empty until there is a database with the tables (or on any error):
-// the homepage then shows the occasion cards instead.
+// photo and a slug. Empty until there is a database with the tables (or on any
+// error): the homepage then shows the occasion cards instead.
+//
+// A slug is required because the card's popup links to /showcases/<slug>, so a
+// row without one would render a broken link — and because the sitemap gates on
+// the same count (getShowcaseLinks): if the two disagreed, the homepage could
+// link showcase pages the sitemap submits none of.
 export async function getHomeShowcases(): Promise<HomeShowcase[]> {
   if (!isSupabaseConfigured()) return [];
 
@@ -94,7 +100,7 @@ export async function getHomeShowcases(): Promise<HomeShowcase[]> {
   }
 
   return rows
-    .filter((row) => row.showcase_photos.length > 0)
+    .filter((row) => row.slug && row.showcase_photos.length > 0)
     .slice(0, HOME_SHOWCASE_COUNT)
     .map(toHomeShowcase);
 }
@@ -135,9 +141,29 @@ export async function getShowcaseBySlug(slug: string): Promise<HomeShowcase | nu
 // one photo. For the sitemap, and for „Още украси“ on each showcase page, so
 // the ones past the homepage's three are linked from the site too. Throws on
 // a database error.
-export async function getShowcaseLinks(): Promise<{ slug: string; title: string }[]> {
-  const rows = await readShowcaseRows(createPublicClient());
-  return rows
-    .filter((row) => row.slug && row.showcase_photos.length > 0)
-    .map((row) => ({ slug: row.slug as string, title: row.title }));
-}
+//
+// Its own slim query instead of COLUMNS: this runs on every /showcases/<slug>
+// render and in the sitemap, where the full read would pull every photo row of
+// every showcase just to print a list of links. Cached like the catalog and
+// cleared by the same admin write; a throw is never cached.
+export const getShowcaseLinks = unstable_cache(
+  async (): Promise<{ slug: string; title: string }[]> => {
+    const { data, error } = await createPublicClient()
+      .from("showcases")
+      .select("slug, title, sort, showcase_photos(id)")
+      .order("sort")
+      .order("id");
+    if (error) throw error;
+
+    const rows = data as unknown as {
+      slug: string | null;
+      title: string;
+      showcase_photos: { id: string }[];
+    }[];
+    return rows
+      .filter((row) => row.slug && row.showcase_photos.length > 0)
+      .map((row) => ({ slug: row.slug as string, title: row.title }));
+  },
+  ["showcase-links"],
+  { revalidate: 300, tags: ["catalog"] },
+);

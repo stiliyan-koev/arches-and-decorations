@@ -34,7 +34,7 @@ $$;
 
 -- Only the nightly job calls it. Supabase grants new functions to the API
 -- roles by default, and nobody on the site should be able to trigger a wipe.
-revoke execute on function forget_old_requests() from public, anon, authenticated;
+revoke execute on function forget_old_requests() from public, anon, authenticated, service_role;
 
 create extension if not exists pg_cron;
 

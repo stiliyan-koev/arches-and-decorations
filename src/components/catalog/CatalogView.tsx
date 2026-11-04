@@ -93,8 +93,8 @@ export default function CatalogView({
 
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
-  // Nothing under „Украса с монтаж“, but the same choice has products under
-  // „Само под наем“: they are rent-only, and the empty state says so.
+  // Nothing under „Украса с монтаж от нас“, but the same choice has products under
+  // „Под наем“: they are rent-only, and the empty state says so.
   const onlyForRent =
     visible.length === 0 &&
     state.mode === "service" &&
@@ -204,9 +204,10 @@ export default function CatalogView({
               "Каталог"
             )}
           </nav>
-          {/* The same noun phrase as the page's <title>: „Арки във Варна“. */}
+          {/* The same noun phrase as the page's <title>: „Арки във Варна“ for a
+              category, the catalog's own phrase otherwise. */}
           <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">
-            {onlyCategory ? `${onlyCategory.name} във Варна` : "Каталог"}
+            {onlyCategory ? `${onlyCategory.name} във Варна` : "Каталог — украса с балони и арки във Варна"}
           </h1>
           {/* A category with its own text shows it; otherwise the general line. */}
           <p className="max-w-[640px] text-[0.95rem] text-muted">

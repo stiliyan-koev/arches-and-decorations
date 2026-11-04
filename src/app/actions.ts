@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { sendOwnerEmail } from "@/lib/mail";
 import { formatDate, formatPrice, formatTotal, QUOTE_LABEL } from "@/lib/format";
@@ -61,6 +62,10 @@ function isTextUpTo(value: unknown, maxLength: number) {
 // room to spare. These are public endpoints, so a hand-built call can't read
 // totals across years; anything else reads as "nothing booked".
 const MAX_RANGE_DAYS = 62;
+// How far ahead a date may be. The form uses a date picker, so anything past
+// this is a hand-built call — and unbounded, one booking could claim her stock
+// until 2099 the moment she confirms it.
+const MAX_AHEAD_DAYS = 730;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -72,7 +77,17 @@ function isDateRange(from: unknown, to: unknown) {
   return Number.isFinite(days) && days <= MAX_RANGE_DAYS;
 }
 
+// One yyyy-mm-dd date that isn't absurdly far in the future.
+function isDateSoonEnough(date: unknown) {
+  if (typeof date !== "string") return false;
+  const days = (Date.parse(date) - Date.now()) / 86_400_000;
+  return Number.isFinite(days) && days <= MAX_AHEAD_DAYS;
+}
+
 type Supabase = Awaited<ReturnType<typeof createClient>>;
+// The cookie-free client. The deferred email work in after() uses this one:
+// see the comment there.
+type PublicSupabase = ReturnType<typeof createPublicClient>;
 
 // How many of each product confirmed bookings already hold between two dates.
 // Anything that goes wrong returns {} — "assume nothing is booked", which
@@ -171,9 +186,9 @@ export async function submitRequest(
     if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) {
       return { ok: false, error: SEND_FAILED };
     }
-    // A product's id. A slug instead means the catalog fell back to
-    // FALLBACK_GROUPS, and the booking row would be written before the items
-    // insert died on the uuid column.
+    // A product's id. Anything that isn't a uuid is caught here rather than by
+    // the items insert, which would otherwise die after the booking row was
+    // already written.
     if (typeof item.productId !== "string" || !UUID.test(item.productId)) {
       return { ok: false, error: SEND_FAILED };
     }
@@ -205,6 +220,16 @@ export async function submitRequest(
   // them later, inside after(), where a throw would lose it.
   const dates = isRental ? [payload.startDate, payload.endDate] : [payload.eventDate];
   if (!dates.every((date) => typeof date === "string" && ISO_DATE.test(date))) {
+    return { ok: false, error: SEND_FAILED };
+  }
+  // A rental must be a real range: in order, and no longer than the
+  // availability reads above actually look (MAX_RANGE_DAYS). Without this a
+  // hand-built call could store 2026-01-01 → 2099-01-01, and the moment she
+  // confirms it reserved_qty() reports her whole stock booked for that span.
+  if (isRental && !isDateRange(payload.startDate, payload.endDate)) {
+    return { ok: false, error: SEND_FAILED };
+  }
+  if (!dates.every(isDateSoonEnough)) {
     return { ok: false, error: SEND_FAILED };
   }
   if (
@@ -322,14 +347,17 @@ export async function submitRequest(
   // running for it): the customer's button doesn't wait on Resend, and a slow
   // or failed email can't turn a saved request into an error. The log says
   // which booking she wasn't told about. Throttled like the contact form, with
-  // its own caps (requestSends), so spam there can't stop these emails.
+  // its own caps (requestSends), so spam there can't stop these emails. The
+  // product lookup inside uses the cookie-free client: `supabase` belongs to a
+  // request that has already been answered, and touching cookies() after that
+  // can throw — losing the email and skipping the very log line below.
   const ip = await callerIp();
   after(async () => {
     let emailed = false;
     if (allowSend(requestSends, ip, REQUEST_PER_IP_SENDS)) {
       emailed = await sendOwnerEmail(
         requestEmailSubject(payload, estimatedTotal),
-        await requestEmailText(supabase, payload, estimatedTotal, labourPrice),
+        await requestEmailText(createPublicClient(), payload, estimatedTotal, labourPrice),
       );
     }
     if (!emailed) {
@@ -361,7 +389,7 @@ function requestEmailSubject(payload: RequestPayload, estimatedTotal: number | n
 // A name that can't be read (a product hidden since, a database hiccup) shows
 // as „(артикулът не е намерен)“ — the email still goes.
 async function requestEmailText(
-  supabase: Supabase,
+  supabase: PublicSupabase,
   payload: RequestPayload,
   estimatedTotal: number | null,
   labourPrice: number, // from the settings table; 0 = no label
@@ -475,8 +503,8 @@ const PLAIN_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 // a runaway loop or a casual script, not a determined attacker.
 const PER_IP_WINDOW_MS = 10 * 60 * 1000;
 const PER_IP_SENDS = 3;
-// Higher for requests: a customer told to split a basket („Само под наем“ and
-// „Украса с монтаж“ in one go can't be sent) may send two or three in a row,
+// Higher for requests: a customer told to split a basket („Под наем“ and
+// „Украса с монтаж от нас“ in one go can't be sent) may send two or three in a row,
 // and retry one. A 4th within 10 minutes still deserves an email.
 const REQUEST_PER_IP_SENDS = 10;
 const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
@@ -484,6 +512,12 @@ const GLOBAL_SENDS = 60;
 
 const contactSends = new Map<string, number[]>();
 const requestSends = new Map<string, number[]>();
+// Both maps leave through one Resend account with one daily allowance, so the
+// hourly cap is counted across the two together: as two separate 60/hour
+// budgets they add up to more than the account gets in a day, and once it is
+// spent she stops hearing about real requests. The per-IP cap stays per map,
+// so a flood of requests can't lock a visitor out of the contact form too.
+const ALL_SENDS = [contactSends, requestSends];
 
 // Netlify sets x-nf-client-connection-ip; x-forwarded-for is the fallback and
 // its first entry is the client. Callers we can't place share one bucket, so
@@ -501,11 +535,13 @@ async function callerIp() {
 function allowSend(sends: Map<string, number[]>, ip: string, perIpSends: number) {
   const now = Date.now();
   let total = 0;
-  for (const [key, times] of sends) {
-    const fresh = times.filter((at) => now - at < GLOBAL_WINDOW_MS);
-    if (fresh.length) sends.set(key, fresh);
-    else sends.delete(key);
-    total += fresh.length;
+  for (const map of ALL_SENDS) {
+    for (const [key, times] of map) {
+      const fresh = times.filter((at) => now - at < GLOBAL_WINDOW_MS);
+      if (fresh.length) map.set(key, fresh);
+      else map.delete(key);
+      total += fresh.length;
+    }
   }
   if (total >= GLOBAL_SENDS) return false;
 

@@ -2,7 +2,7 @@ import { formatPrice } from "@/lib/format";
 
 // „Труд за украса“ under the basket's lines. Not a product, so no photo,
 // quantity or „Премахни“: a label, added once to a basket she sets up (see
-// hasLabour in catalog-plp.ts) and gone again in „Само под наем“.
+// hasLabour in catalog-plp.ts) and gone again in „Под наем“.
 export default function LabourLabel({ price }: { price: number }) {
   return (
     <div className="my-3 flex items-center gap-3 rounded-item border border-dashed border-balloon-pink bg-surface-2 px-3.5 py-3">

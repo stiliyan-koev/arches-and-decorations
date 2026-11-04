@@ -38,8 +38,10 @@ export async function generateMetadata({
   // locale are repeated here.
   const photo = { url: showcase.photos[0], alt: showcase.title };
   return {
-    // The story's name plus what it is and where; the H1 keeps the name alone.
-    title: `${showcase.title} — украса с балони във Варна`,
+    // The story name plus what it is and where; the H1 keeps the name alone.
+    // absolute, so the layout does not append „ · Хубавото балонче“: with a long
+    // story name that tail is what a result cuts, and „Варна“ earns the click.
+    title: { absolute: `${showcase.title} — украса с балони, Варна` },
     description: summary(showcase.body),
     alternates: { canonical: `/showcases/${showcase.slug}` },
     openGraph: {

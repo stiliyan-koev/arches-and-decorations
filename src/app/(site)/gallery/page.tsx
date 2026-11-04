@@ -25,7 +25,7 @@ export async function generateMetadata({
 
   if (!tag) {
     return {
-      title: "Галерия",
+      title: "Галерия — реализирани украси с балони във Варна",
       description:
         "Реализирани балонни декорации и арки във Варна — рождени дни, кръщенета, сватби и тематични партита. Разгледайте по повод.",
       alternates: { canonical: "/gallery" },
@@ -72,7 +72,7 @@ export default async function GalleryPage({ searchParams }: PageProps<"/gallery"
   return (
     <div className="mx-auto max-w-[1120px] px-5 pt-14 pb-16">
       <h1 className="text-4xl font-bold text-ink">
-        {activeTag ? `${activeTag.name}: украса с балони във Варна` : "Галерия"}
+        {activeTag ? `${activeTag.name} — украса с балони във Варна` : "Галерия — украси с балони във Варна"}
       </h1>
       {/* A tag with its own text shows it; otherwise the general line. */}
       <p className="mt-3 max-w-[620px] text-muted">

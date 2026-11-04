@@ -271,8 +271,8 @@ export function basketView(
 }
 
 // „Труд за украса“ — added once, as a label, to a basket she sets up: the
-// visitor wants „Украса с монтаж“ and every product is one she may set up. A
-// basket that can only be rented goes as „Само под наем“ whatever was picked,
+// visitor wants „Украса с монтаж от нас“ and every product is one she may set up. A
+// basket that can only be rented goes as „Под наем“ whatever was picked,
 // so it gets none. The same rule as the mode /request settles on.
 export function hasLabour(items: BasketItem[], wantsSetUp: boolean) {
   if (items.length === 0) return false;
@@ -357,8 +357,8 @@ const SORT_KEYS = SORTS.map((s) => s.value);
 
 // ---------------------------------------------------------------- filter + sort
 
-// The mode switch is not cosmetic. "Само под наем" drops products that can't
-// be rented on their own (balloons are sold, not loaned); "Украса с монтаж"
+// The mode switch is not cosmetic. "Под наем" drops products that can't
+// be rented on their own (balloons are sold, not loaned); "Украса с монтаж от нас"
 // drops the rent-only ones she doesn't set up, so adding one can't quietly
 // take „Труд за украса“ off the basket.
 export function baseList(products: PlpProduct[], state: FilterState) {
@@ -368,7 +368,7 @@ export function baseList(products: PlpProduct[], state: FilterState) {
 }
 
 // A category she only rents out: nothing in it is set up by her, so
-// „Украса с монтаж“ would show it empty. Its page opens in „Само под наем“.
+// „Украса с монтаж от нас“ would show it empty. Its page opens in „Под наем“.
 export function isRentOnlyCategory(products: PlpProduct[], slug: string) {
   const inCategory = products.filter((product) => product.categorySlug === slug);
   return inCategory.length > 0 && !inCategory.some((product) => product.setupPossible);

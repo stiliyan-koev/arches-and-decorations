@@ -9,6 +9,7 @@ import { ArrowRightIcon } from "@/components/home/Icons";
 import { getHeroPhotos } from "@/lib/hero-photos";
 import { getHomeShowcases } from "@/lib/showcases";
 import { HOME_SHOWCASE_COUNT } from "@/lib/home";
+import { getRentEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: { absolute: "Украса с балони и арки във Варна · Хубавото балонче" },
@@ -29,9 +30,10 @@ export const revalidate = 300;
 // them. The catalog is the main flow now; the old configurator homepage lives
 // on at /configurator as a hidden backup.
 export default async function HomePage() {
-  const [heroPhotos, showcases] = await Promise.all([
+  const [heroPhotos, showcases, rentEnabled] = await Promise.all([
     getHeroPhotos(),
     getHomeShowcases(),
+    getRentEnabled(),
   ]);
 
   return (
@@ -136,6 +138,7 @@ export default async function HomePage() {
         </div>
         <Faq
           groupHeading="h3"
+          rentEnabled={rentEnabled}
           className="mt-6 space-y-3 md:mt-9 md:grid md:grid-cols-2 md:items-start md:gap-4 md:space-y-0"
         />
         <div className="mt-6 flex justify-center md:hidden">

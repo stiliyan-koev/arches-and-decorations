@@ -21,8 +21,8 @@ const RULE = "h-px bg-border";
 
 // The filter controls, with no state of their own — the parent owns FilterState
 // and passes it down. Rendered both in the desktop sidebar and inside the mobile
-// bottom sheet, so it stays purely presentational. „Украса с монтаж“ / „Само
-// под наем“ is not here: it is the big ModeSwitch at the top of the catalog.
+// bottom sheet, so it stays purely presentational. „Украса с монтаж от нас“ /
+// „Под наем“ is not here: it is the big ModeSwitch at the top of the catalog.
 export default function Filters({
   data,
   state,

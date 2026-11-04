@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-// getCatalog() quietly falls back to src/lib/catalog-fallback.ts when the
-// database is missing or broken, and the fallback looks exactly like the real
-// site. The difference is in the ids: the fallback uses slugs ("arch-cover"),
-// the database uses UUIDs. So: read one real product id from the database and
+// getCatalog() returns an empty catalog when the
+// database is missing or broken. It used to fall back to a hardcoded snapshot
+// that looked exactly like the real site; that file is gone, but the check that
+// matters is the same — read one real product id from the database and
 // check that the catalog contains it. (Not the homepage: since v2 it shows no
 // products.)
 //
@@ -41,7 +41,7 @@ test(
     expect(
       html.includes(product.id),
       `The catalog does not contain the id of „${product.name}“ (${product.id}). ` +
-        "It is probably showing FALLBACK_GROUPS instead of the database.",
+        "The catalog is not rendering the database rows.",
     ).toBe(true);
   },
 );

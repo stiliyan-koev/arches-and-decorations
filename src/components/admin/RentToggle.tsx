@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { saveRentEnabled } from "@/app/admin/actions";
 
 // The „Под наем“ switch at the top of the admin catalog. Off, the site offers
-// only „Украса с монтаж“: see toPlpData in catalog-plp.ts. Saves on click.
+// only „Украса с монтаж от нас“: see toPlpData in catalog-plp.ts. Saves on click.
 export default function RentToggle({ enabled }: { enabled: boolean }) {
   const router = useRouter();
   const [checked, setChecked] = useState(enabled);

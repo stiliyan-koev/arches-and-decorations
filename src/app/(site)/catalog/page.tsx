@@ -6,7 +6,10 @@ import { catalogHref, parseState, toPlpData } from "@/lib/catalog-plp";
 import { getLabourPrice, getRentEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = {
-  title: "Каталог",
+  // Not the bare section word: this is the site's main commercial list, so the
+  // title names what is on it. Distinct from the homepage's „Украса с балони и
+  // арки във Варна“ so the two don't compete for the same phrase.
+  title: "Каталог — балони, арки и калъфи за украса във Варна",
   description:
     "Балонни декорации, арки, калъфи, фигурки и аксесоари под наем във Варна. Разгледайте каталога, филтрирайте по цвят и цена и добавете към офертата.",
   // ?cat=, ?color=, ?sort= … are views of this one list.

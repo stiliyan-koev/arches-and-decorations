@@ -1,4 +1,4 @@
-import { FAQ_GROUPS } from "@/lib/faq";
+import { visibleFaqGroups } from "@/lib/faq";
 import { ChevronDownIcon } from "@/components/home/Icons";
 
 // The FAQ, grouped. One component for both places it shows: the homepage
@@ -6,18 +6,23 @@ import { ChevronDownIcon } from "@/components/home/Icons";
 // desktop) and /faq (h2 under the page's h1, one column). Each group and
 // each question in it is a native <details>: they open without JavaScript,
 // and the answers are in the HTML for search engines even while closed.
+//
+// rentEnabled is getRentEnabled(): with „Под наем“ off the rental questions
+// are hidden, so the FAQ never promises renting the catalog no longer offers.
 export default function Faq({
   groupHeading,
+  rentEnabled,
   className = "",
 }: {
   groupHeading: "h2" | "h3";
+  rentEnabled: boolean;
   className?: string; // layout of the groups, set by the page
 }) {
   const GroupHeading = groupHeading;
 
   return (
     <div className={className}>
-      {FAQ_GROUPS.map((group) => (
+      {visibleFaqGroups(rentEnabled).map((group) => (
         // Named group, so opening a section doesn't also turn the pluses
         // of the questions inside it (they use the plain `group`).
         <details

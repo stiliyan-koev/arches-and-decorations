@@ -21,6 +21,11 @@ const SENDER = "Хубавото балонче <zayavki@ukrasivarna.com>";
 
 // Neither of these is ever shown on the site. The env vars are here so a dev
 // can send to themselves, and so either address can move without a code change.
+//
+// The literal above sits in a public repository, so treat it as already public:
+// removing it now would not un-publish it (it is in the git history) and would
+// stop every owner email until CONTACT_EMAIL_TO is set in Netlify. To move off
+// a personal inbox, point CONTACT_EMAIL_TO at a role address — no code change.
 const TO = process.env.CONTACT_EMAIL_TO || OWNER_EMAIL;
 const FROM = process.env.CONTACT_EMAIL_FROM || SENDER;
 

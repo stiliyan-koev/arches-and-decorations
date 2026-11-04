@@ -55,7 +55,7 @@ export default async function CategoryPage({
     notFound();
   }
 
-  // A rent-only category opens in „Само под наем“, so its page (the one
+  // A rent-only category opens in „Под наем“, so its page (the one
   // search engines index) lists its products instead of nothing.
   const parsed = parseState(sp, data);
   const mode = isRentOnlyCategory(data.products, category) ? "rent" : parsed.mode;

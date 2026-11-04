@@ -21,8 +21,8 @@ export async function getLabourPrice(): Promise<number> {
 }
 
 // Cached like the catalog (see readCatalog in catalog.ts): 5 minutes, cleared
-// by every admin write. Throws on a database error, so the default is never
-// cached; null = the row isn't there.
+// by every admin write through the same "catalog" tag. Throws on a database
+// error, so the default is never cached; null = the row isn't there.
 const readLabourPrice = unstable_cache(async (): Promise<number | null> => {
   const supabase = createPublicClient();
   const { data, error } = await supabase
@@ -32,7 +32,7 @@ const readLabourPrice = unstable_cache(async (): Promise<number | null> => {
     .maybeSingle();
   if (error) throw error;
   return data ? Number(data.labour_price) : null;
-}, ["labour-price"], { revalidate: 300 });
+}, ["labour-price"], { revalidate: 300, tags: ["catalog"] });
 
 // Whether the site offers „Под наем“ at all. She switches it at the top of
 // „Каталог“ in admin. On while the column doesn't exist yet
@@ -61,4 +61,4 @@ const readRentEnabled = unstable_cache(async (): Promise<boolean | null> => {
     .maybeSingle();
   if (error) throw error;
   return data ? data.rent_enabled : null;
-}, ["rent-enabled"], { revalidate: 300 });
+}, ["rent-enabled"], { revalidate: 300, tags: ["catalog"] });
