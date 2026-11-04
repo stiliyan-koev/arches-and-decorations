@@ -11,7 +11,6 @@ import {
 type Props = {
   data: PlpData;
   state: FilterState;
-  onMode: (mode: "service" | "rent") => void;
   onToggleCat: (slug: string) => void;
   onToggleColor: (slug: string) => void;
   onToggleBand: (id: string) => void;
@@ -22,50 +21,17 @@ const RULE = "h-px bg-border";
 
 // The filter controls, with no state of their own — the parent owns FilterState
 // and passes it down. Rendered both in the desktop sidebar and inside the mobile
-// bottom sheet, so it stays purely presentational.
+// bottom sheet, so it stays purely presentational. „Украса с монтаж от нас“ /
+// „Под наем“ is not here: it is the big ModeSwitch at the top of the catalog.
 export default function Filters({
   data,
   state,
-  onMode,
   onToggleCat,
   onToggleColor,
   onToggleBand,
 }: Props) {
   return (
     <div className="flex flex-col gap-5">
-      {/* Как го наемате — service vs rent */}
-      <fieldset className="flex flex-col gap-2.5">
-        <legend className={LEGEND}>Как го наемате</legend>
-        <div
-          role="group"
-          className="flex gap-1.5 rounded-full bg-surface-2 p-1"
-        >
-          {(
-            [
-              ["service", "Украса с монтаж"],
-              ["rent", "Само под наем"],
-            ] as const
-          ).map(([value, label]) => {
-            const active = state.mode === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onMode(value)}
-                className={`min-h-[44px] flex-1 rounded-full px-2.5 text-[0.78rem] font-extrabold transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta ${
-                  active ? "bg-cta text-white" : "text-muted hover:text-ink"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <div className={RULE} />
-
       {/* Категория — checkboxes with live counts */}
       <fieldset className="flex flex-col gap-1">
         <legend className={`${LEGEND} mb-1.5`}>Категория</legend>

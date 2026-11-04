@@ -3,9 +3,17 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import BasketLines from "@/components/basket/BasketLines";
-import { formatTotal } from "@/lib/format";
+import LabourLabel from "@/components/basket/LabourLabel";
+import { formatTotal, PRICE_NOTE, QUOTE_NOTE, TRANSPORT_NOTE } from "@/lib/format";
 import { MAX_LINES, useBasket } from "@/lib/selection";
-import { basketView, type PlpProduct } from "@/lib/catalog-plp";
+import CoverWarning from "@/components/basket/CoverWarning";
+import {
+  basketView,
+  coverShortfall,
+  hasLabour,
+  type Mode,
+  type PlpProduct,
+} from "@/lib/catalog-plp";
 
 type Props = {
   open: boolean;
@@ -13,21 +21,28 @@ type Props = {
   products: PlpProduct[];
   lastAdded: string | null; // line key of the product (and colour) just added, for the confirmation line
   full: boolean; // an add was refused because the basket already holds MAX_LINES products
+  mode: Mode; // the catalog's switch: „Украса с монтаж от нас“ adds „Труд за украса“
+  labourPrice: number;
 };
 
 // The mini-basket: a drawer from the right edge (full width on phones). It opens
 // on every „Добави“ and from the „Вашата оферта“ pill, lists what's picked with
-// the running approximate total, and hands over to /request.
+// the running approximate total, and hands over to /request in the mode picked
+// on the catalog.
 export default function MiniBasket({
   open,
   onClose,
   products,
   lastAdded,
   full,
+  mode,
+  labourPrice,
 }: Props) {
   const lines = useBasket();
   const closeRef = useRef<HTMLButtonElement>(null);
   const { items, total, hasQuote } = basketView(lines, products);
+  const labour =
+    labourPrice > 0 && hasLabour(items, mode === "service") ? labourPrice : 0;
   const added = lastAdded
     ? items.find((item) => item.key === lastAdded)
     : undefined;
@@ -131,7 +146,9 @@ export default function MiniBasket({
         ) : (
           <>
             <div className="flex-1 overflow-y-auto px-5">
+              <CoverWarning shortfall={coverShortfall(items)} />
               <BasketLines items={items} />
+              {labour > 0 && <LabourLabel price={labour} />}
             </div>
 
             <div className="border-t border-border bg-surface px-5 py-4">
@@ -143,16 +160,19 @@ export default function MiniBasket({
                   className="font-serif text-[1.6rem] leading-none font-semibold tabular-nums"
                   aria-live="polite"
                 >
-                  {formatTotal(total, hasQuote)}
+                  {formatTotal(total + labour, hasQuote)}
                 </span>
               </div>
               <p className="mt-1.5 text-[0.75rem] leading-relaxed text-muted">
                 Крайната оферта уточняваме лично.
-                {hasQuote && <> Артикулите „по запитване“ остойностяваме отделно.</>}
+                {hasQuote && <> {QUOTE_NOTE}</>}
+              </p>
+              <p className="mt-1 text-[0.75rem] leading-relaxed font-bold text-ink">
+                {labour > 0 ? TRANSPORT_NOTE : PRICE_NOTE}
               </p>
 
               <Link
-                href="/request"
+                href={mode === "rent" ? "/request?mode=rent" : "/request"}
                 className="mt-3.5 flex min-h-[50px] w-full items-center justify-center rounded-full bg-cta px-5 text-[0.95rem] font-extrabold text-white hover:bg-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
               >
                 Продължи към запитването →

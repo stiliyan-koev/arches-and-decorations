@@ -1,20 +1,33 @@
 import "server-only";
 
-// Sending the /about contact form to the owner. Resend's REST API straight
-// over fetch — one POST doesn't need an npm package.
+// Emailing the owner: every request sent from /request (submitRequest) and the
+// /about contact form. Resend's REST API straight over fetch — one POST
+// doesn't need an npm package.
 //
-// Setup, once: open a Resend account *with the address below*, create an API
-// key, put it in RESEND_API_KEY (Netlify env vars for the live site, .env.local
-// for dev). Until a real domain is verified in Resend, the sender has to stay
-// onboarding@resend.dev and Resend only delivers to the account's own address —
-// which is why the account has to be opened with this one.
-const OWNER_EMAIL = "emiliya.uzunova194@gmail.com";
+// Setup, once: a Resend account with the address below, an API key in
+// RESEND_API_KEY (Netlify env vars for the live site, .env.local for dev), and
+// ukrasivarna.com verified in Resend — which is what lets us send from our own
+// domain instead of the shared onboarding@resend.dev. Everything goes to
+// OWNER_EMAIL, the address that account was opened with.
+const OWNER_EMAIL = "rent.arch.varna@gmail.com";
+
+// Who it comes from. No mailbox is needed at this address — Resend sends from
+// it because the domain is verified — but nothing can be read there either. The
+// /about contact form asks for an email and sets reply_to to it, so a reply goes
+// to the customer; a request from /request has no email field, so its email
+// carries no reply_to and a reply to it bounces — the customer is reached on the
+// phone number in the body.
+const SENDER = "Хубавото балонче <zayavki@ukrasivarna.com>";
 
 // Neither of these is ever shown on the site. The env vars are here so a dev
-// can send to themselves, and so the sender can move to a real address the day
-// the domain is verified — without a code change.
+// can send to themselves, and so either address can move without a code change.
+//
+// The literal above sits in a public repository, so treat it as already public:
+// removing it now would not un-publish it (it is in the git history) and would
+// stop every owner email until CONTACT_EMAIL_TO is set in Netlify. To move off
+// a personal inbox, point CONTACT_EMAIL_TO at a role address — no code change.
 const TO = process.env.CONTACT_EMAIL_TO || OWNER_EMAIL;
-const FROM = process.env.CONTACT_EMAIL_FROM || "onboarding@resend.dev";
+const FROM = process.env.CONTACT_EMAIL_FROM || SENDER;
 
 // true when Resend took the message. Never throws: the caller decides what the
 // customer gets told, and a failure here must not look like a crash.

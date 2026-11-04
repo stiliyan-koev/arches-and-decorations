@@ -36,6 +36,10 @@ create table products (
   track_availability boolean not null default true,-- false for consumables (balloons)
   rentable           boolean not null default true,-- can be loaned out standalone
   service_only       boolean not null default false,
+  -- How it's offered (admin keeps rentable/service_only in step with it):
+  -- 'rent' = rent only, 'both' = rent or with setup, 'setup' = setup only.
+  offer_mode         text not null default 'both' check (offer_mode in ('rent','both','setup')),
+  covers_needed      int  not null default 0 check (covers_needed >= 0), -- arch covers per piece
   active             boolean not null default true,
   sort               int  not null default 0,
   -- Carousel of variation photos (product_images.in_carousel), instead of the
@@ -46,6 +50,9 @@ create table products (
   -- Colour variations: the colours below show as swatches on the catalog card,
   -- each with its own stock. Off = the colours stay but are hidden everywhere.
   has_colors               boolean not null default false,
+  -- „Прозорец за изисквания“: „Добави“ first asks the customer to describe what
+  -- they want (e.g. a custom label); the text goes to booking_items.custom_text.
+  asks_requirements        boolean not null default false,
   created_at         timestamptz default now()
 );
 
@@ -108,6 +115,7 @@ create table showcases (
   title      text not null,
   body       text not null default '',   -- plain text; a blank line starts a new paragraph
   sort       int  not null default 0,    -- the first three by sort show on the homepage
+  slug       text unique,                -- its page, /showcases/<slug>; made from the title once, then kept
   created_at timestamptz not null default now()
 );
 
@@ -137,7 +145,8 @@ create table gallery_photos (
 create table gallery_tags (
   id   uuid primary key default gen_random_uuid(),
   name text not null,         -- the filter chip, e.g. "Рожден ден"
-  slug text not null unique   -- the URL, /gallery?tag=rozhden-den
+  slug text not null unique,  -- the URL, /gallery?tag=rozhden-den
+  description text not null default ''  -- shown on /gallery?tag=… and in Google; '' = the generic text
 );
 
 create table gallery_photo_tags (
@@ -194,6 +203,20 @@ create table blackout_dates (
   day    date not null,
   reason text
 );
+
+-- ---------- Settings ----------
+
+-- Site-wide values she edits in admin. Exactly one row (id = 1); a new setting
+-- is a new column. The whole row is public-read by design (the catalog shows
+-- the labour price), so a private value never goes here: it gets a table of
+-- its own with no public policy.
+create table settings (
+  id           int primary key default 1 check (id = 1),
+  labour_price numeric(10,2) not null default 50 check (labour_price >= 0), -- „Труд за украса“, EUR; 0 = none
+  rent_enabled boolean not null default true -- false = the site doesn't offer „Под наем“
+);
+
+insert into settings (id) values (1);
 
 -- ---------- Availability helper ----------
 -- A booking occupies [occupied_from, occupied_to]:
@@ -276,6 +299,32 @@ grant execute on function reserved_qty_by_color(date, date) to anon, authenticat
 -- available = products.quantity - reserved_qty(...). track_availability=false items are always available.
 -- A product with colours: available per colour = product_colors.quantity - reserved_qty_by_color(...).
 
+-- ---------- Forgetting old requests (GDPR) ----------
+-- 12 months after the event a request forgets who sent it: name, phone, note
+-- and the requirements text go; products, dates, city and prices stay. /privacy
+-- promises exactly this — change both together. Nightly through pg_cron.
+-- Details in migration-retention.sql.
+create or replace function forget_old_requests() returns void
+language sql set search_path = public as $$
+  update booking_items bi
+     set custom_text = null
+    from bookings b
+   where b.id = bi.booking_id
+     and bi.custom_text is not null
+     and coalesce(b.end_date, b.start_date, b.event_date, b.created_at::date)
+         < (current_date - interval '12 months')::date;
+
+  update bookings
+     set customer_name = null, phone = null, note = null
+   where (customer_name is not null or phone is not null or note is not null)
+     and coalesce(end_date, start_date, event_date, created_at::date)
+         < (current_date - interval '12 months')::date;
+$$;
+
+revoke execute on function forget_old_requests() from public, anon, authenticated, service_role;
+
+-- The nightly schedule is at the very END of this file, after the policies.
+
 -- ---------- Who the admin is ----------
 -- One row per admin user. The "admin all …" policies below key off this table,
 -- not off "is this request logged in at all": any Supabase account of the
@@ -332,6 +381,7 @@ alter table showcase_photos enable row level security;
 alter table gallery_photos     enable row level security;
 alter table gallery_tags       enable row level security;
 alter table gallery_photo_tags enable row level security;
+alter table settings           enable row level security;
 alter table admins             enable row level security;
 -- No policy on `admins` on purpose: nothing reads it through the API.
 
@@ -347,6 +397,7 @@ create policy "public read showcase_photos" on showcase_photos for select using 
 create policy "public read gallery_photos"     on gallery_photos     for select using (true);
 create policy "public read gallery_tags"       on gallery_tags       for select using (true);
 create policy "public read gallery_photo_tags" on gallery_photo_tags for select using (true);
+create policy "public read settings"           on settings           for select using (true);
 
 -- Public may submit a request (insert only), but never read bookings
 create policy "public create booking"       on bookings       for insert with check (status = 'requested');
@@ -367,3 +418,14 @@ create policy "admin all showcase_photos" on showcase_photos for all using ((sel
 create policy "admin all gallery_photos"     on gallery_photos     for all using ((select is_admin())) with check ((select is_admin()));
 create policy "admin all gallery_tags"       on gallery_tags       for all using ((select is_admin())) with check ((select is_admin()));
 create policy "admin all gallery_photo_tags" on gallery_photo_tags for all using ((select is_admin())) with check ((select is_admin()));
+create policy "admin all settings"           on settings           for all using ((select is_admin())) with check ((select is_admin()));
+
+-- ---------- The nightly GDPR job (last on purpose) ----------
+-- `create extension` fails where pg_cron is missing or the role may not create
+-- it: plain Postgres, a restricted role, a local `supabase start`. Keeping it
+-- last means such a failure leaves a database with its RLS and policies in
+-- place, instead of one that looks installed and has no RLS at all. Supabase
+-- ships pg_cron, so on the intended target this runs. Same two lines as
+-- migration-retention.sql, which is how the live database got them.
+create extension if not exists pg_cron;
+select cron.schedule('forget-old-requests', '15 3 * * *', 'select forget_old_requests()');

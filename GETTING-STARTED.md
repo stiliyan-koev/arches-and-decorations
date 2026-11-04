@@ -13,7 +13,7 @@ Drop these at the repo root so Claude Code has full context:
 
 ## 1. Supabase project
 1. Create a project in the Supabase dashboard (pick the EU region — Frankfurt — closest to Varna).
-2. SQL editor → paste and run **`schema.sql`**, then **`seed.sql`**.
+2. SQL editor → paste and run **`schema.sql`**, then **`seed.sql`**. Both are for this new, empty project only — never run them on a database that is in use (`seed.sql` stops with an error if it finds products).
 3. Storage → create a bucket named **`catalog`**, set it **public** (read).
 4. Authentication → Users → add your admin user (email + password). Add your wife's later. No public sign-up — the admin is invite-only.
 
@@ -22,14 +22,16 @@ Create `.env.local` (never commit it):
 ```
 NEXT_PUBLIC_SUPABASE_URL=...        # Project settings → API
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...   # anon public key
-RESEND_API_KEY=...                  # contact form on /about — resend.com/api-keys
+RESEND_API_KEY=...                  # owner emails (requests + /about form) — resend.com/api-keys
 ```
 The anon key is safe in the browser because RLS (in `schema.sql`) guards the tables. You do **not** need the service-role key for v1 — skip it.
 
-`RESEND_API_KEY` is what makes the „Пишете ни“ form on `/about` actually send. Open the Resend
-account **with the address in `src/lib/mail.ts`**: until a domain is verified there, the sender has
-to stay `onboarding@resend.dev` and Resend only delivers to the account's own address. Without the
-key the form still renders, but tells visitors to write on Messenger or Viber instead.
+`RESEND_API_KEY` is what emails the owner each request sent from `/request` and makes the „Пишете ни“
+form on `/about` actually send. Without it a request is still saved, just not emailed. Open the Resend
+account **with the address in `src/lib/mail.ts`**: that is where the mail is delivered. `ukrasivarna.com`
+is verified in Resend, so the sender is the address on our own domain in `src/lib/mail.ts`, not
+`onboarding@resend.dev`. Without the key the form still renders, but tells visitors to write on
+Messenger or Viber instead.
 
 ## 3. Suggested file tree
 ```

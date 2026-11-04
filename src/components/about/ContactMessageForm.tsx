@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { submitContactMessage } from "@/app/actions";
 import { trackContact } from "@/lib/tracking";
 
@@ -177,9 +178,17 @@ export default function ContactMessageForm() {
         </p>
       )}
 
+      {/* GDPR notice, same as the request form's (ContactForm). */}
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        Използваме контактите ви само за да ви отговорим. Няма онлайн плащане и
-        не се обвързвате с нищо.
+        Използваме контактите ви само за да ви отговорим — повече в{" "}
+        <Link
+          href="/privacy"
+          target="_blank"
+          className="font-semibold underline underline-offset-2 hover:text-ink"
+        >
+          Политиката за поверителност
+        </Link>
+        . Няма онлайн плащане и не се обвързвате с нищо.
       </p>
     </form>
   );

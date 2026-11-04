@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured } from "@/lib/catalog";
 import { imageUrl } from "@/lib/images";
 import type { GalleryPhoto, GalleryTag } from "@/lib/gallery";
@@ -14,13 +15,17 @@ type PhotoRow = {
   gallery_photo_tags: { tag_id: string }[];
 };
 
+// The gallery tables are public-read (migration-gallery.sql), so both reads
+// below use the cookie-free client: the admin pages get the same rows, and the
+// public page can cache them.
+
 // Every tag with how many photos it has, by name. Throws on a database error:
 // the admin page should say so rather than show an empty list.
 export async function getGalleryTags(): Promise<GalleryTag[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("gallery_tags")
-    .select("id, name, slug, gallery_photo_tags(count)")
+    .select("id, name, slug, description, gallery_photo_tags(count)")
     .order("name");
   if (error) throw error;
 
@@ -28,6 +33,7 @@ export async function getGalleryTags(): Promise<GalleryTag[]> {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    description: row.description,
     count: row.gallery_photo_tags[0]?.count ?? 0,
   }));
 }
@@ -44,7 +50,7 @@ export async function getGalleryPhotos(options: {
   untagged?: boolean;
   limit: number;
 }): Promise<{ photos: GalleryPhoto[]; total: number; hasMore: boolean }> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   let columns =
     "id, photo_id, path, full_path, crop, photo:photos(path), gallery_photo_tags(tag_id)";
   if (options.tagId) columns += ", only:gallery_photo_tags!inner(tag_id)";
@@ -83,6 +89,26 @@ export async function getGalleryPhotos(options: {
   };
 }
 
+// The public reads are cached for 5 minutes across visits, like the catalog
+// (see readCatalog in catalog.ts); an admin write clears them at once. A
+// thrown error is never cached.
+
+// The tags that have photos, for the public page, its title and the sitemap.
+// Throws on a database error.
+export const getPublicGalleryTags = unstable_cache(
+  async () => (await getGalleryTags()).filter((tag) => tag.count > 0),
+  ["gallery-public-tags"],
+  { revalidate: 300, tags: ["catalog"] },
+);
+
+// One page of public photos: all, or one tag's. The arguments are part of the
+// cache key, so every tag and every „Покажи още“ length is cached on its own.
+const getPublicGalleryPhotos = unstable_cache(
+  async (tagId: string | null, limit: number) => getGalleryPhotos({ tagId, limit }),
+  ["gallery-public-photos"],
+  { revalidate: 300, tags: ["catalog"] },
+);
+
 // The public page: the tags that have photos, the one picked (if the slug
 // matches one), and a page of photos. Empty until there is a database with
 // the gallery tables, so the page shows its "no photos yet" state instead of
@@ -98,12 +124,12 @@ export async function getPublicGallery(tagSlug: string | null, limit: number) {
   if (!isSupabaseConfigured()) return empty;
 
   try {
-    const tags = (await getGalleryTags()).filter((tag) => tag.count > 0);
+    const tags = await getPublicGalleryTags();
     const activeTag = tags.find((tag) => tag.slug === tagSlug) ?? null;
-    const { photos, total, hasMore } = await getGalleryPhotos({
-      tagId: activeTag?.id ?? null,
+    const { photos, total, hasMore } = await getPublicGalleryPhotos(
+      activeTag?.id ?? null,
       limit,
-    });
+    );
     return { tags, activeTag, photos, total, hasMore };
   } catch (error) {
     console.error("getPublicGallery: showing an empty gallery", error);

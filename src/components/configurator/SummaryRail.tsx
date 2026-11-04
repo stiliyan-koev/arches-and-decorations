@@ -1,4 +1,4 @@
-import { formatTotal } from "@/lib/format";
+import { formatTotal, PRICE_NOTE, QUOTE_NOTE } from "@/lib/format";
 
 export type SummaryLine = {
   key: string;
@@ -15,6 +15,7 @@ type Props = {
   ctaDisabled: boolean;
   hint: string | null;
   error: string | null;
+  priceNote?: string; // the line under the total; /request drops the labour part when it adds „Труд за украса“
 };
 
 // The blush rail. Same two views as the reference: an empty prompt, then a line
@@ -27,6 +28,7 @@ export default function SummaryRail({
   ctaDisabled,
   hint,
   error,
+  priceNote = PRICE_NOTE,
 }: Props) {
   const empty = lines.length === 0;
 
@@ -79,9 +81,10 @@ export default function SummaryRail({
       </div>
       <p className="mb-3.5 text-[0.78rem] leading-relaxed text-muted">
         Цената е ориентировъчна. Крайната оферта уточняваме лично.
-        {hasQuoteItems && !empty && (
-          <> Артикулите „по запитване“ остойностяваме отделно.</>
-        )}
+        {hasQuoteItems && !empty && <> {QUOTE_NOTE}</>}
+      </p>
+      <p className="mb-3.5 text-[0.78rem] leading-relaxed font-bold text-ink">
+        {priceNote}
       </p>
 
       {error && (

@@ -30,7 +30,11 @@ export type PlpProduct = {
   categorySlug: string;
   categoryName: string;
   price: number | null; // null = "по запитване" (custom_quote or no base_price)
-  rentable: boolean;
+  rentable: boolean; // may go out without her setting it up (offer_mode rent/both)
+  setupPossible: boolean; // she may set it up (offer_mode both/setup)
+  coversNeeded: number; // arch covers one piece needs; 0 = none
+  isCover: boolean; // an arch cover, counted against coversNeeded in the basket
+  asksRequirements: boolean; // „Добави“ first asks „Опишете вашите изисквания“
   stock: number | null; // how many she owns; null = consumable, never runs out
   maxQty: number; // the most one request may ask for — see MAX_PER_LINE
   isBooked: boolean; // tracked item she owns none of right now — see note below
@@ -43,13 +47,22 @@ export type PlpProduct = {
   createdAt: string | null; // for the "Най-нови" sort
 };
 
-export type PlpCategory = { slug: string; name: string };
+export type PlpCategory = {
+  slug: string;
+  name: string;
+  description: string; // her text under /catalog/<slug>'s heading; "" when none
+};
+
+// How long that text may be — about what a search snippet shows. The admin
+// textarea and saveCategory() both read it from here, so the two can't drift.
+export const CATEGORY_DESCRIPTION_MAX = 300;
 export type PlpColor = { slug: string; name: string; hex: string | null };
 
 export type PlpData = {
   products: PlpProduct[];
   categories: PlpCategory[];
   colors: PlpColor[];
+  rentEnabled: boolean; // false = she switched „Под наем“ off in admin
 };
 
 // Placeholder tint per category — no photos exist yet, so the thumbnail is a
@@ -93,14 +106,24 @@ function priceOf(product: {
 // Flatten the nested catalog into the shape the PLP consumes. Every category
 // that has products becomes a filterable category — the PLP shows the whole
 // catalog, not just the families that appear in the configurator.
-export function toPlpData(groups: CatalogGroup[]): PlpData {
+// rentEnabled is getRentEnabled(): with „Под наем“ off, the rent-only products
+// are left out, here, so no page can list them or keep them in a basket.
+export function toPlpData(groups: CatalogGroup[], rentEnabled: boolean): PlpData {
   const products: PlpProduct[] = [];
   const categories: PlpCategory[] = [];
   const colorBySlug = new Map<string, PlpColor>();
+  // The covers are the category a family recommends (arches -> covers).
+  const coverCategoryIds = new Set(
+    groups.map((group) => group.recommend_category_id).filter(Boolean),
+  );
 
   for (const group of groups) {
     if (group.products.length === 0) continue;
-    categories.push({ slug: group.slug, name: group.name });
+    categories.push({
+      slug: group.slug,
+      name: group.name,
+      description: group.description?.trim() ?? "",
+    });
 
     for (const product of group.products) {
       for (const color of product.colors) {
@@ -126,7 +149,11 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
         categorySlug: group.slug,
         categoryName: group.name,
         price: priceOf(product),
-        rentable: product.rentable,
+        rentable: product.offer_mode !== "setup",
+        setupPossible: product.offer_mode !== "rent",
+        coversNeeded: product.covers_needed,
+        isCover: coverCategoryIds.has(group.id),
+        asksRequirements: product.asks_requirements ?? false,
         stock: product.track_availability ? product.quantity : null,
         maxQty: maxQtyFor(product.track_availability ? product.quantity : null),
         // Without the confirmed-bookings query wired (see the availability note
@@ -157,7 +184,23 @@ export function toPlpData(groups: CatalogGroup[]): PlpData {
     }
   }
 
-  return { products, categories, colors: [...colorBySlug.values()] };
+  const data = { products, categories, colors: [...colorBySlug.values()], rentEnabled };
+  return rentEnabled ? data : withoutRentOnly(data);
+}
+
+// Drops the rent-only products, and any category or colour only they had.
+function withoutRentOnly(data: PlpData): PlpData {
+  const products = data.products.filter((product) => product.setupPossible);
+  return {
+    ...data,
+    products,
+    categories: data.categories.filter((category) =>
+      products.some((product) => product.categorySlug === category.slug),
+    ),
+    colors: data.colors.filter((color) =>
+      products.some((product) => product.colors.includes(color.slug)),
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------- basket
@@ -176,6 +219,7 @@ export type BasketItem = {
   qty: number;
   maxQty: number; // the colour's limit when there is a colour, else the product's
   lineTotal: number | null; // null = "по запитване"
+  requirements: string; // what the customer described; "" = nothing
 };
 
 export type BasketView = {
@@ -184,7 +228,7 @@ export type BasketView = {
   hasQuote: boolean;
 };
 
-// Joins the stored basket lines ({slug, color, qty}) with the catalog. A product
+// Joins the stored basket lines ({slug, color, qty, requirements}) with the catalog. A product
 // that is no longer in the catalog is dropped, and so is a colour that is gone
 // (deleted, or the product's colours switched off) — kept, it would turn into a
 // second line of the same product without a colour. A line saved without a
@@ -219,10 +263,42 @@ export function basketView(
       qty,
       maxQty,
       lineTotal,
+      requirements: line.requirements,
     });
   }
 
   return { items, total, hasQuote };
+}
+
+// „Труд за украса“ — added once, as a label, to a basket she sets up: the
+// visitor wants „Украса с монтаж от нас“ and every product is one she may set up. A
+// basket that can only be rented goes as „Под наем“ whatever was picked,
+// so it gets none. The same rule as the mode /request settles on.
+export function hasLabour(items: BasketItem[], wantsSetUp: boolean) {
+  if (items.length === 0) return false;
+  const canSetUp = items.every((item) => item.product.setupPossible);
+  const canRent = items.every((item) => item.product.rentable);
+  return canSetUp && (wantsSetUp || !canRent);
+}
+
+// Arches need covers: a warning when the basket holds fewer covers than its
+// arches need. null = enough (or no arches). A hint, never a block.
+export function coverShortfall(items: BasketItem[]) {
+  let needed = 0;
+  let have = 0;
+  for (const { product, qty } of items) {
+    needed += qty * product.coversNeeded;
+    if (product.isCover) have += qty;
+  }
+  return have < needed ? { needed, have } : null;
+}
+
+// The line under a cover or an arch saying how they go together.
+export function coverLabel(product: PlpProduct) {
+  if (product.isCover) return "1 бр. е за 1 арка";
+  if (product.coversNeeded === 1) return "Нужен е 1 калъф";
+  if (product.coversNeeded > 1) return `Нужни са ${product.coversNeeded} калъфа`;
+  return null;
 }
 
 // ------------------------------------------------------------------ price bands
@@ -281,12 +357,21 @@ const SORT_KEYS = SORTS.map((s) => s.value);
 
 // ---------------------------------------------------------------- filter + sort
 
-// "Само под наем" is not cosmetic — it drops products that can't be rented on
-// their own (balloons are sold, not loaned).
+// The mode switch is not cosmetic. "Под наем" drops products that can't
+// be rented on their own (balloons are sold, not loaned); "Украса с монтаж от нас"
+// drops the rent-only ones she doesn't set up, so adding one can't quietly
+// take „Труд за украса“ off the basket.
 export function baseList(products: PlpProduct[], state: FilterState) {
   return state.mode === "rent"
     ? products.filter((product) => product.rentable)
-    : products;
+    : products.filter((product) => product.setupPossible);
+}
+
+// A category she only rents out: nothing in it is set up by her, so
+// „Украса с монтаж от нас“ would show it empty. Its page opens in „Под наем“.
+export function isRentOnlyCategory(products: PlpProduct[], slug: string) {
+  const inCategory = products.filter((product) => product.categorySlug === slug);
+  return inCategory.length > 0 && !inCategory.some((product) => product.setupPossible);
 }
 
 // Apply the active facets. `skip` leaves one facet out so that facet's own
@@ -374,14 +459,9 @@ export function bandCount(
 }
 
 // How many facets are active (for the mobile "Филтри" badge). Sort is not a
-// filter and mode counts only when it's the non-default "rent".
+// filter, and neither is the mode: it has its own switch at the top.
 export function activeFilterCount(state: FilterState) {
-  return (
-    state.cats.length +
-    state.colors.length +
-    state.bands.length +
-    (state.mode === "rent" ? 1 : 0)
-  );
+  return state.cats.length + state.colors.length + state.bands.length;
 }
 
 export function hasActiveFilters(state: FilterState) {
@@ -411,7 +491,8 @@ export function parseState(
   const sort = first(params.sort) as SortKey | undefined;
 
   return {
-    mode: first(params.mode) === "rent" ? "rent" : "service",
+    // An old ?mode=rent link opens the normal catalog while rent is off.
+    mode: data.rentEnabled && first(params.mode) === "rent" ? "rent" : "service",
     cats: split(params.cat).filter((slug) => knownCats.has(slug)),
     colors: split(params.color).filter((slug) => knownColors.has(slug)),
     bands: split(params.price).filter((id) => knownBands.has(id)),
@@ -430,4 +511,14 @@ export function buildQuery(state: FilterState) {
   if (state.sort !== "featured") q.set("sort", state.sort);
   const s = q.toString();
   return s ? `?${s}` : "";
+}
+
+// The address of a view. Exactly one category = its own page,
+// /catalog/arches, which is the URL search engines index for it; everything
+// else is /catalog plus the query string.
+export function catalogHref(state: FilterState) {
+  if (state.cats.length === 1) {
+    return `/catalog/${state.cats[0]}${buildQuery({ ...state, cats: [] })}`;
+  }
+  return `/catalog${buildQuery(state)}`;
 }

@@ -7,12 +7,13 @@ import FilterSheet from "@/components/catalog/FilterSheet";
 import ProductCard from "@/components/catalog/ProductCard";
 import OfferButton from "@/components/catalog/OfferButton";
 import FloatingOfferButton from "@/components/catalog/FloatingOfferButton";
+import ModeSwitch from "@/components/catalog/ModeSwitch";
 import MiniBasket from "@/components/basket/MiniBasket";
 import { ChevronDownIcon } from "@/components/home/Icons";
 import {
   activeFilterCount,
-  buildQuery,
   BANDS,
+  catalogHref,
   EMPTY_STATE,
   hasActiveFilters,
   SORTS,
@@ -27,6 +28,11 @@ import {
 // catalog shows in full; a larger catalog gets a show-more instead of pagination.
 const PAGE = 24;
 
+// The page's own noun phrase, deliberately not the homepage's „Украса с балони
+// и арки във Варна“ — the two shouldn't compete for the same words. Matches the
+// <title> in app/(site)/catalog/page.tsx.
+const CATALOG_HEADING = "Каталог — балони, арки и калъфи за украса във Варна";
+
 function toggle(list: string[], id: string) {
   return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
@@ -34,9 +40,11 @@ function toggle(list: string[], id: string) {
 export default function CatalogView({
   data,
   initialState,
+  labourPrice,
 }: {
   data: PlpData;
   initialState: FilterState;
+  labourPrice: number; // „Труд за украса“, from the settings table
 }) {
   const [state, setState] = useState<FilterState>(initialState);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -57,12 +65,12 @@ export default function CatalogView({
 
   // Keep the URL in step with the view so it survives a reload and can be shared.
   // replaceState, not push — Back should leave the catalog, not undo nine filter
-  // clicks. Everything lives on /catalog as a query string; a pretty
-  // /catalog/[category] entry (still server-rendered for SEO) canonicalises onto
-  // /catalog?cat=… here. Only writes when the URL would actually change, so it's
-  // a no-op on a matching reload and doesn't depend on effect-timing quirks.
+  // clicks. One category picked = its own page, /catalog/arches, the address
+  // search engines index; anything else is /catalog with a query string. Only
+  // writes when the URL would actually change, so it's a no-op on a matching
+  // reload and doesn't depend on effect-timing quirks.
   useEffect(() => {
-    const target = `/catalog${buildQuery(state)}`;
+    const target = catalogHref(state);
     const current = `${window.location.pathname}${window.location.search}`;
     if (target !== current) {
       window.history.replaceState(null, "", target);
@@ -82,8 +90,20 @@ export default function CatalogView({
     return () => observer.disconnect();
   }, []);
 
+  // One category picked: the page is about it, so the heading says so.
+  const onlyCategory =
+    state.cats.length === 1
+      ? data.categories.find((c) => c.slug === state.cats[0])
+      : undefined;
+
   const visible = visibleProducts(data.products, state);
   const shown = visible.slice(0, limit);
+  // Nothing under „Украса с монтаж от нас“, but the same choice has products under
+  // „Под наем“: they are rent-only, and the empty state says so.
+  const onlyForRent =
+    visible.length === 0 &&
+    state.mode === "service" &&
+    visibleProducts(data.products, { ...state, mode: "rent" }).length > 0;
   const activeCount = activeFilterCount(state);
   const filtersActive = hasActiveFilters(state);
 
@@ -96,8 +116,10 @@ export default function CatalogView({
     setState((s) => ({ ...s, colors: toggle(s.colors, slug) }));
   const toggleBand = (id: string) =>
     setState((s) => ({ ...s, bands: toggle(s.bands, id) }));
-  // Reset the facets but keep the chosen sort (matches the reference).
-  const clearFilters = () => setState((s) => ({ ...EMPTY_STATE, sort: s.sort }));
+  // Reset the facets but keep the chosen sort (matches the reference) and the
+  // mode, which isn't a filter: it has its own switch at the top.
+  const clearFilters = () =>
+    setState((s) => ({ ...EMPTY_STATE, mode: s.mode, sort: s.sort }));
 
   function openBasket(addedKey: string | null, full = false) {
     openedFrom.current = document.activeElement as HTMLElement | null;
@@ -119,13 +141,6 @@ export default function CatalogView({
 
   // Active-filter chips, each removable.
   const chips: { key: string; label: string; onRemove: () => void }[] = [];
-  if (state.mode === "rent") {
-    chips.push({
-      key: "mode",
-      label: "Само под наем",
-      onRemove: () => setMode("service"),
-    });
-  }
   for (const slug of state.cats) {
     const name = data.categories.find((c) => c.slug === slug)?.name ?? slug;
     chips.push({ key: `cat-${slug}`, label: name, onRemove: () => toggleCat(slug) });
@@ -167,6 +182,31 @@ export default function CatalogView({
     </span>
   );
 
+  // Nothing in the catalog at all: no database yet, or the read failed (and a
+  // category page can't tell that from an unknown slug). Filters have nothing
+  // to filter and the basket nothing to price, so the page says „Очаквайте
+  // скоро“, the way /gallery does without photos.
+  if (data.products.length === 0) {
+    return (
+      <div className="mx-auto max-w-[1140px] px-5 pt-14 pb-16">
+        <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">{CATALOG_HEADING}</h1>
+        <div className="mt-8 flex flex-col items-center gap-3.5 rounded-card border border-dashed border-border bg-surface px-10 py-16 text-center">
+          <h2 className="text-xl font-semibold">Очаквайте скоро</h2>
+          <p className="max-w-[420px] text-sm text-muted">
+            Подреждаме каталога със снимки и цени. Пишете ни и ще ви кажем какво
+            можем за вашия празник.
+          </p>
+          <Link
+            href="/about"
+            className="inline-flex min-h-[44px] items-center rounded-full bg-cta px-6 text-sm font-extrabold text-white hover:bg-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+          >
+            Свържете се с нас
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-[1140px] px-5 pt-6 pb-16">
       <p className="mb-5 flex items-center gap-2.5 rounded-item border border-border bg-surface-2 px-4 py-3 text-[0.82rem] text-muted">
@@ -182,13 +222,27 @@ export default function CatalogView({
             <Link href="/" className="hover:text-cta">
               Начало
             </Link>{" "}
-            · Каталог
+            ·{" "}
+            {onlyCategory ? (
+              <>
+                <Link href="/catalog" className="hover:text-cta">
+                  Каталог
+                </Link>{" "}
+                · {onlyCategory.name}
+              </>
+            ) : (
+              "Каталог"
+            )}
           </nav>
-          <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">Каталог</h1>
+          {/* A category's own <title> phrase („Арки във Варна“), or the
+              catalog's own (CATALOG_HEADING above). */}
+          <h1 className="text-[clamp(2rem,4vw,2.6rem)] font-bold">
+            {onlyCategory ? `${onlyCategory.name} във Варна` : CATALOG_HEADING}
+          </h1>
+          {/* A category with its own text shows it; otherwise the general line. */}
           <p className="max-w-[640px] text-[0.95rem] text-muted">
-            Всичко, което може да влезе в украсата ви. Изберете каквото ви
-            харесва и го добавете към офертата — цената остава ориентировъчна до
-            личната среща.
+            {onlyCategory?.description ||
+              "Всичко, което може да влезе в украсата ви. Изберете каквото ви харесва и го добавете към офертата — цената остава ориентировъчна до личната среща."}
           </p>
         </div>
         <div ref={pillRef}>
@@ -199,10 +253,13 @@ export default function CatalogView({
         </div>
       </div>
 
+      {data.rentEnabled && <ModeSwitch mode={state.mode} onMode={setMode} />}
+
       {/* Mobile category pill row, sticky under the site header */}
       <div className="sticky top-14 z-30 -mx-5 mb-4 border-b border-border bg-bg/95 px-5 py-2.5 backdrop-blur lg:hidden">
         <div className="flex gap-2 overflow-x-auto">
           <PillButton
+            href={catalogHref({ ...state, cats: [] })}
             active={state.cats.length === 0}
             onClick={() => setState((s) => ({ ...s, cats: [] }))}
           >
@@ -211,6 +268,7 @@ export default function CatalogView({
           {data.categories.map((category) => (
             <PillButton
               key={category.slug}
+              href={catalogHref({ ...state, cats: [category.slug] })}
               active={
                 state.cats.length === 1 && state.cats[0] === category.slug
               }
@@ -240,7 +298,6 @@ export default function CatalogView({
           <Filters
             data={data}
             state={state}
-            onMode={setMode}
             onToggleCat={toggleCat}
             onToggleColor={toggleColor}
             onToggleBand={toggleBand}
@@ -331,6 +388,21 @@ export default function CatalogView({
                 място и дата.
               </p>
             </>
+          ) : onlyForRent ? (
+            <div className="flex flex-col items-center gap-3.5 rounded-card border border-dashed border-border bg-surface px-10 py-16 text-center">
+              <h3 className="text-xl font-semibold">Тези продукти са само под наем</h3>
+              <p className="max-w-[420px] text-sm text-muted">
+                Не ги монтираме — взимате ги и ги връщате сами. Превключете на
+                „Под наем“, за да ги видите.
+              </p>
+              <button
+                type="button"
+                onClick={() => setMode("rent")}
+                className="min-h-[44px] rounded-full bg-cta px-6 text-sm font-extrabold text-white hover:bg-cta-strong focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta"
+              >
+                Покажи под наем
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col items-center gap-3.5 rounded-card border border-dashed border-border bg-surface px-10 py-16 text-center">
               <h3 className="text-xl font-semibold">
@@ -372,6 +444,8 @@ export default function CatalogView({
         products={data.products}
         lastAdded={lastAdded}
         full={basketFull}
+        mode={state.mode}
+        labourPrice={labourPrice}
       />
 
       <FilterSheet
@@ -380,7 +454,6 @@ export default function CatalogView({
         data={data}
         state={state}
         resultCount={visible.length}
-        onMode={setMode}
         onToggleCat={toggleCat}
         onToggleColor={toggleColor}
         onToggleBand={toggleBand}
@@ -390,27 +463,39 @@ export default function CatalogView({
   );
 }
 
+// A real link, so search engines find every category page from here; a
+// plain click filters in place instead of loading the page again.
 function PillButton({
+  href,
   active,
   onClick,
   children,
 }: {
+  href: string;
   active: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`min-h-[44px] shrink-0 rounded-full border px-4 text-[0.85rem] font-bold whitespace-nowrap transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta ${
+    <a
+      href={href}
+      aria-current={active ? "page" : undefined}
+      onClick={(event) => {
+        // Ctrl/Cmd/Shift/Alt-click keeps the browser's own behaviour (new tab,
+        // window, download).
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+          return;
+        }
+        event.preventDefault();
+        onClick();
+      }}
+      className={`inline-flex min-h-[44px] shrink-0 items-center rounded-full border px-4 text-[0.85rem] font-bold whitespace-nowrap transition-colors focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-cta ${
         active
           ? "border-cta bg-cta text-white"
           : "border-border bg-surface text-ink"
       }`}
     >
       {children}
-    </button>
+    </a>
   );
 }

@@ -7,6 +7,10 @@ import type { CropRect } from "@/lib/resize-image";
 // want (the category's first product is the item — used for balloons).
 export type Picker = "dropdown" | "grid" | "text";
 
+// How a product is offered: rent only (the customer collects it), rented or set
+// up by her, or only set up by her.
+export type OfferMode = "rent" | "both" | "setup";
+
 // The bare category fields the admin lists and product form need (name/slug/sort
 // editing, and the category <select>). Kept separate from the full Category so
 // those admin queries don't have to fetch the configurator columns.
@@ -15,6 +19,7 @@ export type CategorySummary = {
   slug: string;
   name: string;
   sort: number;
+  description?: string | null; // only the categories admin reads it
 };
 
 export type Category = {
@@ -62,13 +67,14 @@ export type Product = {
   pricing_type: "fixed" | "custom_quote";
   quantity: number; // how many she physically owns
   track_availability: boolean; // false = consumable (balloons), always available
-  rentable: boolean; // can be loaned out on its own, without her setting it up
-  service_only: boolean; // only offered together with setup
+  offer_mode: OfferMode;
+  covers_needed: number; // arch covers one piece needs (a set of 2 arches: 2)
   // Empty when the product's „Има варианти по цвят“ is off. When it's on,
   // `quantity` above is the sum of the colours' counts.
   colors: ProductColor[];
-  // Optional only because catalog-fallback.ts has no photos. Once that file is
-  // deleted this can become required.
+  // Optional for historical reasons: the deleted catalog-fallback.ts had no
+  // photos. Every row getCatalog() builds sets it, so this could become
+  // required in a follow-up.
   images?: ProductImage[];
   // Variation photos for the carousel, in her order. Already empty when the
   // carousel is switched off; the two flags say where it is shown. Optional
@@ -77,10 +83,14 @@ export type Product = {
   carousel_in_configurator?: boolean;
   carousel_in_catalog?: boolean;
   // Used by the catalog page (PLP): the spec line under a card and the "Най-нови"
-  // sort. Optional because the temporary fallback has neither; the configurator
-  // ignores both. Once catalog-fallback.ts is deleted these can become required.
+  // sort. Optional for historical reasons (the deleted catalog-fallback.ts had
+  // neither) and because the configurator ignores both; they could become
+  // required in a follow-up.
   description?: string | null; // BG spec line, e.g. "Метална основа · ⌀ 180 см"
   created_at?: string | null; // ISO timestamp, for newest-first sorting
+  // „Прозорец за изисквания“: „Добави“ in the catalog first asks the customer
+  // what they want. Optional for the same reason as the two above.
+  asks_requirements?: boolean;
 };
 
 // The full products row, as the admin edits it. `Product` above is the trimmed
@@ -95,14 +105,15 @@ export type ProductRow = {
   pricing_type: "fixed" | "custom_quote";
   quantity: number;
   track_availability: boolean;
-  rentable: boolean;
-  service_only: boolean;
+  offer_mode: OfferMode;
+  covers_needed: number;
   active: boolean;
   sort: number;
   carousel: boolean; // master switch for the carousel photos
   carousel_in_configurator: boolean;
   carousel_in_catalog: boolean;
   has_colors: boolean; // „Има варианти по цвят“: show the colours as swatches
+  asks_requirements: boolean; // „Прозорец за изисквания“: ask what the customer wants on „Добави“
 };
 
 // A category plus its products — this is what the configurator renders, one

@@ -20,8 +20,13 @@ export default async function EditShowcasePage({
         >
           ← Всички украси
         </Link>
+        {/* Its own page once it has a slug and a photo; the homepage otherwise. */}
         <Link
-          href="/"
+          href={
+            showcase.slug && showcase.showcase_photos.length > 0
+              ? `/showcases/${showcase.slug}`
+              : "/"
+          }
           className="ml-auto text-[0.85rem] font-bold text-muted hover:text-cta"
         >
           Виж на сайта →

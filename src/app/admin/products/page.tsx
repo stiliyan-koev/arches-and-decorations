@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { imageUrl } from "@/lib/images";
 import { formatPrice, QUOTE_LABEL } from "@/lib/format";
 import { PATTERN_FILL } from "@/components/Swatches";
+import LabourPriceForm from "@/components/admin/LabourPriceForm";
+import RentToggle from "@/components/admin/RentToggle";
+import { getLabourPrice, getRentEnabled } from "@/lib/settings";
 
 type ProductListRow = {
   id: string;
@@ -24,7 +27,7 @@ type ProductListRow = {
 export default async function AdminProductsPage() {
   const supabase = await createClient();
 
-  const [categoriesResult, productsResult] = await Promise.all([
+  const [categoriesResult, productsResult, labourPrice, rentEnabled] = await Promise.all([
     supabase.from("categories").select("id, name, sort").order("sort"),
     supabase
       .from("products")
@@ -35,6 +38,8 @@ export default async function AdminProductsPage() {
          product_colors ( id, color_name, hex, quantity, sort )`,
       )
       .order("sort"),
+    getLabourPrice(),
+    getRentEnabled(),
   ]);
   if (categoriesResult.error || productsResult.error) throw categoriesResult.error ?? productsResult.error;
 
@@ -69,6 +74,9 @@ export default async function AdminProductsPage() {
           + Нов продукт
         </Link>
       </div>
+
+      <LabourPriceForm price={labourPrice} />
+      <RentToggle enabled={rentEnabled} />
 
       {groups.length === 0 && (
         <p className="mt-8 text-muted">Още няма продукти.</p>

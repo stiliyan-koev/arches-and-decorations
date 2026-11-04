@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CropRect } from "@/lib/resize-image";
@@ -10,10 +10,12 @@ import {
   SHOWCASE_MAX_PHOTOS,
   SHOWCASE_TITLE_MAX,
 } from "@/lib/home";
-import { MAX_BULK, TAG_NAME_MAX } from "@/lib/gallery";
+import { CATEGORY_DESCRIPTION_MAX } from "@/lib/catalog-plp";
+import { MAX_BULK, TAG_DESCRIPTION_MAX, TAG_NAME_MAX } from "@/lib/gallery";
 import type { GalleryTag } from "@/lib/gallery";
 import { slugify } from "@/lib/slug";
 import type { PhotoRef } from "@/lib/photo-library";
+import type { OfferMode } from "@/lib/types";
 
 // Two layers guard every write here. First, the action itself asks the
 // database whether the caller is one of the owner's accounts (requireAdmin
@@ -167,8 +169,20 @@ async function replaceTile(
 
 // Admin pages are server-rendered from the same tables the public site reads,
 // so a write has to invalidate both.
+//
+// Two steps, because they clear different things. revalidatePath re-renders the
+// pages; the tag clears the unstable_cache entries behind them (the catalog,
+// the labour price, „Под наем“), which revalidatePath only reaches for entries
+// created while rendering the paths it names — so without the tag /request and
+// /faq could serve a five-minute-old price after she saved.
+//
+// updateTag, not revalidateTag: in Next 16 it is the one that expires straight
+// away and gives read-your-own-writes, so the admin page she lands on after
+// saving shows her own value. It may only be called from a Server Action, and
+// every caller here is one ("use server" at the top of this file).
 function revalidateCatalog() {
   revalidatePath("/", "layout");
+  updateTag("catalog");
 }
 
 export async function signOut() {
@@ -184,6 +198,9 @@ export type CategoryInput = {
   slug: string;
   name: string;
   sort: number;
+  // The text under /catalog/<slug>'s heading, also its search snippet (and the
+  // hidden configurator's hint line). Left out = unchanged.
+  description?: string;
 };
 
 export async function saveCategory(input: CategoryInput): Promise<ActionResult> {
@@ -193,12 +210,21 @@ export async function saveCategory(input: CategoryInput): Promise<ActionResult> 
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
   }
+  if (input.description !== undefined) {
+    if (typeof input.description !== "string") return { ok: false, error: "Невалиден текст." };
+    if (input.description.trim().length > CATEGORY_DESCRIPTION_MAX) {
+      return { ok: false, error: `Текстът може да е до ${CATEGORY_DESCRIPTION_MAX} знака.` };
+    }
+  }
 
   const supabase = await createClient();
   const row = {
     slug: input.slug.trim(),
     name: input.name.trim(),
     sort: input.sort,
+    ...(input.description !== undefined && {
+      description: input.description.trim() || null,
+    }),
   };
 
   const { error } = input.id
@@ -228,6 +254,62 @@ export async function deleteCategory(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+// ---------- Labour ----------
+
+// „Труд за украса“, the one row of `settings` (migration-labour.sql). Upsert,
+// so it also works if the row was deleted by hand. 0 switches the label off.
+export async function saveLabourPrice(price: number): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  if (!Number.isFinite(price) || price < 0 || price > 100000) {
+    return { ok: false, error: "Цената трябва да е число от 0 до 100 000." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ id: 1, labour_price: Math.round(price * 100) / 100 });
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.code === "42P01" || error.code === "PGRST205"
+          ? "Липсва таблицата settings — пуснете migration-labour.sql в Supabase."
+          : error.message,
+    };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
+// ---------- Rent switch ----------
+
+// Whether the site offers „Под наем“ at all (migration-rent-toggle.sql). Upsert
+// for the same reason as the labour price.
+export async function saveRentEnabled(enabled: boolean): Promise<ActionResult> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("settings")
+    .upsert({ id: 1, rent_enabled: enabled });
+  if (error) {
+    return {
+      ok: false,
+      error:
+        error.code === "42703" || error.code === "PGRST204"
+          ? "Липсва колоната rent_enabled — пуснете migration-rent-toggle.sql в Supabase."
+          : error.message,
+    };
+  }
+
+  revalidateCatalog();
+  return { ok: true };
+}
+
 // ---------- Products ----------
 
 export type ProductInput = {
@@ -240,12 +322,15 @@ export type ProductInput = {
   pricing_type: "fixed" | "custom_quote";
   quantity: number;
   track_availability: boolean;
-  rentable: boolean;
-  service_only: boolean;
+  offer_mode: OfferMode;
+  covers_needed: number;
   active: boolean;
   sort: number;
   has_colors: boolean;
+  asks_requirements: boolean;
 };
+
+const OFFER_MODES: OfferMode[] = ["rent", "both", "setup"];
 
 export async function saveProduct(
   input: ProductInput,
@@ -255,6 +340,12 @@ export async function saveProduct(
 
   if (!input.name.trim() || !input.slug.trim()) {
     return { ok: false, error: "Име и slug са задължителни." };
+  }
+  if (!OFFER_MODES.includes(input.offer_mode)) {
+    return { ok: false, error: "Изберете как се предлага продуктът." };
+  }
+  if (!Number.isInteger(input.covers_needed) || input.covers_needed < 0) {
+    return { ok: false, error: "Нужните калъфи са цяло число, 0 или повече." };
   }
   if (input.pricing_type === "fixed" && input.base_price == null) {
     return { ok: false, error: "Въведете цена или изберете „По запитване“." };
@@ -271,11 +362,15 @@ export async function saveProduct(
     pricing_type: input.pricing_type,
     quantity: input.quantity,
     track_availability: input.track_availability,
-    rentable: input.rentable,
-    service_only: input.service_only,
+    offer_mode: input.offer_mode,
+    covers_needed: input.covers_needed,
+    // The two older flags, kept in step so nothing reading them goes stale.
+    rentable: input.offer_mode !== "setup",
+    service_only: input.offer_mode === "setup",
     active: input.active,
     sort: input.sort,
     has_colors: input.has_colors,
+    asks_requirements: input.asks_requirements,
   };
 
   if (input.id) {
@@ -801,6 +896,16 @@ export async function removeHeroPhoto(id: string): Promise<ActionResult> {
 
 const SHOWCASE_NOT_FOUND = "Украсата не е намерена.";
 
+// The slug of a new showcase's page, /showcases/<slug>: its title in Latin
+// letters, plus a bit of its id when another showcase has that already. Made
+// once, when the showcase is created; editing the title later keeps it, so
+// links that are out there keep working.
+async function newShowcaseSlug(supabase: Supabase, title: string, id: string) {
+  const base = slugify(title) || id.slice(0, 8);
+  const { data } = await supabase.from("showcases").select("id").eq("slug", base).limit(1);
+  return data && data.length > 0 ? `${base}-${id.slice(0, 4)}` : base;
+}
+
 // Creates (id null) or updates a showcase. A new one goes to the end of the
 // list. Returns the id, so the new-showcase form can open its edit page.
 export async function saveShowcase(
@@ -849,8 +954,14 @@ export async function saveShowcase(
     id: newId,
     title,
     body,
+    slug: await newShowcaseSlug(supabase, title, newId),
     sort: (lastRow?.sort ?? 0) + 1,
   });
+  // The slug's unique index: the title and the bit of id are both taken. Rare,
+  // and a click again makes a new id.
+  if (error?.code === UNIQUE_VIOLATION) {
+    return { ok: false, error: "Вече има украса с такова заглавие. Опитайте пак или сменете заглавието." };
+  }
   if (error) return { ok: false, error: error.message };
 
   revalidateCatalog();
@@ -1219,7 +1330,7 @@ export async function createGalleryTag(
   const { data, error } = await supabase
     .from("gallery_tags")
     .insert(tag)
-    .select("id, name, slug")
+    .select("id, name, slug, description")
     .single();
   if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };
   if (error) return { ok: false, error: error.message };
@@ -1228,20 +1339,31 @@ export async function createGalleryTag(
   return { ok: true, tag: { ...data, count: 0 } };
 }
 
+// Saves a tag's name and its text (shown on /gallery?tag=… and in Google).
 // Renaming changes the slug too, so an old /gallery?tag=… link falls back to
 // all photos rather than pointing at a name that no longer exists.
-export async function renameGalleryTag(id: string, name: string): Promise<ActionResult> {
+export async function saveGalleryTag(
+  id: string,
+  name: string,
+  description: string,
+): Promise<ActionResult> {
   const denied = await requireAdmin();
   if (denied) return denied;
 
   if (!UUID.test(id)) return { ok: false, error: "Етикетът не е намерен." };
   const tag = cleanTagName(name);
   if (!tag) return { ok: false, error: "Напишете име на етикета." };
+  if (typeof description !== "string") return { ok: false, error: "Невалиден текст." };
+  // One paragraph: line breaks and runs of spaces become single spaces.
+  const text = description.replace(/\s+/g, " ").trim();
+  if (text.length > TAG_DESCRIPTION_MAX) {
+    return { ok: false, error: `Текстът може да е до ${TAG_DESCRIPTION_MAX} знака.` };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("gallery_tags")
-    .update(tag)
+    .update({ ...tag, description: text })
     .eq("id", id)
     .select("id");
   if (error?.code === UNIQUE_VIOLATION) return { ok: false, error: "Вече има такъв етикет." };

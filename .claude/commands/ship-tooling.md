@@ -55,7 +55,9 @@ Body: a bullet list of what is new or changed in the tooling, then "Checks: buil
 
 ## 6. Go back
 
-`git switch <START>`. Don't review or merge the PR. Give the owner the link.
+`git switch <START>`. Don't review or merge the PR. Give the owner the link, then the
+`### Follow-up actions` table from CLAUDE.md — here usually just "review and merge the PR" —
+or `No manual steps.`
 
 ## Never
 

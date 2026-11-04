@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { FALLBACK_GROUPS } from "@/lib/catalog-fallback";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { CatalogGroup } from "@/lib/types";
 
 export function isSupabaseConfigured() {
@@ -9,13 +9,42 @@ export function isSupabaseConfigured() {
   );
 }
 
+// The catalog for every page that shows it. With no database, or on a database
+// error, it is empty and the pages say „Очаквайте скоро“.
+//
+// There used to be a hardcoded stand-in here (catalog-fallback.ts, a snapshot
+// of seed.sql). It is gone, as CLAUDE.md asks once the real database is live:
+// the live catalog has been edited through the admin since September 2026, so
+// the snapshot had drifted into showing customers products and prices that no
+// longer exist — and its ids are slugs rather than UUIDs, so submitRequest
+// rejected every request built from it anyway. An empty catalog is visibly
+// wrong; a stale one is not. The error is thrown inside the cache below and
+// caught here, so a hiccup is never cached as the catalog.
+export async function getCatalog(): Promise<CatalogGroup[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  try {
+    return await readCatalog();
+  } catch (error) {
+    // Without this line a missing table reads as "no products yet" on the page.
+    console.error("getCatalog: showing an empty catalog", error);
+    return [];
+  }
+}
+
 // Reads the whole catalog in one go — it's a handful of rows and the homepage
 // configurator needs all of it. Returns categories with their products and
 // each product's colours, ordered by the `sort` columns from schema.sql.
-export async function getCatalog(): Promise<CatalogGroup[]> {
-  if (!isSupabaseConfigured()) return FALLBACK_GROUPS;
-
-  const supabase = await createClient();
+//
+// Cached for 5 minutes across visits, so /catalog doesn't wait on the database
+// every time. An admin write clears it at once through the "catalog" tag below
+// (revalidateCatalog in admin/actions.ts, via updateTag) — the tag rather than
+// revalidatePath alone, which only reaches entries created while rendering the
+// paths it names.
+// The cookie-free client, because a cached read can't touch cookies(); the
+// catalog tables are public-read anyway.
+const readCatalog = unstable_cache(async (): Promise<CatalogGroup[]> => {
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("categories")
     .select(
@@ -25,8 +54,9 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
        products (
          id, slug, name, description, option_group, base_price, pricing_type,
          active, sort, created_at,
-         quantity, track_availability, rentable, service_only,
+         quantity, track_availability, offer_mode, covers_needed,
          carousel, carousel_in_configurator, carousel_in_catalog, has_colors,
+         asks_requirements,
          product_colors ( id, color_slug, color_name, hex, quantity, sort ),
          product_images ( id, color_id, path, full_path, in_carousel, sort, photo:photos ( path ) )
        )`,
@@ -34,11 +64,7 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
     .order("sort")
     .order("sort", { referencedTable: "products" });
 
-  if (error || !data?.length) {
-    // Without this line a missing table reads as "no products yet" on the page.
-    console.error("getCatalog: using the hardcoded catalog", error ?? "no rows");
-    return FALLBACK_GROUPS;
-  }
+  if (error) throw error;
 
   const groups: CatalogGroup[] = data.map((category) => ({
     id: category.id,
@@ -86,8 +112,9 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
           created_at: product.created_at,
           quantity,
           track_availability: product.track_availability,
-          rentable: product.rentable,
-          service_only: product.service_only,
+          offer_mode: product.offer_mode,
+          covers_needed: product.covers_needed,
+          asks_requirements: product.asks_requirements,
           colors,
           // Carousel photos never stand in for the main photo, and stay hidden
           // while the carousel is switched off.
@@ -102,6 +129,5 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
   }));
 
   // A category with no products has nothing to configure.
-  const usable = groups.filter((group) => group.products.length > 0);
-  return usable.length ? usable : FALLBACK_GROUPS;
-}
+  return groups.filter((group) => group.products.length > 0);
+}, ["catalog"], { revalidate: 300, tags: ["catalog"] });
