@@ -39,8 +39,8 @@ export async function getCatalog(): Promise<CatalogGroup[]> {
 // Cached for 5 minutes across visits, so /catalog doesn't wait on the database
 // every time. An admin write clears it at once through the "catalog" tag below
 // (revalidateCatalog in admin/actions.ts, via updateTag) — the tag rather than
-// revalidatePath
-// alone, which only reaches entries created while rendering the paths it names.
+// revalidatePath alone, which only reaches entries created while rendering the
+// paths it names.
 // The cookie-free client, because a cached read can't touch cookies(); the
 // catalog tables are public-read anyway.
 const readCatalog = unstable_cache(async (): Promise<CatalogGroup[]> => {

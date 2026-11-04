@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const rentEnabled = await getRentEnabled();
 
   return {
-    title: "Често задавани въпроси",
+    title: { absolute: "Често задавани въпроси за украса с балони във Варна" },
     description: rentEnabled
       ? "Резервация, капаро, плащане, монтаж, наем на арки и калъфи: отговори на най-честите въпроси за украсата с балони във Варна."
       : "Резервация, капаро, плащане и монтаж: отговори на най-честите въпроси за украсата с балони във Варна.",

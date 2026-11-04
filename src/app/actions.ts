@@ -77,11 +77,13 @@ function isDateRange(from: unknown, to: unknown) {
   return Number.isFinite(days) && days <= MAX_RANGE_DAYS;
 }
 
-// One yyyy-mm-dd date that isn't absurdly far in the future.
-function isDateSoonEnough(date: unknown) {
+// One yyyy-mm-dd date that is neither in the past nor absurdly far ahead. The
+// -1 lower bound lets today through whatever the server's clock zone, while a
+// hand-built call can't book 1990 and have it sit in her inbox as a party.
+function isBookableDate(date: unknown) {
   if (typeof date !== "string") return false;
   const days = (Date.parse(date) - Date.now()) / 86_400_000;
-  return Number.isFinite(days) && days <= MAX_AHEAD_DAYS;
+  return Number.isFinite(days) && days >= -1 && days <= MAX_AHEAD_DAYS;
 }
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -229,7 +231,7 @@ export async function submitRequest(
   if (isRental && !isDateRange(payload.startDate, payload.endDate)) {
     return { ok: false, error: SEND_FAILED };
   }
-  if (!dates.every(isDateSoonEnough)) {
+  if (!dates.every(isBookableDate)) {
     return { ok: false, error: SEND_FAILED };
   }
   if (
@@ -346,15 +348,16 @@ export async function submitRequest(
   // the email goes out after the response (after(); Netlify keeps the function
   // running for it): the customer's button doesn't wait on Resend, and a slow
   // or failed email can't turn a saved request into an error. The log says
-  // which booking she wasn't told about. Throttled like the contact form, with
-  // its own caps (requestSends), so spam there can't stop these emails. The
+  // which booking she wasn't told about. Throttled like the contact form, but
+  // with its own per-IP cap and the whole hourly budget (the contact form is
+  // refused at a lower shared total), so spam there can't stop these emails. The
   // product lookup inside uses the cookie-free client: `supabase` belongs to a
   // request that has already been answered, and touching cookies() after that
   // can throw — losing the email and skipping the very log line below.
   const ip = await callerIp();
   after(async () => {
     let emailed = false;
-    if (allowSend(requestSends, ip, REQUEST_PER_IP_SENDS)) {
+    if (allowSend(requestSends, ip, REQUEST_PER_IP_SENDS, GLOBAL_SENDS)) {
       emailed = await sendOwnerEmail(
         requestEmailSubject(payload, estimatedTotal),
         await requestEmailText(createPublicClient(), payload, estimatedTotal, labourPrice),
@@ -509,6 +512,10 @@ const PER_IP_SENDS = 3;
 const REQUEST_PER_IP_SENDS = 10;
 const GLOBAL_WINDOW_MS = 60 * 60 * 1000;
 const GLOBAL_SENDS = 60;
+// The contact form stops earlier, so the rest of the hour's budget stays free
+// for request emails: that email is her only notice of a booking, while a
+// contact message that didn't arrive is retried by the person who wrote it.
+const CONTACT_GLOBAL_SENDS = 40;
 
 const contactSends = new Map<string, number[]>();
 const requestSends = new Map<string, number[]>();
@@ -516,7 +523,8 @@ const requestSends = new Map<string, number[]>();
 // hourly cap is counted across the two together: as two separate 60/hour
 // budgets they add up to more than the account gets in a day, and once it is
 // spent she stops hearing about real requests. The per-IP cap stays per map,
-// so a flood of requests can't lock a visitor out of the contact form too.
+// so a flood of requests can't lock a visitor out of the contact form too, and
+// each caller passes in its own share of that hourly total (see allowSend).
 const ALL_SENDS = [contactSends, requestSends];
 
 // Netlify sets x-nf-client-connection-ip; x-forwarded-for is the fallback and
@@ -532,7 +540,12 @@ async function callerIp() {
 
 // true when this send is within both caps — and then counts it. Drops expired
 // timestamps on every call, so the Map never holds more than the last hour.
-function allowSend(sends: Map<string, number[]>, ip: string, perIpSends: number) {
+function allowSend(
+  sends: Map<string, number[]>,
+  ip: string,
+  perIpSends: number,
+  globalSends: number, // this caller's share of the hourly total
+) {
   const now = Date.now();
   let total = 0;
   for (const map of ALL_SENDS) {
@@ -543,7 +556,7 @@ function allowSend(sends: Map<string, number[]>, ip: string, perIpSends: number)
       total += fresh.length;
     }
   }
-  if (total >= GLOBAL_SENDS) return false;
+  if (total >= globalSends) return false;
 
   const mine = sends.get(ip) ?? [];
   const inWindow = mine.filter((at) => now - at < PER_IP_WINDOW_MS);
@@ -584,7 +597,7 @@ export async function submitContactMessage(
 
   // Counted only here, where a send is actually about to happen: a bot that
   // tripped the honeypot above never reaches this line, so it costs nothing.
-  if (!allowSend(contactSends, await callerIp(), PER_IP_SENDS)) {
+  if (!allowSend(contactSends, await callerIp(), PER_IP_SENDS, CONTACT_GLOBAL_SENDS)) {
     return { ok: false, error: WRITE_TO_US };
   }
 

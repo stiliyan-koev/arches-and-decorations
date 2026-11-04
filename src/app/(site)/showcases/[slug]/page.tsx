@@ -41,7 +41,7 @@ export async function generateMetadata({
     // The story name plus what it is and where; the H1 keeps the name alone.
     // absolute, so the layout does not append „ · Хубавото балонче“: with a long
     // story name that tail is what a result cuts, and „Варна“ earns the click.
-    title: { absolute: `${showcase.title} — украса с балони, Варна` },
+    title: { absolute: `${showcase.title} — украса с балони във Варна` },
     description: summary(showcase.body),
     alternates: { canonical: `/showcases/${showcase.slug}` },
     openGraph: {

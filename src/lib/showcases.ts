@@ -150,7 +150,7 @@ export const getShowcaseLinks = unstable_cache(
   async (): Promise<{ slug: string; title: string }[]> => {
     const { data, error } = await createPublicClient()
       .from("showcases")
-      .select("slug, title, sort, showcase_photos(id)")
+      .select("slug, title, showcase_photos(id)")
       .order("sort")
       .order("id");
     if (error) throw error;
